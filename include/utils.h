@@ -14,8 +14,9 @@
 
 
 //add your function definitions for the project imusens_tx here
-void getIMU();
-void getMsg();
+void I2Cscan();
+void myinthandler();
+void getEulers();
 
 //Do not add code below this line
 #endif /* _imusens_tx_H_ */

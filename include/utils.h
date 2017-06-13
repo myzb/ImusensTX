@@ -4,8 +4,8 @@
 // - extern variable definitions
 // In the appropriate section
 
-#ifndef _imusens_tx_H_
-#define _imusens_tx_H_
+#ifndef _UTILS_H_
+#define _UTILS_H_
 #include "Arduino.h"
 //add your includes for the project imusens_tx here
 
@@ -15,8 +15,8 @@
 
 //add your function definitions for the project imusens_tx here
 void I2Cscan();
-void myinthandler();
 void getEulers();
+float getTimeDelta(uint32_t *now, uint32_t *lastUpdate);
 
 //Do not add code below this line
-#endif /* _imusens_tx_H_ */
+#endif /* _UTILS_H_ */

@@ -384,9 +384,6 @@ void mpu9250::MagCal(float * dest1, float * dest2)
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
     int16_t mag_max[3] = {-32767, -32767, -32767}, mag_min[3] = {32767, 32767, 32767}, mag_temp[3] = {0, 0, 0};
 
-    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
-    delay(4000);
-
     // shoot for ~fifteen seconds of mag data
     if(_Mmode == MRATE_8HZ) sample_count = 128;  // at 8 Hz ODR, new mag data is available every 125 ms
     if(_Mmode == MRATE_100HZ) sample_count = 1500;  // at 100 Hz ODR, new mag data is available every 10 ms
@@ -428,8 +425,6 @@ void mpu9250::MagCal(float * dest1, float * dest2)
     dest2[0] = avg_rad/((float)mag_scale[0]);
     dest2[1] = avg_rad/((float)mag_scale[1]);
     dest2[2] = avg_rad/((float)mag_scale[2]);
-
-    Serial.println("Mag Calibration done!");
 }
 
 void mpu9250::SelfTest(float * destination)

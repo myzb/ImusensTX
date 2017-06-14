@@ -34,25 +34,30 @@
 //#include "Wire.h"
 #include <i2c_t3.h>
 #include <SPI.h>
+#include "Arduino.h"
+
 
 #include "utils.h"
 #include "quaternionFilters.h"
 #include "mpu9250.h"
 
-static const bool SerialDebug = true;  // set to true to get Serial output for debugging
+#define SERIAL_EXPORT
 
 // Pin definitions
-int intPin = 33;
-volatile bool newData = false;
-int myLed = 13;
+static const int intPin = 33;
+static const int myLed = 13;
 
+// Debug configs
+static const bool SerialDebug = true; // FIXME: reorganize/clean all debug prints
+
+// Globals
+volatile bool newData = false;
 mpu9250 myImu;
 
 void intFunc()
 {
   newData = true;
 }
-
 
 void setup()
 {
@@ -65,32 +70,37 @@ void setup()
     // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.1
     Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
     delay(4000);
-    Serial.begin(115200);
+    Serial.begin(38400);
   
     // Set up the interrupt pin, its set as active high, push-pull
     pinMode(intPin, INPUT);
     pinMode(myLed, OUTPUT);
     digitalWrite(myLed, HIGH);
 
-    I2Cscan();// look for I2C devices on the bus
+    if (SerialDebug) {
+        I2Cscan();// look for I2C devices on the bus
+        // Read the WHO_AM_I register, this is a good test of communication
+        Serial.println("MPU9250 9-axis motion sensor...");
+    }
 
-    // Read the WHO_AM_I register, this is a good test of communication
-    Serial.println("MPU9250 9-axis motion sensor...");
     byte c = myImu.ReadByte(myImu.MPU9250_ADDRESS, myImu.WHO_AM_I_MPU9250);  // Read WHO_AM_I register for MPU-9250
-    Serial.print("MPU9250 "); Serial.print("I AM "); Serial.print(c, HEX); Serial.print(" I should be "); Serial.println(0x71, HEX);
 
     // WHO_AM_I should always be 0x68
     if (c == 0x71) {
-        Serial.println("MPU9250 is online...");
+        if (SerialDebug)
+            Serial.println("MPU9250 is online...");
 
         myImu.SelfTest(selfTest); // Start by performing self test and reporting values
-        Serial.print("x-axis self test: acceleration trim within : "); Serial.print(selfTest[0],1); Serial.println("% of factory value");
-        Serial.print("y-axis self test: acceleration trim within : "); Serial.print(selfTest[1],1); Serial.println("% of factory value");
-        Serial.print("z-axis self test: acceleration trim within : "); Serial.print(selfTest[2],1); Serial.println("% of factory value");
-        Serial.print("x-axis self test: gyration trim within : "); Serial.print(selfTest[3],1); Serial.println("% of factory value");
-        Serial.print("y-axis self test: gyration trim within : "); Serial.print(selfTest[4],1); Serial.println("% of factory value");
-        Serial.print("z-axis self test: gyration trim within : "); Serial.print(selfTest[5],1); Serial.println("% of factory value");
         delay(1000);
+
+        if (SerialDebug) {
+            Serial.print("x-axis self test: acceleration trim within : "); Serial.print(selfTest[0],1); Serial.println("% of factory value");
+            Serial.print("y-axis self test: acceleration trim within : "); Serial.print(selfTest[1],1); Serial.println("% of factory value");
+            Serial.print("z-axis self test: acceleration trim within : "); Serial.print(selfTest[2],1); Serial.println("% of factory value");
+            Serial.print("x-axis self test: gyration trim within : "); Serial.print(selfTest[3],1); Serial.println("% of factory value");
+            Serial.print("y-axis self test: gyration trim within : "); Serial.print(selfTest[4],1); Serial.println("% of factory value");
+            Serial.print("z-axis self test: gyration trim within : "); Serial.print(selfTest[5],1); Serial.println("% of factory value");
+        }
 
         // set sensor resolutions, only need to do this once
         myImu.SetAres(mpu9250::AFS_2G);
@@ -98,31 +108,46 @@ void setup()
         myImu.SetMres(mpu9250::MFS_16BITS);
         myImu.SetMmode(mpu9250::MRATE_100HZ);
 
-        Serial.println(" Calibrate gyro and accel");
-        myImu.AcelGyroCal(gyroBias, myImu._accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
-        Serial.println("accel biases (mg)"); Serial.println(1000.*myImu._accelBias[0]); Serial.println(1000.*myImu._accelBias[1]); Serial.println(1000.*myImu._accelBias[2]);
-        Serial.println("gyro biases (dps)"); Serial.println(gyroBias[0]); Serial.println(gyroBias[1]); Serial.println(gyroBias[2]);
+        if (SerialDebug)
+            Serial.println("Calibrate gyro and accel");
 
+        myImu.AcelGyroCal(gyroBias, myImu._accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
+
+        if (SerialDebug) {
+            Serial.println("accel biases (mg)"); Serial.println(1000.*myImu._accelBias[0]); Serial.println(1000.*myImu._accelBias[1]); Serial.println(1000.*myImu._accelBias[2]);
+            Serial.println("gyro biases (dps)"); Serial.println(gyroBias[0]); Serial.println(gyroBias[1]); Serial.println(gyroBias[2]);
+            Serial.println("MPU9250 initialized for active data mode....");
+        }
 
         myImu.Init();
-        Serial.println("MPU9250 initialized for active data mode....");
+
 
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         byte d = myImu.ReadByte(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
-        Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX); Serial.print(" I should be "); Serial.println(0x48, HEX);
+
+        if(SerialDebug)
+            Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX); Serial.print(" I should be "); Serial.println(0x48, HEX);
 
         // Get magnetometer calibration from AK8963 ROM
-        myImu.InitAK8963(magCalFactory); Serial.println("AK8963 initialized for active data mode....");
+        myImu.InitAK8963(magCalFactory);
 
+        if (SerialDebug) {
+            Serial.println("AK8963 initialized for active data mode....");
+            Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+            delay(4000);
+        }
+
+        // FIXME: Add RawHid msg to wave device and also notice on done
         myImu.MagCal(myImu._magBias, myImu._magScale);
-        Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._magBias[0]); Serial.println(myImu._magBias[1]); Serial.println(myImu._magBias[2]);
-        Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._magScale[0]); Serial.println(myImu._magScale[1]); Serial.println(myImu._magScale[2]);
 
-        // add delay to see results before serial spew of data
-        delay(2000);
+        if (SerialDebug) {
+            Serial.println("Mag Calibration done!");
+            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._magBias[0]); Serial.println(myImu._magBias[1]); Serial.println(myImu._magBias[2]);
+            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._magScale[0]); Serial.println(myImu._magScale[1]); Serial.println(myImu._magScale[2]);
 
-        if(SerialDebug) {
-            //  Serial.println("Calibration values: ");
+            delay(2000);
+
+            Serial.println("Calibration values: ");
             Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[0], 2);
             Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[1], 2);
             Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[2], 2);
@@ -131,6 +156,8 @@ void setup()
         // Attach interrupt pin to MPU9250 and define interrupt function
         attachInterrupt(intPin, intFunc, RISING);
     } else {
+        Serial.print("MPU9250 "); Serial.print("I AM "); Serial.print(c, HEX);
+        Serial.print(" I should be "); Serial.println(0x71, HEX);
         Serial.print("Could not connect to MPU9250: 0x");
         Serial.println(c, HEX);
         while(1) ; // Loop forever if communication doesn't happen
@@ -139,20 +166,19 @@ void setup()
 
 void loop()
 {
-    static uint32_t loopCount = 0, loopCountTime = 0;   // loop counter and loop time
+    static uint32_t loopCount = 0;                      // loop counter
+    static float loopCountTime = 0;                     // loop time counter
     static uint32_t deltaPrint = 0, printTime = 0;      // time of serial debug and delta to last print
 
     static uint32_t now, lastUpdate = 0;                // used to calculate integration interval
     static float deltat = 0.0f;                         // time (integration interval) between filter updates
 
-    static float pitch, yaw, roll;
+    static float ax, ay, az, gx, gy, gz, mx, my, mz;    // variables to hold latest data values
+    static int16_t  mpu9250Data[7], ak8963Data[3];      // raw accel/gyro & mag data
 
-    static float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor data values
-    static float a12, a22, a31, a32, a33;            // rotation matrix coefficients for Euler angles and gravity components
-    static float lin_ax, lin_ay, lin_az;             // linear acceleration (acceleration with gravity component subtracted)
-
-    static int16_t  mpu9250Data[7], ak8963Data[3];   // accel/gyro & mag data
-    static float temperature;
+    static byte buffer[64];                             // usb rx/tx buffer
+    static uint8_t n;                                   // return code vars
+    static uint32_t lastTx = 0;                         // Last time usb data was send
 
     // If intPin goes high, all data registers have new data
     if(newData) {
@@ -181,23 +207,63 @@ void loop()
         // Include factory calibration per data sheet and user environmental corrections
         if(myImu.NewMagData()) {
             // get magnetometer value, this depends on scale being set
-            mx = (float)ak8963Data[1]*myImu._mRes*myImu._magCalFactory[0] - myImu._magBias[0];
+            mx = (float)ak8963Data[0]*myImu._mRes*myImu._magCalFactory[0] - myImu._magBias[0];
             my = (float)ak8963Data[1]*myImu._mRes*myImu._magCalFactory[1] - myImu._magBias[1];
             mz = (float)ak8963Data[2]*myImu._mRes*myImu._magCalFactory[2] - myImu._magBias[2];
             mx *= myImu._magScale[0];
             my *= myImu._magScale[1];
             mz *= myImu._magScale[2];
+#ifdef SERIAL_EXPORT
+            Serial.print( (int)((float)ak8963Data[0]*myImu._mRes) ); Serial.print("\t");
+            Serial.print( (int)((float)ak8963Data[1]*myImu._mRes) ); Serial.print("\t");
+            Serial.print( (int)((float)ak8963Data[2]*myImu._mRes) ); Serial.print("\t");
+            Serial.print( (int) mx ); Serial.print("\t");
+            Serial.print( (int) my ); Serial.print("\t");
+            Serial.print( (int) mz ); Serial.print("\n");
+#endif /* EXPORT_VALS */
         }
     }
+
+#ifndef SERIAL_EXPORT
+    if (micros() - lastTx > 1000) {
+        lastTx = micros();
+        static int packetCount = 0;
+        data_t reading = {
+                -ax, ay, az,
+                gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,
+                my, -mx, mz, deltat
+        };
+
+        // next 24 bytes are analog measurements
+        for (int i=0; i<40; i++) {
+            buffer[i] = reading.raw[i];
+        }
+
+        // fill the rest with zeros
+        for (int i=40; i<62; i++) {
+            buffer[i] = 0;
+        }
+        // and put a count of packets sent at the end
+        buffer[62] = highByte(packetCount);
+        buffer[63] = lowByte(packetCount);
+        // actually send the packet
+        n = RawHID.send(buffer, 1);
+        if (n > 0) {
+            if (SerialDebug) {
+                Serial.print(F("Transmit packet "));
+                Serial.println(packetCount);
+            }
+             packetCount = packetCount + 1;
+        } else if (SerialDebug) {
+            Serial.println(F("Unable to transmit packet"));
+        }
+    }
+#endif /* SERIAL_EXPORT */
 
     now = micros();
     deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last filter update
     lastUpdate = now;
-
     //deltat =  getTimeDelta(&lastUpdate);
-
-    loopCountTime += deltat; // sum for averaging filter update rate
-    loopCount++;
 
     // Sensors x (y)-axis of the accelerometer/gyro is aligned with the y (x)-axis of the magnetometer;
     // the magnetometer z-axis (+ down) is misaligned with z-axis (+ up) of accelerometer and gyro!
@@ -210,114 +276,33 @@ void loop()
     // Pass gyro rate as rad/s
 #ifdef AHRS
     MadgwickQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f, my, -mx, mz, deltat);
-    getEulers();
     //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz);
 #endif
     // Serial print and/or display at 0.5 s rate independent of data rates
+
+    // time for 1 loop = loopCountTime/loopCount
+    loopCountTime += deltat;
+    loopCount++;
+
+    // Print current vals each 500ms
     deltaPrint = millis() - printTime;
-    if (deltaPrint > 50) {
+    if (deltaPrint > 500) {
 
-        // Gyro chip temperature to degrees centigrade
-        temperature = ((float) myImu.ReadTempData()) / 333.87 + 21.0;
+#ifndef SERIAL_EXPORT
+        if (SerialDebug) {
+            //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData()); // FIXME: inline version is faster
 
-        if(SerialDebug) {
-            Serial.print("ax = "); Serial.print((int)1000*ax);
-            Serial.print(" ay = "); Serial.print((int)1000*ay);
-            Serial.print(" az = "); Serial.print((int)1000*az); Serial.println(" mg");
-            Serial.print("gx = "); Serial.print( gx, 2);
-            Serial.print(" gy = "); Serial.print( gy, 2);
-            Serial.print(" gz = "); Serial.print( gz, 2); Serial.println(" deg/s");
-            Serial.print("mx = "); Serial.print( (int)mx );
-            Serial.print(" my = "); Serial.print( (int)my );
-            Serial.print(" mz = "); Serial.print( (int)mz ); Serial.println(" mG");
-#ifdef AHRS
-            Serial.print("q0 = "); Serial.print(q[0]);
-            Serial.print(" qx = "); Serial.print(q[1]);
-            Serial.print(" qy = "); Serial.print(q[2]);
-            Serial.print(" qz = "); Serial.println(q[3]);
-#endif
-           // Print temperature in degrees centigrade
-           Serial.print("Gyro temperature is ");  Serial.print(temperature, 1);  Serial.println(" degrees C");
+            // Print the avg loop rate
+            Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
         }
+#endif /* SERIAL_EXPORT */
 
-    // Define output variables from updated quaternion---these are Tait-Bryan angles, commonly used in aircraft orientation.
-    // In this coordinate system, the positive z-axis is down toward Earth.
-    // Yaw is the angle between Sensor x-axis and Earth magnetic North (or true North if corrected for local declination, looking down on the sensor positive yaw is counterclockwise.
-    // Pitch is angle between sensor x-axis and Earth ground plane, toward the Earth is positive, up toward the sky is negative.
-    // Roll is angle between sensor y-axis and Earth ground plane, y-axis up is positive roll.
-    // These arise from the definition of the homogeneous rotation matrix constructed from quaternions.
-    // Tait-Bryan angles as well as Euler angles are non-commutative; that is, the get the correct orientation the rotations must be
-    // applied in the correct order which for this configuration is yaw, pitch, and then roll.
-    // For more see http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles which has additional links.
-    //Software AHRS:
-#if 0
-    yaw   = atan2f(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);
-    pitch = -asinf(2.0f * (q[1] * q[3] - q[0] * q[2]));
-    roll  = atan2f(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
-    pitch *= 180.0f / PI;
-    yaw   *= 180.0f / PI;
-    yaw   += 13.8f;                 // Declination at Danville, California
-    if(yaw < 0) yaw   += 360.0f;    // Ensure yaw stays between 0 and 360
-    roll  *= 180.0f / PI;
-#endif
-#ifdef AHRS
-    a12 =   2.0f * (q[1] * q[2] + q[0] * q[3]);
-    a22 =   q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3];
-    a31 =   2.0f * (q[0] * q[1] + q[2] * q[3]);
-    a32 =   2.0f * (q[1] * q[3] - q[0] * q[2]);
-    a33 =   q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3];
-    pitch = -asinf(a32);
-    roll  = atan2f(a31, a33);
-    yaw   = atan2f(a12, a22);
-    pitch *= 180.0f / PI;
-    yaw   *= 180.0f / PI; 
-    yaw   += 2.23f;                 // Declination at Work, Karlsruhe is 2.23 degrees on 2017-06-06
-    if(yaw < 0) yaw   += 360.0f;    // Ensure yaw stays between 0 and 360
-    roll  *= 180.0f / PI;
-    lin_ax = ax + a31;
-    lin_ay = ay + a32;
-    lin_az = az - a33;
-#endif
-    if(SerialDebug) {
-#ifdef AHRS
-        Serial.print("Yaw, Pitch, Roll: ");
-        Serial.print(yaw, 2);
-        Serial.print(", ");
-        Serial.print(pitch, 2);
-        Serial.print(", ");
-        Serial.println(roll, 2);
-#endif
-        Serial.print("Grav_x, Grav_y, Grav_z: ");
-        Serial.print(-a31*1000, 2);
-        Serial.print(", ");
-        Serial.print(-a32*1000, 2);
-        Serial.print(", ");
-        Serial.print(a33*1000, 2);  Serial.println(" mg");
-        Serial.print("Lin_ax, Lin_ay, Lin_az: ");
-        Serial.print(lin_ax*1000, 2);
-        Serial.print(", ");
-        Serial.print(lin_ay*1000, 2);
-        Serial.print(", ");
-        Serial.print(lin_az*1000, 2);  Serial.println(" mg");
+        // Toggle the LED
+        digitalWrite(myLed, !digitalRead(myLed));
 
-        Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
-    } else {
-        Serial.print(yaw, 2);
-        Serial.print("\t");
-        Serial.print(pitch, 2);
-        Serial.print("\t");
-        Serial.print(roll, 2);
-        Serial.print("\t");
-
-        //Serial.print((float)sumCount/sum, 2);
-        Serial.print("\n");
-    }
-    // Toggle the LED
-    digitalWrite(myLed, !digitalRead(myLed));
-
-    // Reset print counters
-    printTime = millis();
-    loopCount = 0;
-    loopCountTime = 0;
+        // Reset print counters
+        printTime = millis();
+        loopCount = 0;
+        loopCountTime = 0;
     }
 }

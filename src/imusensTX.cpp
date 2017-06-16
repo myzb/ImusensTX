@@ -41,14 +41,15 @@
 #include "quaternionFilters.h"
 #include "mpu9250.h"
 
-#define SERIAL_EXPORT
+//#define SERIAL_EXPORT
+#define AHRS
 
 // Pin definitions
 static const int intPin = 33;
 static const int myLed = 13;
 
 // Debug configs
-static const bool SerialDebug = true; // FIXME: reorganize/clean all debug prints
+static const bool SerialDebug = false; // FIXME: reorganize/clean all debug prints
 
 // Globals
 volatile bool newData = false;
@@ -64,6 +65,9 @@ void setup()
     float gyroBias[3]; //, accelBias; // FIXME: Move mpu9250::_accelBias here
     float selfTest[6];
     float magCalFactory[3];
+
+    float magBias[3] = {65.78571320f, 544.37213135f, -238.78950500f};   // Pre-calibrated values
+    float magScale[3] = {1.04f, 0.94f, 1.03f};
 
     // Wire.begin();
     // TWBR = 12;  // 400 kbit/sec I2C speed for Pro Mini
@@ -104,7 +108,7 @@ void setup()
 
         // set sensor resolutions, only need to do this once
         myImu.SetAres(mpu9250::AFS_2G);
-        myImu.SetGres(mpu9250::GFS_250DPS);
+        myImu.SetGres(mpu9250::GFS_500DPS);
         myImu.SetMres(mpu9250::MFS_16BITS);
         myImu.SetMmode(mpu9250::MRATE_100HZ);
 
@@ -121,7 +125,6 @@ void setup()
 
         myImu.Init();
 
-
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         byte d = myImu.ReadByte(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
 
@@ -131,6 +134,8 @@ void setup()
         // Get magnetometer calibration from AK8963 ROM
         myImu.InitAK8963(magCalFactory);
 
+//#define RESET_MAGCAL
+#ifdef RESET_MAGCAL
         if (SerialDebug) {
             Serial.println("AK8963 initialized for active data mode....");
             Serial.println("Mag Calibration: Wave device in a figure eight until done!");
@@ -139,11 +144,15 @@ void setup()
 
         // FIXME: Add RawHid msg to wave device and also notice on done
         myImu.MagCal(myImu._magBias, myImu._magScale);
+#else
+        Serial.println("Mag Calibration: Using pre-recorded calibration values");
+        myImu.SetMagCal(magBias, magScale);
+#endif /* RESET_MAGCAL */
 
         if (SerialDebug) {
             Serial.println("Mag Calibration done!");
-            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._magBias[0]); Serial.println(myImu._magBias[1]); Serial.println(myImu._magBias[2]);
-            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._magScale[0]); Serial.println(myImu._magScale[1]); Serial.println(myImu._magScale[2]);
+            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._magBias[0], 8); Serial.println(myImu._magBias[1], 8); Serial.println(myImu._magBias[2], 8);
+            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._magScale[0], 8); Serial.println(myImu._magScale[1], 8); Serial.println(myImu._magScale[2], 8);
 
             delay(2000);
 
@@ -213,26 +222,43 @@ void loop()
             mx *= myImu._magScale[0];
             my *= myImu._magScale[1];
             mz *= myImu._magScale[2];
-#ifdef SERIAL_EXPORT
+#ifdef MAG_EXPORT
             Serial.print( (int)((float)ak8963Data[0]*myImu._mRes) ); Serial.print("\t");
             Serial.print( (int)((float)ak8963Data[1]*myImu._mRes) ); Serial.print("\t");
             Serial.print( (int)((float)ak8963Data[2]*myImu._mRes) ); Serial.print("\t");
             Serial.print( (int) mx ); Serial.print("\t");
             Serial.print( (int) my ); Serial.print("\t");
             Serial.print( (int) mz ); Serial.print("\n");
-#endif /* EXPORT_VALS */
+#endif /* MAG_EXPORT */
         }
     }
 
-#ifndef SERIAL_EXPORT
-    if (micros() - lastTx > 1000) {
+#ifdef AHRS
+    // Get time of new data arrival
+    now = micros();
+    deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last data arrival
+    lastUpdate = now;
+
+    MadgwickQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f, my, -mx, mz, deltat);
+    //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz, deltat);
+#endif
+
+    if (micros() - lastTx > 1) {
         lastTx = micros();
         static int packetCount = 0;
+
+#ifdef AHRS
+        data_t reading = {
+                *(getQ()), *(getQ()+1), *(getQ()+2), *(getQ()+3),
+                        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+        };
+#else
         data_t reading = {
                 -ax, ay, az,
                 gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,
                 my, -mx, mz, deltat
         };
+#endif /* AHRS */
 
         // next 24 bytes are analog measurements
         for (int i=0; i<40; i++) {
@@ -247,7 +273,7 @@ void loop()
         buffer[62] = highByte(packetCount);
         buffer[63] = lowByte(packetCount);
         // actually send the packet
-        n = RawHID.send(buffer, 1);
+        n = RawHID.send(buffer, 0);
         if (n > 0) {
             if (SerialDebug) {
                 Serial.print(F("Transmit packet "));
@@ -257,28 +283,15 @@ void loop()
         } else if (SerialDebug) {
             Serial.println(F("Unable to transmit packet"));
         }
+#define ROUNDTRIP
+#ifdef ROUNDTRIP
+        Serial.print((byte) reading.raw[0]); Serial.print("\t\t");
+        n = RawHID.recv(buffer, 0);
+        reading.raw[0] = buffer[0];
+        Serial.println((byte) reading.raw[0]);
+        Serial.println(micros() - lastTx,8);
+#endif /* ROUNDTRIP */
     }
-#endif /* SERIAL_EXPORT */
-
-    now = micros();
-    deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last filter update
-    lastUpdate = now;
-    //deltat =  getTimeDelta(&lastUpdate);
-
-    // Sensors x (y)-axis of the accelerometer/gyro is aligned with the y (x)-axis of the magnetometer;
-    // the magnetometer z-axis (+ down) is misaligned with z-axis (+ up) of accelerometer and gyro!
-    // We have to make some allowance for this orientation mismatch in feeding the output to the quaternion filter.
-    // For the MPU9250+MS5637 Mini breakout the +x accel/gyro is North, then -y accel/gyro is East. So if we want te quaternions properly aligned
-    // we need to feed into the Madgwick function Ax, -Ay, -Az, Gx, -Gy, -Gz, My, -Mx, and Mz. But because gravity is by convention
-    // positive down, we need to invert the accel data, so we pass -Ax, Ay, Az, Gx, -Gy, -Gz, My, -Mx, and Mz into the Madgwick
-    // function to get North along the accel +x-axis, East along the accel -y-axis, and Down along the accel -z-axis.
-    // This orientation choice can be modified to allow any convenient (non-NED) orientation convention.
-    // Pass gyro rate as rad/s
-#ifdef AHRS
-    MadgwickQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f, my, -mx, mz, deltat);
-    //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz);
-#endif
-    // Serial print and/or display at 0.5 s rate independent of data rates
 
     // time for 1 loop = loopCountTime/loopCount
     loopCountTime += deltat;
@@ -288,14 +301,14 @@ void loop()
     deltaPrint = millis() - printTime;
     if (deltaPrint > 500) {
 
-#ifndef SERIAL_EXPORT
-        if (SerialDebug) {
-            //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData()); // FIXME: inline version is faster
+//#ifdef V_DEBUG
+        // Fixme: inline version is faster
+        //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
 
-            // Print the avg loop rate
-            Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
-        }
-#endif /* SERIAL_EXPORT */
+        // Print the avg loop rate
+        Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
+
+//#endif /* V_DEBUG */
 
         // Toggle the LED
         digitalWrite(myLed, !digitalRead(myLed));

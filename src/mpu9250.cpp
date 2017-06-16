@@ -33,16 +33,16 @@ void mpu9250::SetGres(uint8_t scale)
     // 250 DPS (00), 500 DPS (01), 1000 DPS (10), and 2000 DPS  (11).
         // Here's a bit of an algorith to calculate DPS/(ADC tick) based on that 2-bit value:
     case GFS_250DPS:
-        _gRes = 250.0/32768.0;
+        _gRes = 250.0/32767.5;
         break;
     case GFS_500DPS:
-        _gRes = 500.0/32768.0;
+        _gRes = 500.0/32767.5;
         break;
     case GFS_1000DPS:
-        _gRes = 1000.0/32768.0;
+        _gRes = 1000.0/32767.5;
         break;
     case GFS_2000DPS:
-        _gRes = 2000.0/32768.0;
+        _gRes = 2000.0/32767.5;
         break;
     }
     _Gscale = scale;
@@ -223,7 +223,6 @@ void mpu9250::Init()
     delay(100);
 }
 
-
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
 void mpu9250::AcelGyroCal(float * dest1, float * dest2)
@@ -377,6 +376,15 @@ void mpu9250::AcelGyroCal(float * dest1, float * dest2)
     dest2[2] = (float)accel_bias[2]/(float)accelsensitivity;
 }
 
+void mpu9250::SetMagCal(float *magBias, float *magScale)
+{
+    _magBias[0] = magBias[0];
+    _magBias[1] = magBias[1];
+    _magBias[2] = magBias[2];
+    _magScale[0] = magScale[0];
+    _magScale[1] = magScale[1];
+    _magScale[2] = magScale[2];
+}
 
 void mpu9250::MagCal(float * dest1, float * dest2)
 {
@@ -384,9 +392,9 @@ void mpu9250::MagCal(float * dest1, float * dest2)
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
     int16_t mag_max[3] = {-32767, -32767, -32767}, mag_min[3] = {32767, 32767, 32767}, mag_temp[3] = {0, 0, 0};
 
-    // shoot for ~fifteen seconds of mag data
-    if(_Mmode == MRATE_8HZ) sample_count = 128;  // at 8 Hz ODR, new mag data is available every 125 ms
-    if(_Mmode == MRATE_100HZ) sample_count = 1500;  // at 100 Hz ODR, new mag data is available every 10 ms
+    // shoot for ~thirty seconds of mag data
+    if(_Mmode == MRATE_8HZ) sample_count = 30*8;  // at 8 Hz ODR, new mag data is available every 125 ms
+    if(_Mmode == MRATE_100HZ) sample_count = 30*100;  // at 100 Hz ODR, new mag data is available every 10 ms
 
     for(ii = 0; ii < sample_count; ii++) {
         ReadMagData(mag_temp);  // Read the mag data

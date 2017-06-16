@@ -240,6 +240,7 @@ public:
     void SelfTest(float * destination);
     void MagCal(float * dest1, float * dest2);
     void AcelGyroCal(float * dest1, float * dest2);
+    void SetMagCal(float *magBias, float *magScale);
 
     int16_t ReadTempData();
     void ReadMagData(int16_t * destination);

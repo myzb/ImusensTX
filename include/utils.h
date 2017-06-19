@@ -2,8 +2,9 @@
 #define _UTILS_H_
 
 typedef union {
-  float num[10];
-  byte raw[40];
+  float num_f[16];
+  uint32_t num_d[16];
+  byte raw[64];
 } data_t;
 
 

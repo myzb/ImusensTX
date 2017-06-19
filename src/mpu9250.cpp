@@ -337,7 +337,7 @@ void mpu9250::AcelGyroCal(float * dest1, float * dest2)
     ReadBytes(MPU9250_ADDRESS, ZA_OFFSET_H, 2, &data[0]);
     accel_bias_reg[2] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
 
-    uint32_t mask = 1uL; // Define mask for temperature compensation bit 0 of lower byte of accelerometer bias registers
+    uint32_t mask = 1UL; // Define mask for temperature compensation bit 0 of lower byte of accelerometer bias registers
     uint8_t mask_bit[3] = {0, 0, 0}; // Define array to hold mask bit for each accelerometer bias axis
 
     for(ii = 0; ii < 3; ii++) {
@@ -362,13 +362,14 @@ void mpu9250::AcelGyroCal(float * dest1, float * dest2)
     // Apparently this is not working for the acceleration biases in the MPU-9250
     // Are we handling the temperature correction bit properly?
     // Push accelerometer biases to hardware registers
-
-//    WriteByte(MPU9250_ADDRESS, XA_OFFSET_H, data[0]);
-//    WriteByte(MPU9250_ADDRESS, XA_OFFSET_L, data[1]);
-//    WriteByte(MPU9250_ADDRESS, YA_OFFSET_H, data[2]);
-//    WriteByte(MPU9250_ADDRESS, YA_OFFSET_L, data[3]);
-//    WriteByte(MPU9250_ADDRESS, ZA_OFFSET_H, data[4]);
-//    WriteByte(MPU9250_ADDRESS, ZA_OFFSET_L, data[5]);
+#if 0
+    WriteByte(MPU9250_ADDRESS, XA_OFFSET_H, data[0]);
+    WriteByte(MPU9250_ADDRESS, XA_OFFSET_L, data[1]);
+    WriteByte(MPU9250_ADDRESS, YA_OFFSET_H, data[2]);
+    WriteByte(MPU9250_ADDRESS, YA_OFFSET_L, data[3]);
+    WriteByte(MPU9250_ADDRESS, ZA_OFFSET_H, data[4]);
+    WriteByte(MPU9250_ADDRESS, ZA_OFFSET_L, data[5]);
+#endif
 
     // Output scaled accelerometer biases for display in the main program
     dest2[0] = (float)accel_bias[0]/(float)accelsensitivity;

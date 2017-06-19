@@ -17,10 +17,10 @@
 
 // These are the free parameters in the Mahony filter and fusion scheme, Kp
 // for proportional feedback, Ki for integral
-#define Kp 2.0f * 5.0f
-#define Ki 0.0f
+#define Kp 2.0f * 2.0f
+#define Ki 0.001f
 
-static float GyroMeasError = PI * (20.0f / 180.0f);
+static float GyroMeasError = PI * (10.0f / 180.0f);
 // gyroscope measurement drift in rad/s/s (start at 0.0 deg/s/s)
 static float GyroMeasDrift = PI * (0.0f  / 180.0f);
 // There is a tradeoff in the beta parameter between accuracy and response

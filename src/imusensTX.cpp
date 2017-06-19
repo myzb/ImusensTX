@@ -41,15 +41,15 @@
 #include "quaternionFilters.h"
 #include "mpu9250.h"
 
-//#define SERIAL_EXPORT
 #define AHRS
+#define V_DEBUG
 
 // Pin definitions
 static const int intPin = 33;
 static const int myLed = 13;
 
 // Debug configs
-static const bool SerialDebug = false; // FIXME: reorganize/clean all debug prints
+static const bool SerialDebug = true; // FIXME: reorganize/clean all debug prints
 
 // Globals
 volatile bool newData = false;
@@ -66,8 +66,10 @@ void setup()
     float selfTest[6];
     float magCalFactory[3];
 
-    float magBias[3] = {65.78571320f, 544.37213135f, -238.78950500f};   // Pre-calibrated values
-    float magScale[3] = {1.04f, 0.94f, 1.03f};
+    //float magBias[3] = {65.78571320f, 544.37213135f, -238.78950500f};   // Pre-calibrated values
+    //float magScale[3] = {1.04f, 0.94f, 1.03f};
+    float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};   // Pre-calibrated values
+    float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
 
     // Wire.begin();
     // TWBR = 12;  // 400 kbit/sec I2C speed for Pro Mini
@@ -185,7 +187,7 @@ void loop()
     static float ax, ay, az, gx, gy, gz, mx, my, mz;    // variables to hold latest data values
     static int16_t  mpu9250Data[7], ak8963Data[3];      // raw accel/gyro & mag data
 
-    static byte buffer[64];                             // usb rx/tx buffer
+    static data_t tx_buffer;                               // usb rx/tx buffer
     static uint8_t n;                                   // return code vars
     static uint32_t lastTx = 0;                         // Last time usb data was send
 
@@ -198,9 +200,15 @@ void loop()
 
         // Now we'll calculate the accleration value into actual g's
         // get actual g value, this depends on scale being set
+#if 1
         ax = (float)mpu9250Data[0]*myImu._aRes - myImu._accelBias[0];
         ay = (float)mpu9250Data[1]*myImu._aRes - myImu._accelBias[1];
         az = (float)mpu9250Data[2]*myImu._aRes - myImu._accelBias[2];
+#else
+        ax = (float)mpu9250Data[0]*myImu._aRes;
+        ay = (float)mpu9250Data[1]*myImu._aRes;
+        az = (float)mpu9250Data[2]*myImu._aRes;
+#endif
 
         //   readGyroData(gyroCount);  // Read the x/y/z adc values
 
@@ -222,6 +230,8 @@ void loop()
             mx *= myImu._magScale[0];
             my *= myImu._magScale[1];
             mz *= myImu._magScale[2];
+
+//#define MAG_EXPORT
 #ifdef MAG_EXPORT
             Serial.print( (int)((float)ak8963Data[0]*myImu._mRes) ); Serial.print("\t");
             Serial.print( (int)((float)ak8963Data[1]*myImu._mRes) ); Serial.print("\t");
@@ -243,55 +253,64 @@ void loop()
     //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz, deltat);
 #endif
 
-    if (micros() - lastTx > 1) {
+//#define NO_USB
+#ifndef NO_USB
+    if (micros() - lastTx > 1000) {
         lastTx = micros();
-        static int packetCount = 0;
+        static uint32_t packetCount = 0;
+
+#define ROUNDTRIP
+#ifdef ROUNDTRIP
+        static uint32_t lastSnd = 0, lastRcv = 0;
+#endif /* ROUNDTRIP */
 
 #ifdef AHRS
-        data_t reading = {
+        tx_buffer = {
                 *(getQ()), *(getQ()+1), *(getQ()+2), *(getQ()+3),
-                        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+                /* 48 extra bytes */
+                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
 #else
-        data_t reading = {
+        tx_buffer = {
                 -ax, ay, az,
                 gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,
-                my, -mx, mz, deltat
+                my, -mx, mz, deltat,
+                /* 24 extra bytes */
+                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
 #endif /* AHRS */
 
-        // next 24 bytes are analog measurements
-        for (int i=0; i<40; i++) {
-            buffer[i] = reading.raw[i];
-        }
+        // Place packetCount into last 4 bytes
+        tx_buffer.num_d[15] = packetCount;
 
-        // fill the rest with zeros
-        for (int i=40; i<62; i++) {
-            buffer[i] = 0;
-        }
-        // and put a count of packets sent at the end
-        buffer[62] = highByte(packetCount);
-        buffer[63] = lowByte(packetCount);
-        // actually send the packet
-        n = RawHID.send(buffer, 0);
+        // Send the packet
+        n = RawHID.send(tx_buffer.raw, 8);
         if (n > 0) {
             if (SerialDebug) {
-                Serial.print(F("Transmit packet "));
-                Serial.println(packetCount);
+                Serial.print("\nTX: "); Serial.print(tx_buffer.num_d[15]);
+                lastSnd = millis();
             }
-             packetCount = packetCount + 1;
+            packetCount = packetCount + 1;
         } else if (SerialDebug) {
-            Serial.println(F("Unable to transmit packet"));
+            Serial.print(F("\nTX: Fail"));
         }
-#define ROUNDTRIP
+
 #ifdef ROUNDTRIP
-        Serial.print((byte) reading.raw[0]); Serial.print("\t\t");
-        n = RawHID.recv(buffer, 0);
-        reading.raw[0] = buffer[0];
-        Serial.println((byte) reading.raw[0]);
-        Serial.println(micros() - lastTx,8);
+        static data_t rx_buffer;
+        n = RawHID.recv(rx_buffer.raw, 8);
+        if (n > 0) {
+            Serial.print(" \tRX: ");
+            Serial.println(rx_buffer.num_d[15]);
+            lastRcv = millis();
+        } else if (SerialDebug) {
+            Serial.println(F("\tRX: Fail"));
+        }
+        Serial.print(lastSnd, 8);Serial.print("\t\t"); Serial.println(lastRcv, 8);
 #endif /* ROUNDTRIP */
+
     }
+#endif /* NO_USB */
 
     // time for 1 loop = loopCountTime/loopCount
     loopCountTime += deltat;
@@ -301,14 +320,14 @@ void loop()
     deltaPrint = millis() - printTime;
     if (deltaPrint > 500) {
 
-//#ifdef V_DEBUG
+#ifdef V_DEBUG
         // Fixme: inline version is faster
         //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
 
         // Print the avg loop rate
         Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
 
-//#endif /* V_DEBUG */
+#endif /* V_DEBUG */
 
         // Toggle the LED
         digitalWrite(myLed, !digitalRead(myLed));

@@ -48,8 +48,9 @@
 static const int intPin = 33;
 static const int myLed = 13;
 
-// Debug configs
-static const bool SerialDebug = true; // FIXME: reorganize/clean all debug prints
+// FIXME: reorganize/clean all debug prints
+static const bool vDebug = false;
+static const bool Debug = true;
 
 // Globals
 volatile bool newData = false;
@@ -62,18 +63,14 @@ void intFunc()
 
 void setup()
 {
-    float gyroBias[3]; //, accelBias; // FIXME: Move mpu9250::_accelBias here
+    float gyroBias[3], accelBias[3];
     float selfTest[6];
     float magCalFactory[3];
 
-    //float magBias[3] = {65.78571320f, 544.37213135f, -238.78950500f};   // Pre-calibrated values
-    //float magScale[3] = {1.04f, 0.94f, 1.03f};
     float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};   // Pre-calibrated values
     float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
 
-    // Wire.begin();
-    // TWBR = 12;  // 400 kbit/sec I2C speed for Pro Mini
-    // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.1
+    // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.6
     Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
     delay(4000);
     Serial.begin(38400);
@@ -83,7 +80,7 @@ void setup()
     pinMode(myLed, OUTPUT);
     digitalWrite(myLed, HIGH);
 
-    if (SerialDebug) {
+    if (Debug) {
         I2Cscan();// look for I2C devices on the bus
         // Read the WHO_AM_I register, this is a good test of communication
         Serial.println("MPU9250 9-axis motion sensor...");
@@ -93,13 +90,13 @@ void setup()
 
     // WHO_AM_I should always be 0x68
     if (c == 0x71) {
-        if (SerialDebug)
+        if (Debug)
             Serial.println("MPU9250 is online...");
 
         myImu.SelfTest(selfTest); // Start by performing self test and reporting values
         delay(1000);
 
-        if (SerialDebug) {
+        if (Debug) {
             Serial.print("x-axis self test: acceleration trim within : "); Serial.print(selfTest[0],1); Serial.println("% of factory value");
             Serial.print("y-axis self test: acceleration trim within : "); Serial.print(selfTest[1],1); Serial.println("% of factory value");
             Serial.print("z-axis self test: acceleration trim within : "); Serial.print(selfTest[2],1); Serial.println("% of factory value");
@@ -112,15 +109,15 @@ void setup()
         myImu.SetAres(mpu9250::AFS_2G);
         myImu.SetGres(mpu9250::GFS_500DPS);
         myImu.SetMres(mpu9250::MFS_16BITS);
-        myImu.SetMmode(mpu9250::MRATE_100HZ);
+        myImu.SetMrate(mpu9250::MRATE_100HZ);
 
-        if (SerialDebug)
+        if (Debug)
             Serial.println("Calibrate gyro and accel");
 
-        myImu.AcelGyroCal(gyroBias, myImu._accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
+        myImu.AcelGyroCal(gyroBias, accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
 
-        if (SerialDebug) {
-            Serial.println("accel biases (mg)"); Serial.println(1000.*myImu._accelBias[0]); Serial.println(1000.*myImu._accelBias[1]); Serial.println(1000.*myImu._accelBias[2]);
+        if (Debug) {
+            Serial.println("accel biases (mg)"); Serial.println(1000.*accelBias[0]); Serial.println(1000.*accelBias[1]); Serial.println(1000.*accelBias[2]);
             Serial.println("gyro biases (dps)"); Serial.println(gyroBias[0]); Serial.println(gyroBias[1]); Serial.println(gyroBias[2]);
             Serial.println("MPU9250 initialized for active data mode....");
         }
@@ -130,7 +127,7 @@ void setup()
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         byte d = myImu.ReadByte(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
 
-        if(SerialDebug)
+        if(Debug)
             Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX); Serial.print(" I should be "); Serial.println(0x48, HEX);
 
         // Get magnetometer calibration from AK8963 ROM
@@ -138,30 +135,32 @@ void setup()
 
 //#define RESET_MAGCAL
 #ifdef RESET_MAGCAL
-        if (SerialDebug) {
+        if (Debug) {
             Serial.println("AK8963 initialized for active data mode....");
             Serial.println("Mag Calibration: Wave device in a figure eight until done!");
             delay(4000);
         }
 
         // FIXME: Add RawHid msg to wave device and also notice on done
-        myImu.MagCal(myImu._magBias, myImu._magScale);
+        myImu.MagCal(myImu._mCal_bias, myImu._mCal_scale);
 #else
         Serial.println("Mag Calibration: Using pre-recorded calibration values");
         myImu.SetMagCal(magBias, magScale);
 #endif /* RESET_MAGCAL */
 
-        if (SerialDebug) {
+        if (Debug) {
             Serial.println("Mag Calibration done!");
-            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._magBias[0], 8); Serial.println(myImu._magBias[1], 8); Serial.println(myImu._magBias[2], 8);
-            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._magScale[0], 8); Serial.println(myImu._magScale[1], 8); Serial.println(myImu._magScale[2], 8);
+            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._mCal_bias[0], 8);
+            Serial.println(myImu._mCal_bias[1], 8); Serial.println(myImu._mCal_bias[2], 8);
+            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._mCal_scale[0], 8);
+            Serial.println(myImu._mCal_scale[1], 8); Serial.println(myImu._mCal_scale[2], 8);
 
             delay(2000);
 
             Serial.println("Calibration values: ");
-            Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[0], 2);
-            Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[1], 2);
-            Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._magCalFactory[2], 2);
+            Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[0], 2);
+            Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[1], 2);
+            Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[2], 2);
         }
 
         // Attach interrupt pin to MPU9250 and define interrupt function
@@ -187,7 +186,7 @@ void loop()
     static float ax, ay, az, gx, gy, gz, mx, my, mz;    // variables to hold latest data values
     static int16_t  mpu9250Data[7], ak8963Data[3];      // raw accel/gyro & mag data
 
-    static data_t tx_buffer;                               // usb rx/tx buffer
+    static data_t rx_buffer, tx_buffer;                 // usb rx/tx buffer
     static uint8_t n;                                   // return code vars
     static uint32_t lastTx = 0;                         // Last time usb data was send
 
@@ -200,10 +199,10 @@ void loop()
 
         // Now we'll calculate the accleration value into actual g's
         // get actual g value, this depends on scale being set
-#if 1
-        ax = (float)mpu9250Data[0]*myImu._aRes - myImu._accelBias[0];
-        ay = (float)mpu9250Data[1]*myImu._aRes - myImu._accelBias[1];
-        az = (float)mpu9250Data[2]*myImu._aRes - myImu._accelBias[2];
+#if 0
+        ax = (float)mpu9250Data[0]*myImu._aRes - myImu._aCal_bias[0];
+        ay = (float)mpu9250Data[1]*myImu._aRes - myImu._aCal_bias[1];
+        az = (float)mpu9250Data[2]*myImu._aRes - myImu._aCal_bias[2];
 #else
         ax = (float)mpu9250Data[0]*myImu._aRes;
         ay = (float)mpu9250Data[1]*myImu._aRes;
@@ -224,12 +223,22 @@ void loop()
         // Include factory calibration per data sheet and user environmental corrections
         if(myImu.NewMagData()) {
             // get magnetometer value, this depends on scale being set
-            mx = (float)ak8963Data[0]*myImu._mRes*myImu._magCalFactory[0] - myImu._magBias[0];
-            my = (float)ak8963Data[1]*myImu._mRes*myImu._magCalFactory[1] - myImu._magBias[1];
-            mz = (float)ak8963Data[2]*myImu._mRes*myImu._magCalFactory[2] - myImu._magBias[2];
-            mx *= myImu._magScale[0];
-            my *= myImu._magScale[1];
-            mz *= myImu._magScale[2];
+
+#ifndef ONLINE_CAL
+            mx = (float)ak8963Data[0]*myImu._mRes*myImu._mRes_factory[0] - myImu._mCal_bias[0];
+            my = (float)ak8963Data[1]*myImu._mRes*myImu._mRes_factory[1] - myImu._mCal_bias[1];
+            mz = (float)ak8963Data[2]*myImu._mRes*myImu._mRes_factory[2] - myImu._mCal_bias[2];
+            mx *= myImu._mCal_scale[0];
+            my *= myImu._mCal_scale[1];
+            mz *= myImu._mCal_scale[2];
+#else
+            mx = (float)ak8963Data[0]*myImu._mRes*myImu._mRes_factory[0] - myImu._mCal_bias[0];
+            my = (float)ak8963Data[1]*myImu._mRes*myImu._mRes_factory[1] - myImu._mCal_bias[1];
+            mz = (float)ak8963Data[2]*myImu._mRes*myImu._mRes_factory[2] - myImu._mCal_bias[2];
+            mx *= myImu._mCal_scale[0];
+            my *= myImu._mCal_scale[1];
+            mz *= myImu._mCal_scale[2];
+#endif /* ONLINE_CAL */
 
 //#define MAG_EXPORT
 #ifdef MAG_EXPORT
@@ -240,6 +249,7 @@ void loop()
             Serial.print( (int) my ); Serial.print("\t");
             Serial.print( (int) mz ); Serial.print("\n");
 #endif /* MAG_EXPORT */
+
         }
     }
 
@@ -256,13 +266,11 @@ void loop()
 //#define NO_USB
 #ifndef NO_USB
     if (micros() - lastTx > 1000) {
-        lastTx = micros();
         static uint32_t packetCount = 0;
+        lastTx = micros();
 
-#define ROUNDTRIP
-#ifdef ROUNDTRIP
+//#define ROUNDTRIP
         static uint32_t lastSnd = 0, lastRcv = 0;
-#endif /* ROUNDTRIP */
 
 #ifdef AHRS
         tx_buffer = {
@@ -285,25 +293,24 @@ void loop()
         tx_buffer.num_d[15] = packetCount;
 
         // Send the packet
-        n = RawHID.send(tx_buffer.raw, 8);
+        n = RawHID.send(tx_buffer.raw, 5);
         if (n > 0) {
-            if (SerialDebug) {
+            if (vDebug) {
                 Serial.print("\nTX: "); Serial.print(tx_buffer.num_d[15]);
                 lastSnd = millis();
             }
             packetCount = packetCount + 1;
-        } else if (SerialDebug) {
+        } else if (vDebug) {
             Serial.print(F("\nTX: Fail"));
         }
 
 #ifdef ROUNDTRIP
-        static data_t rx_buffer;
-        n = RawHID.recv(rx_buffer.raw, 8);
+        n = RawHID.recv(rx_buffer.raw, 5);
         if (n > 0) {
             Serial.print(" \tRX: ");
             Serial.println(rx_buffer.num_d[15]);
             lastRcv = millis();
-        } else if (SerialDebug) {
+        } else if (vDebug) {
             Serial.println(F("\tRX: Fail"));
         }
         Serial.print(lastSnd, 8);Serial.print("\t\t"); Serial.println(lastRcv, 8);
@@ -316,18 +323,17 @@ void loop()
     loopCountTime += deltat;
     loopCount++;
 
-    // Print current vals each 500ms
+    // Print current vals each 2000ms
     deltaPrint = millis() - printTime;
-    if (deltaPrint > 500) {
+    if (deltaPrint > 2000) {
 
-#ifdef V_DEBUG
         // Fixme: inline version is faster
         //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
-
-        // Print the avg loop rate
-        Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2); Serial.println(" Hz");
-
-#endif /* V_DEBUG */
+        if(Debug) {
+            // Print the avg loop rate
+            Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2);
+            Serial.println(" Hz");
+        }
 
         // Toggle the LED
         digitalWrite(myLed, !digitalRead(myLed));

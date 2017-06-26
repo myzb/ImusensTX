@@ -17,10 +17,10 @@ void mpu9250::SetMres(uint8_t scale)
     // Possible magnetometer scales (and their register bit settings) are:
     // 14 bit resolution (0) and 16 bit resolution (1)
     case MFS_14BITS:
-        _mRes = 10.*4912./8190.0f; // Proper scale to return milliGauss
+        _mRes = 10.*4912./8190.0f;  // Scale to milliGauss
         break;
     case MFS_16BITS:
-        _mRes = 10.*4912./32760.0f; // Proper scale to return milliGauss
+        _mRes = 10.*4912./32760.0f;
         break;
     }
     _mScale = scale;
@@ -31,18 +31,17 @@ void mpu9250::SetGres(uint8_t scale)
     switch (scale) {
     // Possible gyro scales (and their register bit settings) are:
     // 250 DPS (00), 500 DPS (01), 1000 DPS (10), and 2000 DPS  (11).
-        // Here's a bit of an algorith to calculate DPS/(ADC tick) based on that 2-bit value:
     case GFS_250DPS:
-        _gRes = 250.0/32768.0f;     //  131 LSB /deg/s
+        _gRes = 250.0/32768.0f;     // 1/gRes =  131 LSB /deg/s
         break;
     case GFS_500DPS:
-        _gRes = 500.0/32768.0f;     // 65.5 LSB /deg/s
+        _gRes = 500.0/32768.0f;     //          65.5 LSB /deg/s
         break;
     case GFS_1000DPS:
-        _gRes = 1000.0/32768.0f;    // 32.8 LSB /deg/s
+        _gRes = 1000.0/32768.0f;    //          32.8 LSB /deg/s
         break;
     case GFS_2000DPS:
-        _gRes = 2000.0/32768.0f;    // 16.4 LSB /deg/s
+        _gRes = 2000.0/32768.0f;    //          16.4 LSB /deg/s
         break;
     }
     _gScale = scale;
@@ -51,20 +50,18 @@ void mpu9250::SetGres(uint8_t scale)
 void mpu9250::SetAres(uint8_t scale)
 {
     switch (scale) {
-    // data registers hold 2 bytes -> int16_t
-    // With int16_t = 2^16 bits our range is [-32768, 32767] (1 sign bit)
-    // resolution per bit = FS / 32768f
+    // Possible accel scales
     case AFS_2G:
-        _aRes = 2.0/32768.0f;   // 16384 LSB /g
+        _aRes = 2.0/32768.0f;   // 1/aRes = 16384 LSB /g
         break;
     case AFS_4G:
-        _aRes = 4.0/32768.0f;   //  8192 LSB /g
+        _aRes = 4.0/32768.0f;   //           8192 LSB /g
         break;
     case AFS_8G:
-        _aRes = 8.0/32768.0f;   //  4096 LSB /g
+        _aRes = 8.0/32768.0f;   //           4096 LSB /g
         break;
     case AFS_16G:
-        _aRes = 16.0/32768.0f;  //  2048 LSB /g
+        _aRes = 16.0/32768.0f;  //           2048 LSB /g
         break;
     }
     _aScale = scale;
@@ -365,7 +362,7 @@ void mpu9250::AcelGyroCal(float * dest1, float * dest2)
     int16_t accel_bias_reg[3] = {0, 0, 0}; // A place to hold the factory accelerometer trim biases
     uint8_t mask_bit[3] = {0, 0, 0};
 
-    // Read factory accelerometer trim values bits (14:7|6:1) (15bit number!)
+    // Read factory accel trim value bits (14:7|6:1) (15bit number!), save bit 0 to 'mask_bit'
     ReadBytes(MPU9250_ADDRESS, XA_OFFSET_H, 2, &data[0]);
     mask_bit[0] = data[1] & 0x01;
     accel_bias_reg[0] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE) );

@@ -41,15 +41,14 @@
 #include "quaternionFilters.h"
 #include "mpu9250.h"
 
-#define AHRS
-#define V_DEBUG
+//#define AHRS
 
 // Pin definitions
 static const int intPin = 33;
 static const int myLed = 13;
 
 // FIXME: reorganize/clean all debug prints
-static const bool vDebug = false;
+static const bool vDebug = true;
 static const bool Debug = true;
 
 // Globals
@@ -188,7 +187,9 @@ void loop()
 
     static data_t rx_buffer, tx_buffer;                 // usb rx/tx buffer
     static uint8_t n;                                   // return code vars
-    static uint32_t lastTx = 0;                         // Last time usb data was send
+    static uint32_t lastTx = 0, lastRx;                 // Last time usb data was send
+    static uint32_t packetCount = 0;                    // usb packet number
+    static bool ack = true;
 
     // If intPin goes high, all data registers have new data
     if(newData) {
@@ -253,25 +254,23 @@ void loop()
         }
     }
 
-#ifdef AHRS
+
     // Get time of new data arrival
     now = micros();
     deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last data arrival
     lastUpdate = now;
-
+#ifdef AHRS
     MadgwickQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f, my, -mx, mz, deltat);
     //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz, deltat);
 #endif
 
 //#define NO_USB
+#define ROUNDTRIP
+
 #ifndef NO_USB
-    if (micros() - lastTx > 1000) {
-        static uint32_t packetCount = 0;
-        lastTx = micros();
+    if (millis() - lastTx > 1 && ack) {
 
-//#define ROUNDTRIP
-        static uint32_t lastSnd = 0, lastRcv = 0;
-
+        // Prepare usb packet
 #ifdef AHRS
         tx_buffer = {
                 *(getQ()), *(getQ()+1), *(getQ()+2), *(getQ()+3),
@@ -288,34 +287,39 @@ void loop()
                 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
 #endif /* AHRS */
-
         // Place packetCount into last 4 bytes
         tx_buffer.num_d[15] = packetCount;
 
         // Send the packet
-        n = RawHID.send(tx_buffer.raw, 5);
+        n = RawHID.send(tx_buffer.raw, 10);
         if (n > 0) {
-            if (vDebug) {
-                Serial.print("\nTX: "); Serial.print(tx_buffer.num_d[15]);
-                lastSnd = millis();
-            }
+            ack = false;
+            lastTx = millis();
             packetCount = packetCount + 1;
+
+            if (vDebug)
+                Serial.print("TX: \t"); Serial.print(tx_buffer.num_d[15]);
+
         } else if (vDebug) {
-            Serial.print(F("\nTX: Fail"));
+            Serial.print(F("TX: Fail \t")); Serial.print(n);
         }
+    }
 
 #ifdef ROUNDTRIP
-        n = RawHID.recv(rx_buffer.raw, 5);
+    if (RawHID.available()) {
+        n = RawHID.recv(rx_buffer.raw, 10);
         if (n > 0) {
-            Serial.print(" \tRX: ");
-            Serial.println(rx_buffer.num_d[15]);
-            lastRcv = millis();
-        } else if (vDebug) {
-            Serial.println(F("\tRX: Fail"));
-        }
-        Serial.print(lastSnd, 8);Serial.print("\t\t"); Serial.println(lastRcv, 8);
-#endif /* ROUNDTRIP */
+            ack = true;
+            lastRx = millis();
 
+            if (vDebug)
+            Serial.print("\tRX: \t"); Serial.println(rx_buffer.num_d[15]);
+
+        } else if (vDebug) {
+            Serial.print(F("\tRX: Fail \t")); Serial.println(n);
+        }
+        Serial.print(lastTx, 8);Serial.print("\t\t"); Serial.println(lastRx, 8);
+#endif /* ROUNDTRIP */
     }
 #endif /* NO_USB */
 

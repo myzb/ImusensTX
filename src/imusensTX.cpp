@@ -35,7 +35,7 @@
 #include <i2c_t3.h>
 #include <SPI.h>
 #include "Arduino.h"
-
+#include <usb_desc.h>
 
 #include "utils.h"
 #include "quaternionFilters.h"
@@ -47,7 +47,7 @@
 //#define RESET_MAGCAL
 
 // Debug flags
-static const bool vDebug = false;
+static const bool vDebug = true;
 static const bool Debug = true;
 
 // Pin definitions
@@ -195,7 +195,7 @@ void loop()
 {
     static uint32_t loopCount = 0;                      // loop counter
     static float loopCountTime = 0;                     // loop time counter
-    static uint32_t deltaPrint = 0, printTime = 0;      // time of serial debug and delta to last print
+    static uint32_t lastPrint = 0;                      // time of serial debug and delta to last print
 
     static uint32_t now, lastUpdate = 0;                // used to calculate integration interval
     static float deltat = 0.0f;                         // time (integration interval) between filter updates
@@ -207,12 +207,11 @@ void loop()
     static uint8_t n;                                   // usb return code
     static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
     static uint32_t packetCount = 0;                    // usb packet number
-    static bool txNext = true;
 
     // If intPin goes high, all data registers have new data
     if(newData) {
-        newData = false;  // reset newData flag
-        myImu.ReadMPU9250Data(mpu9250Data);// INT cleared on any read
+        newData = false;                    // reset newData flag
+        myImu.ReadMPU9250Data(mpu9250Data); // INT cleared on any read
 
         // MPU9250 data is in counts, multiply by aRes (g's/LSB) to get value in g's
 #if 0
@@ -259,7 +258,6 @@ void loop()
             Serial.print( (int) my ); Serial.print("\t");
             Serial.print( (int) mz ); Serial.print("\n");
 #endif /* MAG_EXPORT */
-
         }
     }
 
@@ -273,9 +271,8 @@ void loop()
 #endif
 
 #ifndef NO_USB
-    // TODO: Sync with mpu9250data interrupt
-    if (millis() - lastTx > 1 && txNext) {
-
+    // Set usb transfer rate to 1kHz
+    if (micros() - lastTx >= 1000) {
         // Prepare usb packet
 #ifdef AHRS
         tx_buffer = {
@@ -293,55 +290,49 @@ void loop()
                 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
 #endif /* AHRS */
+
         // Place packetCount into last 4 bytes
         tx_buffer.num_d[15] = packetCount;
 
         // Send the packet
         n = RawHID.send(tx_buffer.raw, 10);
         if (n > 0) {
-            txNext = false;
-            lastTx = millis();
+            lastTx = micros();
+            Serial.print("TX: \t"); Serial.println(tx_buffer.num_d[15]);
             packetCount = packetCount + 1;
 
-            if (vDebug) {
-                Serial.print("TX: \t"); Serial.print(tx_buffer.num_d[15]);
-            }
-
         } else if (vDebug) {
-            Serial.print(F("TX: Fail \t")); Serial.print(n);
+            Serial.print(F("TX: Fail \t")); Serial.println(n);
+
         }
     }
 
 #ifdef USB_RX
     if (RawHID.available()) {
+        // Only send data to device if really necessary as it slows down usb tx
         n = RawHID.recv(rx_buffer.raw, 10);
         if (n > 0) {
-            txNext = true;
-            lastRx = millis();
+            lastRx = micros();
 
             if (vDebug) {
+                Serial.print("TX: \t"); Serial.print(tx_buffer.num_d[15]);
                 Serial.print("\tRX: \t"); Serial.println(rx_buffer.num_d[15]);
+                Serial.print(lastTx / 1000 % 1000, 8);Serial.print("\t\t"); Serial.println(lastRx / 1000 % 1000, 8);
             }
 
         } else if (vDebug) {
             Serial.print(F("\tRX: Fail \t")); Serial.println(n);
         }
-
-        // Print tx/rx timestamps for given tx/rx packet
-        if (vDebug) {
-            Serial.print(lastTx, 8);Serial.print("\t\t"); Serial.println(lastRx, 8);
-        }
 #endif /* USB_RX */
     }
 #endif /* NO_USB */
 
-    // time for 1 loop = loopCountTime/loopCount
+    // time for 1 loop = loopCountTime/loopCount. this is the filter update rate
     loopCountTime += deltat;
     loopCount++;
 
     // Print current vals each 2000ms
-    deltaPrint = millis() - printTime;
-    if (deltaPrint > 2000) {
+    if (millis() - lastPrint >= 2000) {
 
         // TODO: Inline version is faster
         //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
@@ -355,7 +346,7 @@ void loop()
         digitalWrite(myLed, !digitalRead(myLed));
 
         // Reset print counters
-        printTime = millis();
+        lastPrint = millis();
         loopCount = 0;
         loopCountTime = 0;
     }

@@ -34,8 +34,8 @@
 //#include "Wire.h"
 #include <i2c_t3.h>
 #include <SPI.h>
+
 #include "Arduino.h"
-#include <usb_desc.h>
 
 #include "utils.h"
 #include "quaternionFilters.h"
@@ -46,21 +46,21 @@
 //#define MAG_EXPORT
 //#define RESET_MAGCAL
 
-// Debug flags
-static const bool vDebug = true;
-static const bool Debug = true;
+// Debug flag
+// 0: off, 1: std, 2: verbose, 3: vverbose
+static const int Debug = 1;
 
 // Pin definitions
 static const int intPin = 33;
 static const int myLed = 13;
 
 // Globals
-volatile bool newData = false;
+//volatile bool newData = false;
 mpu9250 myImu;
 
 void intFunc()
 {
-  newData = true;
+  myImu._newData = 1;
 }
 
 void setup()
@@ -115,10 +115,10 @@ void setup()
         }
 
         // Set sensor resolutions, only need to do this once
-        myImu.SetAres(mpu9250::AFS_2G);
-        myImu.SetGres(mpu9250::GFS_500DPS);
-        myImu.SetMres(mpu9250::MFS_16BITS);
-        myImu.SetMrate(mpu9250::MRATE_100HZ);
+        myImu.SetAres(myImu.AFS_2G);
+        myImu.SetGres(myImu.GFS_500DPS);
+        myImu.SetMres(myImu.MFS_16BITS);
+        myImu.SetMrate(myImu.MRATE_100HZ);
 
         if (Debug)
             Serial.println("Calibrate gyro and accel");
@@ -189,6 +189,9 @@ void setup()
         Serial.println(c, HEX);
         while(1) ; // Loop forever if communication doesn't happen
     }
+
+    // Wait for the application to be ready
+    while (!RawHID.available());
 }
 
 void loop()
@@ -200,74 +203,36 @@ void loop()
     static uint32_t now, lastUpdate = 0;                // used to calculate integration interval
     static float deltat = 0.0f;                         // time (integration interval) between filter updates
 
-    static float ax, ay, az, gx, gy, gz, mx, my, mz;    // variables to hold latest data values
-    static int16_t  mpu9250Data[7], ak8963Data[3];      // raw accel/gyro & mag data
-
     static data_t rx_buffer, tx_buffer;                 // usb rx/tx buffer
-    static uint8_t n;                                   // usb return code
+    static uint8_t num;                                 // usb return code
     static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
     static uint32_t packetCount = 0;                    // usb packet number
 
+    static float a[3], g[3], m[3], t;                   // accel, gyro, mag, temp data
+
     // If intPin goes high, all data registers have new data
-    if(newData) {
-        newData = false;                    // reset newData flag
-        myImu.ReadMPU9250Data(mpu9250Data); // INT cleared on any read
+    if(myImu.NewData()) {
+        myImu.GetMPU9250(a, g, t);
 
-        // MPU9250 data is in counts, multiply by aRes (g's/LSB) to get value in g's
-#if 0
-        ax = (float)mpu9250Data[0]*myImu._aRes - myImu._aCal_bias[0];
-        ay = (float)mpu9250Data[1]*myImu._aRes - myImu._aCal_bias[1];
-        az = (float)mpu9250Data[2]*myImu._aRes - myImu._aCal_bias[2];
-#else
-        ax = (float)mpu9250Data[0]*myImu._aRes;
-        ay = (float)mpu9250Data[1]*myImu._aRes;
-        az = (float)mpu9250Data[2]*myImu._aRes;
-#endif
-
-        // MPU9250 data is in counts, multiply by gRes (dps/LSB) to get value in deg/s
-        gx = (float)mpu9250Data[4]*myImu._gRes;
-        gy = (float)mpu9250Data[5]*myImu._gRes;
-        gz = (float)mpu9250Data[6]*myImu._gRes;
-
-        myImu.ReadMagData(ak8963Data);  // Read the x/y/z adc values
-
-        // AK8963 data is in counts, multiply by mRes to get values in milliGauss
-        // Also include factory calibration per data sheet and user environmental corrections
         if(myImu.NewMagData()) {
-#ifndef ONLINE_CAL
-            mx = (float)ak8963Data[0]*myImu._mRes*myImu._mRes_factory[0] - myImu._mCal_bias[0];
-            my = (float)ak8963Data[1]*myImu._mRes*myImu._mRes_factory[1] - myImu._mCal_bias[1];
-            mz = (float)ak8963Data[2]*myImu._mRes*myImu._mRes_factory[2] - myImu._mCal_bias[2];
-            mx *= myImu._mCal_scale[0];
-            my *= myImu._mCal_scale[1];
-            mz *= myImu._mCal_scale[2];
-#else
-            mx = (float)ak8963Data[0]*myImu._mRes*myImu._mRes_factory[0] - myImu._mCal_bias[0];
-            my = (float)ak8963Data[1]*myImu._mRes*myImu._mRes_factory[1] - myImu._mCal_bias[1];
-            mz = (float)ak8963Data[2]*myImu._mRes*myImu._mRes_factory[2] - myImu._mCal_bias[2];
-            mx *= myImu._mCal_scale[0];
-            my *= myImu._mCal_scale[1];
-            mz *= myImu._mCal_scale[2];
-#endif /* ONLINE_CAL */
-
-#ifdef MAG_EXPORT
-            Serial.print( (int)((float)ak8963Data[0]*myImu._mRes) ); Serial.print("\t");
-            Serial.print( (int)((float)ak8963Data[1]*myImu._mRes) ); Serial.print("\t");
-            Serial.print( (int)((float)ak8963Data[2]*myImu._mRes) ); Serial.print("\t");
-            Serial.print( (int) mx ); Serial.print("\t");
-            Serial.print( (int) my ); Serial.print("\t");
-            Serial.print( (int) mz ); Serial.print("\n");
-#endif /* MAG_EXPORT */
+            myImu.GetMag(m);
         }
+    }
+
+    if (Debug == 3) {
+        Serial.print(a[0], 4);Serial.print(" ");Serial.print(a[1], 4);Serial.print(" ");Serial.println(a[2], 4);
+        Serial.print(g[0], 4);Serial.print(" ");Serial.print(g[1], 4);Serial.print(" ");Serial.println(g[2], 4);
+        Serial.print(m[0], 4);Serial.print(" ");Serial.print(m[1], 4);Serial.print(" ");Serial.println(m[2], 4);
     }
 
     // Calculate loop time
     now = micros();
     deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last data arrival
     lastUpdate = now;
+
 #ifdef AHRS
-    MadgwickQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f, my, -mx, mz, deltat);
-    //MahonyQuaternionUpdate(-ax, ay, az, gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,  my,  -mx, mz, deltat);
+    MadgwickQuaternionUpdate(-a[0], a[1], a[2], g[0]*PI/180.0f, -g[1]*PI/180.0f, -g[2]*PI/180.0f, m[1], -m[0], m[2], deltat);
+    //MahonyQuaternionUpdate(-a[0], a[1], a[2], g[0]*PI/180.0f, -g[1]*PI/180.0f, -g[2]*PI/180.0f, m[1], -m[0], m[2], deltat);
 #endif
 
 #ifndef NO_USB
@@ -295,14 +260,13 @@ void loop()
         tx_buffer.num_d[15] = packetCount;
 
         // Send the packet
-        n = RawHID.send(tx_buffer.raw, 10);
-        if (n > 0) {
+        num = RawHID.send(tx_buffer.raw, 10);
+        if (num > 0) {
             lastTx = micros();
-            Serial.print("TX: \t"); Serial.println(tx_buffer.num_d[15]);
             packetCount = packetCount + 1;
 
-        } else if (vDebug) {
-            Serial.print(F("TX: Fail \t")); Serial.println(n);
+        } else if (Debug == 2) {
+            Serial.print(F("TX: Fail \t")); Serial.println(num);
 
         }
     }
@@ -310,18 +274,18 @@ void loop()
 #ifdef USB_RX
     if (RawHID.available()) {
         // Only send data to device if really necessary as it slows down usb tx
-        n = RawHID.recv(rx_buffer.raw, 10);
-        if (n > 0) {
+        num = RawHID.recv(rx_buffer.raw, 10);
+        if (num > 0) {
             lastRx = micros();
 
-            if (vDebug) {
+            if (Debug == 2) {
                 Serial.print("TX: \t"); Serial.print(tx_buffer.num_d[15]);
                 Serial.print("\tRX: \t"); Serial.println(rx_buffer.num_d[15]);
                 Serial.print(lastTx / 1000 % 1000, 8);Serial.print("\t\t"); Serial.println(lastRx / 1000 % 1000, 8);
             }
 
-        } else if (vDebug) {
-            Serial.print(F("\tRX: Fail \t")); Serial.println(n);
+        } else if (Debug == 2) {
+            Serial.print(F("\tRX: Fail \t")); Serial.println(num);
         }
 #endif /* USB_RX */
     }

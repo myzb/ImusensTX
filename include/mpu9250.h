@@ -25,7 +25,7 @@ public:
     // AK8963 Magnetometer Registers
     const uint8_t AK8963_ADDRESS   = 0x0C;  // Magnetometer address
 
-    const uint8_t AK8963_WHO_AM_I  = 0x00;  // should return 0x48
+    const uint8_t AK8963_WHO_AM_I  = 0x00;  // Should return 0x48
     const uint8_t AK8963_INFO      = 0x01;
     const uint8_t AK8963_ST1       = 0x02;
     const uint8_t AK8963_XOUT_L    = 0x03;
@@ -43,7 +43,8 @@ public:
     const uint8_t AK8963_ASAZ      = 0x12;
 
     // MPU 9250 Gyro/Accel Registers
-    const uint8_t MPU9250_ADDRESS = 0x68;  // Gyro/Accel address when ADO = 0
+    const uint8_t MPU9250_ADDRESS   = 0x68; // MPU Address when AD0 = L
+    const uint8_t MPU9250_ADDRESS_B = 0x69; // MPU Address when AD0 = H
 
     const uint8_t SELF_TEST_X_GYRO = 0x00;
     const uint8_t SELF_TEST_Y_GYRO = 0x01;
@@ -214,12 +215,14 @@ public:
     uint8_t _gScale, _aScale, _mScale;                              // Sensor full scale
     uint8_t _mRate;                                                 // Sensor sampling rate
 
+    int _newMagData = 0;                                            // new magData flag
+    int _newData = 0;                                               // new MPU9250Data flag
+
     // Online magCal
     float _mag_bias[3] = {21.92857170f, 529.65936279f, -226.40782166f},
           _mag_scale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
-    int16_t _mag_max[3] = {-32767, -32767, -32767}, _mag_min[3] = {32767, 32767, 32767};
-
-    bool _newMagData = false;                                       // new magData flag
+    int16_t _mag_max[3] = {-32767, -32767, -32767},
+            _mag_min[3] = {32767, 32767, 32767};
 
     // Member functions
     void InitAK8963(float * destination);
@@ -236,16 +239,26 @@ public:
     void SetMagCal(float *magBias, float *magScale);
     void MagCal_Online(int16_t *magData);
 
-    int16_t ReadTempData();
-    void ReadMagData(int16_t * destination);
-    void ReadAccelData(int16_t * destination);
-    void ReadGyroData(int16_t * destination);
-    void ReadMPU9250Data(int16_t * destination);
+    // Functions that read the sensor ADC values
+    int16_t GetTempCounts();
+    void GetMagCounts(int16_t * destination);
+    void GetAccelCounts(int16_t * destination);
+    void GetGyroCounts(int16_t * destination);
+    void GetMPU9250Counts(int16_t * destination);
 
+    // Functions that return the converted sensor values (g's, deg/s, milliGaus, DegCelcius)
+    float GetTemp();
+    void GetAccel(float *a);
+    void GetGyro(float *g);
+    void GetMPU9250(float *a, float *g, float &t);
+    void GetMag(float *m);
+
+    // Register R/W access
     void WriteByte(uint8_t address, uint8_t subAddress, uint8_t data);
     uint8_t ReadByte(uint8_t address, uint8_t subAddress);
     void ReadBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
 
-    bool NewMagData();
+    int NewMagData();
+    int NewData();
 };
 #endif /* _MPU9250_H_ */

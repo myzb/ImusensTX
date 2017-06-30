@@ -11,6 +11,238 @@
 
 #include "mpu9250.h"
 
+/* MPU9250 object, input the I2C address and I2C bus */
+mpu9250::mpu9250(uint8_t address, uint8_t bus){
+    _address = address; // I2C address
+    _bus = bus; // I2C bus
+    _userDefI2C = false; // automatic I2C setup
+    _useSPI = false; // set to use I2C instead of SPI
+}
+
+/* MPU9250 object, input the I2C address, I2C bus, and I2C pins */
+mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins){
+    _address = address; // I2C address
+    _bus = bus; // I2C bus
+    _pins = pins; // I2C pins
+    _pullups = I2C_PULLUP_EXT; // I2C pullups
+    _userDefI2C = true; // user defined I2C
+    _useSPI = false; // set to use I2C instead of SPI
+}
+
+/* MPU9250 object, input the I2C address, I2C bus, I2C pins, and I2C pullups */
+mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups){
+    _address = address; // I2C address
+    _bus = bus; // I2C bus
+    _pins = pins; // I2C pins
+    _pullups = pullups; // I2C pullups
+    _userDefI2C = true; // user defined I2C
+    _useSPI = false; // set to use I2C instead of SPI
+}
+
+/* MPU9250 object, input the SPI CS Pin */
+mpu9250::mpu9250(uint8_t csPin){
+    _csPin = csPin; // SPI CS Pin
+    _mosiPin = MOSI_PIN_11; // SPI MOSI Pin, set to default
+    _useSPI = true; // set to use SPI instead of I2C
+    _useSPIHS = false; // defaul to low speed SPI transactions until data reads start to occur
+}
+
+/* MPU9250 object, input the SPI CS Pin and MOSI Pin */
+mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
+    _csPin = csPin; // SPI CS Pin
+    _mosiPin = pin; // SPI MOSI Pin
+    _useSPI = true; // set to use SPI instead of I2C
+    _useSPIHS = false; // defaul to low speed SPI transactions until data reads start to occur
+}
+
+void mpu9250::Setup()
+{
+    if( _useSPI ){ // using SPI for communication
+
+        // setting CS pin to output
+        pinMode(_csPin,OUTPUT);
+
+        // setting CS pin high
+        digitalWriteFast(_csPin,HIGH);
+
+        // Teensy 3.0 || Teensy 3.1/3.2
+        #if defined(__MK20DX128__) || defined(__MK20DX256__)
+
+            // configure and begin the SPI
+            switch( _mosiPin ){
+
+                case MOSI_PIN_7:    // SPI bus 0 alternate 1
+                    SPI.setMOSI(7);
+                    SPI.setMISO(8);
+                    SPI.setSCK(14);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_11:   // SPI bus 0 default
+                    SPI.setMOSI(11);
+                    SPI.setMISO(12);
+                    SPI.setSCK(13);
+                    SPI.begin();
+                    break;
+            }
+
+        #endif
+
+        // Teensy 3.5 || Teensy 3.6
+        #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+
+            // configure and begin the SPI
+            switch( _mosiPin ){
+
+                case MOSI_PIN_0:    // SPI bus 1 default
+                    SPI1.setMOSI(0);
+                    SPI1.setMISO(1);
+                    SPI1.setSCK(32);
+                    SPI1.begin();
+                    break;
+                case MOSI_PIN_7:    // SPI bus 0 alternate 1
+                    SPI.setMOSI(7);
+                    SPI.setMISO(8);
+                    SPI.setSCK(14);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_11:   // SPI bus 0 default
+                    SPI.setMOSI(11);
+                    SPI.setMISO(12);
+                    SPI.setSCK(13);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_21:   // SPI bus 1 alternate
+                    SPI1.setMOSI(21);
+                    SPI1.setMISO(5);
+                    SPI1.setSCK(20);
+                    SPI1.begin();
+                    break;
+                case MOSI_PIN_28:   // SPI bus 0 alternate 2
+                    SPI.setMOSI(28);
+                    SPI.setMISO(39);
+                    SPI.setSCK(27);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_44:   // SPI bus 2 default
+                    SPI2.setMOSI(44);
+                    SPI2.setMISO(45);
+                    SPI2.setSCK(46);
+                    SPI2.begin();
+                    break;
+                case MOSI_PIN_52:   // SPI bus 2 alternate
+                    SPI2.setMOSI(52);
+                    SPI2.setMISO(51);
+                    SPI2.setSCK(53);
+                    SPI2.begin();
+                    break;
+            }
+
+        #endif
+
+        // Teensy LC
+        #if defined(__MKL26Z64__)
+
+            // configure and begin the SPI
+            switch( _mosiPin ){
+
+                case MOSI_PIN_0:    // SPI bus 1 default
+                    SPI1.setMOSI(0);
+                    SPI1.setMISO(1);
+                    SPI1.setSCK(20);
+                    SPI1.begin();
+                    break;
+                case MOSI_PIN_7:    // SPI bus 0 alternate 1
+                    SPI.setMOSI(7);
+                    SPI.setMISO(8);
+                    SPI.setSCK(14);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_11:   // SPI bus 0 default
+                    SPI.setMOSI(11);
+                    SPI.setMISO(12);
+                    SPI.setSCK(13);
+                    SPI.begin();
+                    break;
+                case MOSI_PIN_21:   // SPI bus 1 alternate
+                    SPI1.setMOSI(21);
+                    SPI1.setMISO(5);
+                    SPI1.setSCK(20);
+                    SPI1.begin();
+                    break;
+            }
+
+        #endif
+    }
+    else{ // using I2C for communication
+
+        if( !_userDefI2C ) { // setup the I2C pins and pullups based on bus number if not defined by user
+            /* setting the I2C pins, pullups, and protecting against _bus out of range */
+            _pullups = I2C_PULLUP_EXT; // default to external pullups
+
+            #if defined(__MK20DX128__) // Teensy 3.0
+                _pins = I2C_PINS_18_19;
+                _bus = 0;
+            #endif
+
+            #if defined(__MK20DX256__) // Teensy 3.1/3.2
+                if(_bus == 1) {
+                    _pins = I2C_PINS_29_30;
+                }
+                else{
+                    _pins = I2C_PINS_18_19;
+                    _bus = 0;
+                }
+
+            #endif
+
+            #if defined(__MK64FX512__) // Teensy 3.5
+                if(_bus == 2) {
+                    _pins = I2C_PINS_3_4;
+                }
+                else if(_bus == 1) {
+                    _pins = I2C_PINS_37_38;
+                }
+                else{
+                    _pins = I2C_PINS_18_19;
+                    _bus = 0;
+                }
+
+            #endif
+
+            #if defined(__MK66FX1M0__) // Teensy 3.6
+                if(_bus == 3) {
+                    _pins = I2C_PINS_56_57;
+                }
+                else if(_bus == 2) {
+                    _pins = I2C_PINS_3_4;
+                }
+                else if(_bus == 1) {
+                    _pins = I2C_PINS_37_38;
+                }
+                else{
+                    _pins = I2C_PINS_18_19;
+                    _bus = 0;
+                }
+
+            #endif
+
+            #if defined(__MKL26Z64__) // Teensy LC
+                if(_bus == 1) {
+                    _pins = I2C_PINS_22_23;
+                }
+                else{
+                    _pins = I2C_PINS_18_19;
+                    _bus = 0;
+                }
+
+            #endif
+        }
+
+        // starting the I2C bus
+        i2c_t3(_bus).begin(I2C_MASTER, 0x00, _pins, _pullups, _i2cRate);
+    }
+}
+
 void mpu9250::SetMres(uint8_t scale)
 {
     switch (scale) {
@@ -681,35 +913,35 @@ void mpu9250::SelfTest(float * destination)
 // I2C read/write functions for the MPU9250 and AK8963 sensors
 void mpu9250::WriteByte(uint8_t address, uint8_t subAddress, uint8_t data)
 {
-    Wire.beginTransmission(address);  // Initialize the Tx buffer
-    Wire.write(subAddress);           // Put slave register address in Tx buffer
-    Wire.write(data);                 // Put data in Tx buffer
-    Wire.endTransmission();           // Send the Tx buffer
+    i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
+    i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
+    i2c_t3(_bus).write(data);                 // Put data in Tx buffer
+    i2c_t3(_bus).endTransmission();           // Send the Tx buffer
 }
 
 uint8_t mpu9250::ReadByte(uint8_t address, uint8_t subAddress)
 {
     uint8_t data;                            // `data` will store the register data
-    Wire.beginTransmission(address);         // Initialize the Tx buffer
-    Wire.write(subAddress);                  // Put slave register address in Tx buffer
-    Wire.endTransmission(I2C_NOSTOP);        // Send the Tx buffer, but send a restart to keep connection alive
-//  Wire.endTransmission(false);             // Send the Tx buffer, but send a restart to keep connection alive
-//  Wire.requestFrom(address, 1);            // Read one byte from slave register address
-    Wire.requestFrom(address, (size_t) 1);   // Read one byte from slave register address
-    data = Wire.read();                      // Fill Rx buffer with result
+    i2c_t3(_bus).beginTransmission(address);         // Initialize the Tx buffer
+    i2c_t3(_bus).write(subAddress);                  // Put slave register address in Tx buffer
+    i2c_t3(_bus).endTransmission(I2C_NOSTOP);        // Send the Tx buffer, but send a restart to keep connection alive
+//  i2c_t3(_bus).endTransmission(false);             // Send the Tx buffer, but send a restart to keep connection alive
+//  i2c_t3(_bus).requestFrom(address, 1);            // Read one byte from slave register address
+    i2c_t3(_bus).requestFrom(address, (size_t) 1);   // Read one byte from slave register address
+    data = i2c_t3(_bus).read();                      // Fill Rx buffer with result
     return data;                             // Return data read from slave register
 }
 
 void mpu9250::ReadBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *dest)
 {
-    Wire.beginTransmission(address);   // Initialize the Tx buffer
-    Wire.write(subAddress);            // Put slave register address in Tx buffer
-    Wire.endTransmission(I2C_NOSTOP);  // Send the Tx buffer, but send a restart to keep connection alive
-//  Wire.endTransmission(false);       // Send the Tx buffer, but send a restart to keep connection alive
+    i2c_t3(_bus).beginTransmission(address);   // Initialize the Tx buffer
+    i2c_t3(_bus).write(subAddress);            // Put slave register address in Tx buffer
+    i2c_t3(_bus).endTransmission(I2C_NOSTOP);  // Send the Tx buffer, but send a restart to keep connection alive
+//  i2c_t3(_bus).endTransmission(false);       // Send the Tx buffer, but send a restart to keep connection alive
     uint8_t i = 0;
-//        Wire.requestFrom(address, count);     // Read bytes from slave register address
-    Wire.requestFrom(address, (size_t) count);  // Read bytes from slave register address
-    while (Wire.available()) {
-        dest[i++] = Wire.read();       // Put read results in the Rx buffer
+//        i2c_t3(_bus).requestFrom(address, count);     // Read bytes from slave register address
+    i2c_t3(_bus).requestFrom(address, (size_t) count);  // Read bytes from slave register address
+    while (i2c_t3(_bus).available()) {
+        dest[i++] = i2c_t3(_bus).read();       // Put read results in the Rx buffer
     }
 }

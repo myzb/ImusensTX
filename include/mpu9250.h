@@ -11,6 +11,41 @@
 #include "Arduino.h"
 #include "i2c_t3.h"  // I2C library
 
+#ifndef SPI_MOSI_PIN
+#define SPI_MOSI_PIN
+    // Teensy 3.0 || Teensy 3.1/3.2
+    #if defined(__MK20DX128__) || defined(__MK20DX256__)
+    enum spi_mosi_pin
+    {
+      MOSI_PIN_7,
+      MOSI_PIN_11
+    };
+    #endif
+    // Teensy 3.5 || Teensy 3.6
+    #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+    enum spi_mosi_pin
+    {
+      MOSI_PIN_0,
+      MOSI_PIN_7,
+      MOSI_PIN_11,
+      MOSI_PIN_21,
+      MOSI_PIN_28,
+      MOSI_PIN_44,
+      MOSI_PIN_52
+    };
+    #endif
+    // Teensy LC
+    #if defined(__MKL26Z64__)
+    enum spi_mosi_pin
+    {
+      MOSI_PIN_0,
+      MOSI_PIN_7,
+      MOSI_PIN_11,
+      MOSI_PIN_21
+    };
+    #endif
+#endif
+
 /* The MPU9250 Class
  *
  * See also MPU-9250 Register Map and Descriptions, Revision 4.0, RM-MPU-9250A-00, Rev. 1.4, 9/9/2013
@@ -224,9 +259,33 @@ public:
     int16_t _mag_max[3] = {-32767, -32767, -32767},
             _mag_min[3] = {32767, 32767, 32767};
 
+    // SPI/I2C Settings
+    uint8_t _address;
+    uint8_t _bus;
+    i2c_pins _pins;
+    i2c_pullup _pullups;
+    bool _userDefI2C;
+    uint8_t _csPin;
+    spi_mosi_pin _mosiPin;
+    bool _useSPI;
+    bool _useSPIHS;
+
+    // SPI/I2C Constants
+    const uint8_t SPI_READ = 0x80;
+    const uint32_t SPI_LS_CLOCK = 1000000;  // 1 MHz
+    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz
+    const uint32_t _i2cRate     = 400000;   // 400 kHz
+
     // Member functions
-    void InitAK8963(float * destination);
+    mpu9250(uint8_t address, uint8_t bus);
+    mpu9250(uint8_t address, uint8_t bus, i2c_pins pins);
+    mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
+    mpu9250(uint8_t csPin);
+    mpu9250(uint8_t csPin, spi_mosi_pin pin);
+
+    void Setup();
     void Init();
+    void InitAK8963(float * destination);
 
     void SetAres(uint8_t scale);
     void SetGres(uint8_t scale);

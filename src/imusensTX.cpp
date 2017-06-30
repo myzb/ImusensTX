@@ -56,7 +56,7 @@ static const int myLed = 13;
 
 // Globals
 //volatile bool newData = false;
-mpu9250 myImu;
+mpu9250 myImu(0x68, 0);
 
 void intFunc()
 {
@@ -73,7 +73,9 @@ void setup()
     float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
 
     // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.6
-    Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
+    //Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
+    myImu.Setup();
+
     delay(4000);
     Serial.begin(38400);
   

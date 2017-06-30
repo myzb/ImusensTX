@@ -316,8 +316,14 @@ public:
     void WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
     uint8_t ReadRegister(uint8_t address, uint8_t subAddress);
     void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
+    void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest);
+    bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
 
     int NewMagData();
     int NewData();
+
+    // Settings Flags
+    const uint8_t I2C_READ_FLAG = 0x80;
+    const uint8_t I2C_SLV0_EN = 0x80;
 };
 #endif /* _MPU9250_H_ */

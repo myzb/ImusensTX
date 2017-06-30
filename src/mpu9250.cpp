@@ -1167,7 +1167,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
             SPI1.endTransaction(); // end the transaction
         }
-        #endif
+#endif
 
     } else {
         i2c_t3(_bus).beginTransmission(address);   // Initialize the Tx buffer
@@ -1181,4 +1181,36 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             dest[i++] = i2c_t3(_bus).read();       // Put read results in the Rx buffer
         }
     }
+}
+
+/* writes a register to the AK8963 given a register address and data */
+bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
+{
+    uint8_t count = 1;
+    uint8_t buff[1];
+
+    WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS); // set slave 0 to the AK8963 and set for write
+    WriteRegister(_address, I2C_SLV0_REG, subAddress); // set the register to the desired AK8963 sub address
+    WriteRegister(_address, I2C_SLV0_DO, data); // store the data for write
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // enable I2C and send 1 byte
+
+    // read the register and confirm
+    ReadAK8963Registers(subAddress, sizeof(buff), &buff[0]);
+
+    if(buff[0] == data) {
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+/* reads registers from the AK8963 */
+void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest)
+{
+    WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS | I2C_READ_FLAG); // set slave 0 to the AK8963 and set for read
+    WriteRegister(_address, I2C_SLV0_REG,subAddress); // set the register to the desired AK8963 sub address
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // enable I2C and request the bytes
+    delayMicroseconds(100); // takes some time for these registers to fill
+    ReadRegisters(_address, EXT_SENS_DATA_00, count, dest); // read the bytes off the MPU9250 EXT_SENS_DATA registers
 }

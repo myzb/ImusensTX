@@ -553,7 +553,7 @@ void mpu9250::AcelGyroCal(float *dest1, float *dest2)
     // get stable time source; Auto select clock source to be PLL gyroscope reference if ready
     // else use the internal oscillator, bits 2:0 = 001
     WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_2, 0x00);
+    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_2, 0x00);   // enable gyro/accel x,y,z axes
     delay(200);
 
     // Configure device for bias calculation

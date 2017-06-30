@@ -74,7 +74,7 @@ void setup()
 
     // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.6
     //Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
-    myImu.Setup();
+    myImu.Setup(); // Setup I2C/SPI for this sensor
 
     delay(4000);
     Serial.begin(38400);

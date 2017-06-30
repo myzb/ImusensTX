@@ -313,9 +313,9 @@ public:
     void GetMag(float *m);
 
     // Register R/W access
-    void WriteByte(uint8_t address, uint8_t subAddress, uint8_t data);
-    uint8_t ReadByte(uint8_t address, uint8_t subAddress);
-    void ReadBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
+    void WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
+    uint8_t ReadRegister(uint8_t address, uint8_t subAddress);
+    void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
 
     int NewMagData();
     int NewData();

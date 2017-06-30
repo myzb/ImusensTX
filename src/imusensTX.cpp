@@ -90,7 +90,7 @@ void setup()
     }
 
     // Read WHO_AM_I register for MPU-9250
-    byte c = myImu.ReadByte(myImu.MPU9250_ADDRESS, myImu.WHO_AM_I_MPU9250);
+    byte c = myImu.ReadRegister(myImu.MPU9250_ADDRESS, myImu.WHO_AM_I_MPU9250);
 
     // WHO_AM_I should always be 0x68
     if (c == 0x71) {
@@ -143,7 +143,7 @@ void setup()
         myImu.Init();
 
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        byte d = myImu.ReadByte(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
+        byte d = myImu.ReadRegister(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
 
         if(Debug) {
             Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX);

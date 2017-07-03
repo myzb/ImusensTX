@@ -46,6 +46,39 @@
     #endif
 #endif
 
+enum mpu9250_gyro_range {
+    GYRO_RANGE_250DPS,
+    GYRO_RANGE_500DPS,
+    GYRO_RANGE_1000DPS,
+    GYRO_RANGE_2000DPS
+};
+
+enum mpu9250_accel_range {
+    ACCEL_RANGE_2G,
+    ACCEL_RANGE_4G,
+    ACCEL_RANGE_8G,
+    ACCEL_RANGE_16G
+};
+
+enum mpu9250_dlpf_bandwidth {
+    DLPF_BANDWIDTH_184HZ,
+    DLPF_BANDWIDTH_92HZ,
+    DLPF_BANDWIDTH_41HZ,
+    DLPF_BANDWIDTH_20HZ,
+    DLPF_BANDWIDTH_10HZ,
+    DLPF_BANDWIDTH_5HZ
+};
+
+enum ak8963_mag_range {
+    MAG_RANGE_14BIT, // 0.6 mG per LSB
+    MAG_RANGE_16BIT  // 0.15 mG per LSB
+};
+
+enum ak8963_mag_rate {
+    MAG_RATE_8HZ   = 0x02,
+    MAG_RATE_100HZ = 0x06
+};
+
 /* The MPU9250 Class
  *
  * See also MPU-9250 Register Map and Descriptions, Revision 4.0, RM-MPU-9250A-00, Rev. 1.4, 9/9/2013
@@ -57,7 +90,7 @@
 class mpu9250 {
 
 public:
-    // AK8963 Magnetometer Registers
+    /* AK8963 Magnetometer Registers */
     const uint8_t AK8963_ADDRESS   = 0x0C;  // Magnetometer address
 
     const uint8_t AK8963_WHO_AM_I  = 0x00;  // Should return 0x48
@@ -76,8 +109,9 @@ public:
     const uint8_t AK8963_ASAX      = 0x10;
     const uint8_t AK8963_ASAY      = 0x11;
     const uint8_t AK8963_ASAZ      = 0x12;
+    /* End */
 
-    // MPU 9250 Gyro/Accel Registers
+    /* MPU 9250 Gyro/Accel Registers */
     const uint8_t MPU9250_ADDRESS   = 0x68; // MPU Address when AD0 = L
     const uint8_t MPU9250_ADDRESS_B = 0x69; // MPU Address when AD0 = H
 
@@ -202,33 +236,32 @@ public:
     const uint8_t YA_OFFSET_L      = 0x7B;
     const uint8_t ZA_OFFSET_H      = 0x7D;
     const uint8_t ZA_OFFSET_L      = 0x7E;
-    // ** End of register map **
+    /* End */
 
-    // Class constants
-    enum Ascale {
-        AFS_2G = 0,
-        AFS_4G,
-        AFS_8G,
-        AFS_16G
-    };
+    /* Register flags */
+    // MPU9250 gyro/accel
+    const uint8_t ACCEL_FS_SEL_2G  = 0x00;
+    const uint8_t ACCEL_FS_SEL_4G  = 0x08;
+    const uint8_t ACCEL_FS_SEL_8G  = 0x10;
+    const uint8_t ACCEL_FS_SEL_16G = 0x18;
 
-    enum Gscale {
-        GFS_250DPS = 0,
-        GFS_500DPS,
-        GFS_1000DPS,
-        GFS_2000DPS
-    };
+    const uint8_t GYRO_FS_SEL_250DPS  = 0x00;
+    const uint8_t GYRO_FS_SEL_500DPS  = 0x08;
+    const uint8_t GYRO_FS_SEL_1000DPS = 0x10;
+    const uint8_t GYRO_FS_SEL_2000DPS = 0x18;
 
-    enum Mscale {
-        MFS_14BITS = 0, // 0.6 mG per LSB
-        MFS_16BITS      // 0.15 mG per LSB
-    };
+    // MPU9250 general
+    const uint8_t H_RESET       = 0x80;
+    const uint8_t I2C_READ_FLAG = 0x80;
+    const uint8_t I2C_SLV0_EN   = 0x80;
 
-    enum Mmode {
-        MRATE_8HZ   = 0x02,
-        MRATE_100HZ = 0x06
-    };
+    // AK8963 magnetometer
+    const uint8_t AK8963_PWR_DOWN = 0x00;
+    const uint8_t AK8963_FUSE_ROM = 0x0F;
+    const uint8_t AK8963_RESET    = 0x01;
+    /* End */
 
+    /* Class constants */
     // Accel full scale factors LSB/g
     const float AFSF_2G  = 16384.0f;
     const float AFSF_4G  =  8192.0f;
@@ -241,14 +274,26 @@ public:
     const float GFSF_1000DPS =  32.8f;
     const float GFSF_2000DPS =  16.4f;
 
-    // Member Variables
+    // SPI/I2C
+    const uint8_t SPI_READ = 0x80;
+    const uint32_t SPI_LS_CLOCK = 1000000;  // 1 MHz
+    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz
+
+    // Misc
+    const float _G = 1.0f; //9.807f;
+    const float _d2r = 1.0f; //3.14159265359f/180.0f;
+    const float _tempScale = 333.87f;
+    const float _tempOffset = 21.0f;
+    /* End */
+
+    /* Member variables */
+    // Sensors
     float _mCal_bias[3] = {0, 0, 0}, _mCal_scale[3]  = {0, 0, 0};   // Hard iron offset (bias), Soft iron axis re-scale
     float _mRes_factory[3] = {0, 0, 0};                             // Factory axis resolution factor
     float _gCal_bias[3] = {0, 0, 0}, _aCal_bias[3] = {0, 0, 0};     // Accel/Gyro bias
 
-    float _aRes, _gRes, _mRes;                                      // Sensor resolutions per LSB
-    uint8_t _gScale, _aScale, _mScale;                              // Sensor full scale
-    uint8_t _mRate;                                                 // Sensor sampling rate
+    float _accelScale, _gyroScale, _magScale;                       // Sensor resolutions per LSB
+    uint8_t _magRate;                                               // Sensor sampling rate
 
     int _newMagData = 0;                                            // new magData flag
     int _newData = 0;                                               // new MPU9250Data flag
@@ -259,7 +304,7 @@ public:
     int16_t _mag_max[3] = {-32767, -32767, -32767},
             _mag_min[3] = {32767, 32767, 32767};
 
-    // SPI/I2C Settings
+    // SPI/I2C
     uint8_t _address;
     uint8_t _bus;
     i2c_pins _pins;
@@ -269,29 +314,22 @@ public:
     spi_mosi_pin _mosiPin;
     bool _useSPI;
     bool _useSPIHS;
+    const uint32_t _i2cRate = 400000; // 400 kHz, TODO: May want to allow changing this
+    /* End */
 
-    // SPI/I2C Constants
-    const uint8_t SPI_READ = 0x80;
-    const uint32_t SPI_LS_CLOCK = 1000000;  // 1 MHz
-    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz
-    const uint32_t _i2cRate     = 400000;   // 400 kHz
-
-    // Member functions
+    /* Member functions */
     mpu9250(uint8_t address, uint8_t bus);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
     mpu9250(uint8_t csPin);
     mpu9250(uint8_t csPin, spi_mosi_pin pin);
 
-    void Setup();
-    void Init();
-    void InitAK8963(float * destination);
+    // Functions that start the communication and sensors
+    void WireBegin();
+    void Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
+    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *destination);
 
-    void SetAres(uint8_t scale);
-    void SetGres(uint8_t scale);
-    void SetMres(uint8_t scale);
-    void SetMrate(uint8_t rate);
-
+    // Functions to fine tune the sensors
     void SelfTest(float * destination);
     void MagCal(float * dest1, float * dest2);
     void AcelGyroCal(float * dest1, float * dest2);
@@ -304,6 +342,9 @@ public:
     void GetAccelCounts(int16_t * destination);
     void GetGyroCounts(int16_t * destination);
     void GetMPU9250Counts(int16_t * destination);
+
+    int NewMagData();
+    int NewData();
 
     // Functions that return the converted sensor values (g's, deg/s, milliGaus, DegCelcius)
     float GetTemp();
@@ -318,12 +359,6 @@ public:
     void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
     void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
-
-    int NewMagData();
-    int NewData();
-
-    // Settings Flags
-    const uint8_t I2C_READ_FLAG = 0x80;
-    const uint8_t I2C_SLV0_EN = 0x80;
+    /* End */
 };
 #endif /* _MPU9250_H_ */

@@ -55,7 +55,7 @@ mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
     _useSPIHS = false; // defaul to low speed SPI transactions until data reads start to occur
 }
 
-void mpu9250::Setup()
+void mpu9250::WireBegin()
 {
     if( _useSPI ){ // using SPI for communication
 
@@ -243,67 +243,6 @@ void mpu9250::Setup()
     }
 }
 
-void mpu9250::SetMres(uint8_t scale)
-{
-    switch (scale) {
-    // Possible magnetometer scales (and their register bit settings) are:
-    // 14 bit resolution (0) and 16 bit resolution (1)
-    case MFS_14BITS:
-        _mRes = 10.*4912./8190.0f;  // Scale to milliGauss
-        break;
-    case MFS_16BITS:
-        _mRes = 10.*4912./32760.0f;
-        break;
-    }
-    _mScale = scale;
-}
-
-void mpu9250::SetGres(uint8_t scale)
-{
-    switch (scale) {
-    // Possible gyro scales (and their register bit settings) are:
-    // 250 DPS (00), 500 DPS (01), 1000 DPS (10), and 2000 DPS  (11).
-    case GFS_250DPS:
-        _gRes = 250.0/32768.0f;     // 1/gRes =  131 LSB /deg/s
-        break;
-    case GFS_500DPS:
-        _gRes = 500.0/32768.0f;     //          65.5 LSB /deg/s
-        break;
-    case GFS_1000DPS:
-        _gRes = 1000.0/32768.0f;    //          32.8 LSB /deg/s
-        break;
-    case GFS_2000DPS:
-        _gRes = 2000.0/32768.0f;    //          16.4 LSB /deg/s
-        break;
-    }
-    _gScale = scale;
-}
-
-void mpu9250::SetAres(uint8_t scale)
-{
-    switch (scale) {
-    // Possible accel scales
-    case AFS_2G:
-        _aRes = 2.0/32768.0f;   // 1/aRes = 16384 LSB /g
-        break;
-    case AFS_4G:
-        _aRes = 4.0/32768.0f;   //           8192 LSB /g
-        break;
-    case AFS_8G:
-        _aRes = 8.0/32768.0f;   //           4096 LSB /g
-        break;
-    case AFS_16G:
-        _aRes = 16.0/32768.0f;  //           2048 LSB /g
-        break;
-    }
-    _aScale = scale;
-}
-
-void mpu9250::SetMrate(uint8_t rate)
-{
-    _mRate = rate;
-}
-
 int mpu9250::NewMagData()
 {
     return _newMagData = (ReadRegister(AK8963_ADDRESS, AK8963_ST1) & 0x01);
@@ -342,22 +281,22 @@ void mpu9250::GetMPU9250(float *a, float *g, float &t)
 #if 0
     // There was a bug that prevented writing accel calibration values to the
     // corresponding registers. Keep this here just incase.
-    a[0] = (float)mpu9250Counts[0]*_aRes - _aCal_bias[0];
-    a[1] = (float)mpu9250Counts[1]*_aRes - _aCal_bias[1];
-    a[2] = (float)mpu9250Counts[2]*_aRes - _aCal_bias[2];
+    a[0] = (float)mpu9250Counts[0]*_accelScale - _aCal_bias[0];
+    a[1] = (float)mpu9250Counts[1]*_accelScale - _aCal_bias[1];
+    a[2] = (float)mpu9250Counts[2]*_accelScale - _aCal_bias[2];
 #else
-    a[0] = (float)mpu9250Counts[0]*_aRes;
-    a[1] = (float)mpu9250Counts[1]*_aRes;
-    a[2] = (float)mpu9250Counts[2]*_aRes;
+    a[0] = (float)mpu9250Counts[0]*_accelScale;
+    a[1] = (float)mpu9250Counts[1]*_accelScale;
+    a[2] = (float)mpu9250Counts[2]*_accelScale;
 #endif
 
     // Temp in degC
     t = (float) mpu9250Counts[3] / 333.87f + 21.0f;
 
     // Gyro counts in deg/s
-    g[0] = (float)mpu9250Counts[4]*_gRes;
-    g[1] = (float)mpu9250Counts[5]*_gRes;
-    g[2] = (float)mpu9250Counts[6]*_gRes;
+    g[0] = (float)mpu9250Counts[4]*_gyroScale;
+    g[1] = (float)mpu9250Counts[5]*_gyroScale;
+    g[2] = (float)mpu9250Counts[6]*_gyroScale;
 }
 
 void mpu9250::GetAccelCounts(int16_t *destination)
@@ -377,9 +316,9 @@ void mpu9250::GetAccel(float *a)
     GetGyroCounts(accelCounts);
 
     // Convert counts to g
-    a[0] = (float)accelCounts[0]*_aRes;
-    a[1] = (float)accelCounts[1]*_aRes;
-    a[2] = (float)accelCounts[2]*_aRes;
+    a[0] = (float)accelCounts[0]*_accelScale;
+    a[1] = (float)accelCounts[1]*_accelScale;
+    a[2] = (float)accelCounts[2]*_accelScale;
 }
 
 void mpu9250::GetGyroCounts(int16_t *destination)
@@ -399,9 +338,9 @@ void mpu9250::GetGyro(float *g)
     GetGyroCounts(gyroCounts);
 
     // Convert counts to deg/s
-    g[0] = (float)gyroCounts[0]*_gRes;
-    g[1] = (float)gyroCounts[1]*_gRes;
-    g[2] = (float)gyroCounts[2]*_gRes;
+    g[0] = (float)gyroCounts[0]*_gyroScale;
+    g[1] = (float)gyroCounts[1]*_gyroScale;
+    g[2] = (float)gyroCounts[2]*_gyroScale;
 }
 
 void mpu9250::GetMagCounts(int16_t *destination)
@@ -427,17 +366,17 @@ void mpu9250::GetMag(float *m)
 
     // Convert counts to milliGauss, also include factory calibration per data sheet
     // and user environmental corrections (re-scaling)
-    m[0] = (float)magCounts[0]*_mRes*_mRes_factory[0] - _mCal_bias[0];
-    m[1] = (float)magCounts[1]*_mRes*_mRes_factory[1] - _mCal_bias[1];
-    m[2] = (float)magCounts[2]*_mRes*_mRes_factory[2] - _mCal_bias[2];
+    m[0] = (float)magCounts[0]*_magScale*_mRes_factory[0] - _mCal_bias[0];
+    m[1] = (float)magCounts[1]*_magScale*_mRes_factory[1] - _mCal_bias[1];
+    m[2] = (float)magCounts[2]*_magScale*_mRes_factory[2] - _mCal_bias[2];
     m[0] *= _mCal_scale[0];
     m[1] *= _mCal_scale[1];
     m[2] *= _mCal_scale[2];
 
 #ifdef MAG_EXPORT
-    Serial.print( (int)((float)magCounts[0]*_mRes) ); Serial.print("\t");
-    Serial.print( (int)((float)magCounts[1]*_mRes) ); Serial.print("\t");
-    Serial.print( (int)((float)magCounts[2]*_mRes) ); Serial.print("\t");
+    Serial.print( (int)((float)magCounts[0]*_magScale) ); Serial.print("\t");
+    Serial.print( (int)((float)magCounts[1]*_magScale) ); Serial.print("\t");
+    Serial.print( (int)((float)magCounts[2]*_magScale) ); Serial.print("\t");
     Serial.print( (int) m[0] ); Serial.print("\t");
     Serial.print( (int) m[1] ); Serial.print("\t");
     Serial.print( (int) m[2] ); Serial.print("\n");
@@ -454,73 +393,130 @@ int16_t mpu9250::GetTempCounts()
 
 float mpu9250::GetTemp()
 {
-    return (float)GetTempCounts() / 333.87f + 21.0f;
+    return (float)((GetTempCounts()  - _tempOffset)/_tempScale + _tempOffset);
 }
 
-void mpu9250::InitAK8963(float *destination)
+void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *destination)
 {
-    uint8_t rawData[3];
+    // Set mag axis scale factor
+    switch (magRange) {
+
+    case MAG_RANGE_14BIT:
+        _magScale = 10.*4912./8190.0f;
+        break;
+
+    case MAG_RANGE_16BIT:
+        _magScale = 10.*4912./32760.0f;
+        break;
+    }
+
+    // Set mag sampling rate
+    _magRate = magRate;
+
+    // TODO: May want to reset mag sensor aswell?
 
     // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, 0x00);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
     delay(10);
 
     // Enter Fuse ROM access mode
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, 0x0F);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_FUSE_ROM);
     delay(10);
 
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
+    uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
     _mRes_factory[0] = destination[0] =  (float)(rawData[0] - 128)/256. + 1.;
     _mRes_factory[1] = destination[1] =  (float)(rawData[1] - 128)/256. + 1.;
     _mRes_factory[2] = destination[2] =  (float)(rawData[2] - 128)/256. + 1.;
 
     // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, 0x00);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
     delay(10);
 
-    // Configure the magnetometer sampling rate and bit resolution
-    uint8_t c = _mScale << 4 | _mRate;
+    // Write magnetometer sampling rate and bit resolution to register
+    uint8_t c = magRange << 4 | magRate;
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL, c);
     delay(10);
 }
 
-void mpu9250::Init()
+void mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD)
 {
     // Wake up device and reset all registers
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 1 << 7);
+    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, H_RESET);
     delay(100); // Wait for all registers to reset
 
     // Auto select best clock source
     WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);
     delay(200);
 
+    // Set the accel and gyro axis scale factors
+    switch(accelRange) {
+
+        case ACCEL_RANGE_2G:
+            // setting the accel range to 2G
+            _accelScale = _G * 2.0f/32767.5f;
+            break;
+
+        case ACCEL_RANGE_4G:
+            // setting the accel range to 4G
+            _accelScale = _G * 4.0f/32767.5f;
+            break;
+
+        case ACCEL_RANGE_8G:
+            // setting the accel range to 8G
+            _accelScale = _G * 8.0f/32767.5f;
+            break;
+
+        case ACCEL_RANGE_16G:
+            // setting the accel range to 16G
+            _accelScale = _G * 16.0f/32767.5f;
+            break;
+    }
+
+    switch(gyroRange) {
+        case GYRO_RANGE_250DPS:
+            // setting the gyro range to 250DPS
+            _gyroScale = 250.0f/32767.5f * _d2r;
+            break;
+
+        case GYRO_RANGE_500DPS:
+            // setting the gyro range to 500DPS
+            _gyroScale = 500.0f/32767.5f * _d2r;
+            break;
+
+        case GYRO_RANGE_1000DPS:
+            // setting the gyro range to 1000DPS
+            _gyroScale = 1000.0f/32767.5f * _d2r;
+            break;
+
+        case GYRO_RANGE_2000DPS:
+            // setting the gyro range to 2000DPS
+            _gyroScale = 2000.0f/32767.5f * _d2r;
+            break;
+    }
+
+    // Write gyroscope full-scale range config to register
+    uint8_t c = ReadRegister(MPU9250_ADDRESS, GYRO_CONFIG);
+    c = c & ~0xE0;              // Clear self-test bits [7:5]
+    c = c & ~0x18;              // Clear GFS bits [4:3]
+    c = c & ~0x03;              // Clear FCHOICE bits [1:0]
+    c = c | gyroRange << 3;     // Set choosen gyroRange
+    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG, c );
+
+    // Write accelerometer full-scale range config to register
+    c = ReadRegister(MPU9250_ADDRESS, ACCEL_CONFIG);
+    c = c & ~0xE0;              // Clear self-test bits [7:5]
+    c = c & ~0x18;              // Clear AFS bits [4:3]
+    c = c | accelRange << 3;    // Set choosen accelRange
+    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, c);
+
     // Set gyro and thermometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
-    uint8_t c = ReadRegister(MPU9250_ADDRESS, CONFIG);
+    ReadRegister(MPU9250_ADDRESS, CONFIG);
     c = c & ~0x03;          // Clear DLPFG bits [2:0]
     c = c | 0x03;           // Set gyro rate to 1kHz and bandwidth to 41Hz
     WriteRegister(MPU9250_ADDRESS, CONFIG, c);
-
-    // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)
-    // Use a 200 Hz rate
-    // TODO: Allow the user to specify sampling rate divider
-    WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, 0x03);
-
-    // Set gyroscope full-scale range config
-    c = ReadRegister(MPU9250_ADDRESS, GYRO_CONFIG);
-    c = c & ~0xE0;          // Clear self-test bits [7:5]
-    c = c & ~0x18;          // Clear GFS bits [4:3]
-    c = c & ~0x03;          // Clear FCHOICE bits [1:0]
-    c = c | _gScale << 3;   // Set choosen _gScale for the gyro
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG, c );
-
-    // Set accelerometer full-scale range config
-    c = ReadRegister(MPU9250_ADDRESS, ACCEL_CONFIG);
-    c = c & ~0xE0;          // Clear self-test bits [7:5]
-    c = c & ~0x18;          // Clear AFS bits [4:3]
-    c = c | _aScale << 3;   // Set choosen _aScale for the accelerometer
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, c);
 
     // Set accelerometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
@@ -528,6 +524,9 @@ void mpu9250::Init()
     c = c & ~0x0F; // Clear ACCEL_FCHOICE_B (bit 3) and A_DLPFG (bits [2:0])
     c = c | 0x03;  // Set accel rate to 1 kHz and bandwidth to 41 Hz
     WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG2, c);
+
+    // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)
+    WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, SRD);
 
     // Config interrupt
     c = 1 << 4 | 1 << 1; // Clear INT on read | I2C bypass enable
@@ -736,8 +735,8 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     int16_t mag_max[3] = {-32767, -32767, -32767}, mag_min[3] = {32767, 32767, 32767}, mag_temp[3] = {0, 0, 0};
 
     // shoot for ~thirty seconds of mag data
-    if(_mRate == MRATE_8HZ) sample_count = 30*8;  // at 8 Hz ODR, new mag data is available every 125 ms
-    if(_mRate == MRATE_100HZ) sample_count = 30*100;  // at 100 Hz ODR, new mag data is available every 10 ms
+    if(_magRate == MAG_RATE_8HZ) sample_count = 30*8;  // at 8 Hz ODR, new mag data is available every 125 ms
+    if(_magRate == MAG_RATE_100HZ) sample_count = 30*100;  // at 100 Hz ODR, new mag data is available every 10 ms
 
     for(ii = 0; ii < sample_count; ii++) {
         GetMagCounts(mag_temp);  // Read the mag data
@@ -747,8 +746,8 @@ void mpu9250::MagCal(float *dest1, float *dest2)
             if(mag_temp[jj] < mag_min[jj]) mag_min[jj] = mag_temp[jj];
         }
 
-    if(_mRate == MRATE_8HZ) delay(135);  // at 8 Hz ODR, new mag data is available every 125 ms
-    if(_mRate == MRATE_100HZ) delay(12);  // at 100 Hz ODR, new mag data is available every 10 ms
+    if(_magRate == MAG_RATE_8HZ) delay(135);  // at 8 Hz ODR, new mag data is available every 125 ms
+    if(_magRate == MAG_RATE_100HZ) delay(12);  // at 100 Hz ODR, new mag data is available every 10 ms
     }
 
     // Serial.println("mag x min/max:"); Serial.println(mag_max[0]); Serial.println(mag_min[0]);
@@ -760,9 +759,9 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     mag_bias[1]  = (mag_max[1] + mag_min[1])/2;  // get average y mag bias in counts
     mag_bias[2]  = (mag_max[2] + mag_min[2])/2;  // get average z mag bias in counts
 
-    dest1[0] = (float) mag_bias[0]*_mRes * _mRes_factory[0];  // save mag biases in G for main program
-    dest1[1] = (float) mag_bias[1]*_mRes * _mRes_factory[1];
-    dest1[2] = (float) mag_bias[2]*_mRes * _mRes_factory[2];
+    dest1[0] = (float) mag_bias[0]*_magScale * _mRes_factory[0];  // save mag biases in G for main program
+    dest1[1] = (float) mag_bias[1]*_magScale * _mRes_factory[1];
+    dest1[2] = (float) mag_bias[2]*_magScale * _mRes_factory[2];
 
     // Get soft iron correction estimate
     mag_scale[0]  = (mag_max[0] - mag_min[0])/2;  // get average x axis max chord length in counts
@@ -800,9 +799,9 @@ void mpu9250::MagCal_Online(int16_t *magData)
     if (!(magCount_bias[0] && magCount_bias[1] && magCount_bias[2])) return;
 
     // Convert counts to gauss and applying factory trim
-    _mag_bias[0] = (float) magCount_bias[0]*_mRes * _mRes_factory[0];
-    _mag_bias[1] = (float) magCount_bias[1]*_mRes * _mRes_factory[1];
-    _mag_bias[2] = (float) magCount_bias[2]*_mRes * _mRes_factory[2];
+    _mag_bias[0] = (float) magCount_bias[0]*_magScale * _mRes_factory[0];
+    _mag_bias[1] = (float) magCount_bias[1]*_magScale * _mRes_factory[1];
+    _mag_bias[2] = (float) magCount_bias[2]*_magScale * _mRes_factory[2];
 
     // Soft iron
     magCount_scale[0]  = (_mag_max[0] - _mag_min[0])/2;  // get average x axis max chord length in counts

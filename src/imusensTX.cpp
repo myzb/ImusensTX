@@ -55,8 +55,7 @@ static const int intPin = 33;
 static const int myLed = 13;
 
 // Globals
-//volatile bool newData = false;
-mpu9250 myImu(0x68, 0);
+mpu9250 myImu(0x68, 0); // MPU9250 on i2c bus 0 address 0x68
 
 void intFunc()
 {
@@ -72,9 +71,8 @@ void setup()
     float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};   // Pre-calibrated values
     float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
 
-    // Setup for Master mode, pins 18/19, external pullups, 400kHz for Teensy 3.6
-    //Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);
-    myImu.Setup(); // Setup I2C/SPI for this sensor
+    // Init I2C/SPI for this sensor
+    myImu.WireBegin();
 
     delay(4000);
     Serial.begin(38400);
@@ -116,12 +114,6 @@ void setup()
             Serial.print(selfTest[5],1); Serial.println("% of factory value");
         }
 
-        // Set sensor resolutions, only need to do this once
-        myImu.SetAres(myImu.AFS_2G);
-        myImu.SetGres(myImu.GFS_500DPS);
-        myImu.SetMres(myImu.MFS_16BITS);
-        myImu.SetMrate(myImu.MRATE_100HZ);
-
         if (Debug)
             Serial.println("Calibrate gyro and accel");
 
@@ -140,7 +132,8 @@ void setup()
             Serial.println("MPU9250 initialized for active data mode....");
         }
 
-        myImu.Init();
+        // Config for normal operation
+        myImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div to 4 (0x03 + 1)
 
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         byte d = myImu.ReadRegister(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
@@ -151,7 +144,7 @@ void setup()
         }
 
         // Get magnetometer calibration from AK8963 ROM
-        myImu.InitAK8963(magCalFactory);
+        myImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
 
 #ifdef RESET_MAGCAL
         if (Debug) {

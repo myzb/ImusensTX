@@ -11,6 +11,8 @@
 
 #include "mpu9250.h"
 
+//#define I2C_SLV0
+
 /* MPU9250 object, input the I2C address and I2C bus */
 mpu9250::mpu9250(uint8_t address, uint8_t bus){
     _address = address; // I2C address
@@ -257,20 +259,99 @@ int mpu9250::NewData()
     return 0;
 }
 
-void mpu9250::GetMPU9250Counts(int16_t *counts_out)
+void mpu9250::GetAllCounts(int16_t *counts_out)
 {
-    uint8_t rawData[14];  // x/y/z accel register data stored here
-    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 14, &rawData[0]);  // Read the 14 raw data registers into data array
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  // FIXME: Shift of signed values is platform specific
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
-    counts_out[3] = ((int16_t)rawData[6] << 8) | rawData[7] ;
-    counts_out[4] = ((int16_t)rawData[8] << 8) | rawData[9] ;
-    counts_out[5] = ((int16_t)rawData[10] << 8) | rawData[11] ;
-    counts_out[6] = ((int16_t)rawData[12] << 8) | rawData[13] ;
+    uint8_t rawData[22];
+
+    ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
+    // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
+    counts_out[3] = ((int16_t)rawData[6] << 8) | rawData[7];
+    counts_out[4] = ((int16_t)rawData[8] << 8) | rawData[9];
+    counts_out[5] = ((int16_t)rawData[10] << 8) | rawData[11];
+    counts_out[6] = ((int16_t)rawData[12] << 8) | rawData[13];
+
+    if ((rawData[14] & 0x01) && !(rawData[21] & 0x08)) {
+        // Mag data is ready && no mag overflow
+        counts_out[7] = ((int16_t)rawData[16] << 8) | rawData[15];
+        counts_out[8] = ((int16_t)rawData[18] << 8) | rawData[17];
+        counts_out[9] = ((int16_t)rawData[20] << 8) | rawData[19];
+    } else {
+        counts_out[7] = counts_out[8] = counts_out[9] = 0;
+    }
+
+    // FIXME: Shift of signed values is platform specific
 }
 
-void mpu9250::GetMPU9250(float *a, float *g, float &t)
+void mpu9250::GetAllData(float *all_out)
+{
+    int16_t counts[10];
+
+    GetAllCounts(counts);
+
+    // Accel counts in g's
+#if 0
+    // There was a bug that prevented writing accel calibration values to the
+    // corresponding registers. Keep this here just incase.
+    all_out[0] = (float)counts[0] * _accelScale - _aCal_bias[0];
+    all_out[1] = (float)counts[1] * _accelScale - _aCal_bias[1];
+    all_out[2] = (float)counts[2] * _accelScale - _aCal_bias[2];
+#else
+    all_out[0] = (float)counts[0] * _accelScale;
+    all_out[1] = (float)counts[1] * _accelScale;
+    all_out[2] = (float)counts[2] * _accelScale;
+#endif
+
+    // Temp counts in degrees celcius
+    all_out[3] = ((float)counts[3] - _tempOffset)/_tempScale + _tempOffset;
+
+    // Gyro counts in deg/s
+    all_out[4] = (float)counts[4] * _gyroScale;
+    all_out[5] = (float)counts[5] * _gyroScale;
+    all_out[6] = (float)counts[6] * _gyroScale;
+
+    // Return if mag data not rdy or mag overflow (and use previous data)
+    if (!(counts[7] | counts[8] | counts[9])) return;
+
+    // Convert counts to milliGauss, also include factory calibration per data sheet
+    // and user environmental corrections (re-scaling)
+    all_out[7] = (float)counts[7] * _magScale * _mRes_factory[0] - _mCal_bias[0];
+    all_out[8] = (float)counts[8] * _magScale * _mRes_factory[1] - _mCal_bias[1];
+    all_out[9] = (float)counts[9] * _magScale * _mRes_factory[2] - _mCal_bias[2];
+    all_out[7] *= _mCal_scale[0];
+    all_out[8] *= _mCal_scale[1];
+    all_out[9] *= _mCal_scale[2];
+
+#ifdef MAG_EXPORT
+    Serial.print((int)((float)counts[7] * _magScale) ); Serial.print("\t");
+    Serial.print((int)((float)counts[8] * _magScale) ); Serial.print("\t");
+    Serial.print((int)((float)counts[9] * _magScale) ); Serial.print("\t");
+    Serial.print((int) all_out[7] ); Serial.print("\t");
+    Serial.print((int) all_out[8] ); Serial.print("\t");
+    Serial.print((int) all_out[9] ); Serial.print("\n");
+#endif /* MAG_EXPORT */
+}
+
+void mpu9250::GetMPU9250Counts(int16_t *counts_out)
+{
+    uint8_t rawData[14];
+
+    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 14, &rawData[0]);
+    // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
+    counts_out[3] = ((int16_t)rawData[6] << 8) | rawData[7];
+    counts_out[4] = ((int16_t)rawData[8] << 8) | rawData[9];
+    counts_out[5] = ((int16_t)rawData[10] << 8) | rawData[11];
+    counts_out[6] = ((int16_t)rawData[12] << 8) | rawData[13];
+
+    // FIXME: Shift outcome of signed values is platform specific
+}
+
+void mpu9250::GetMPU9250Data(float *data_out)
 {
     int16_t mpu9250Counts[7];
 
@@ -281,34 +362,38 @@ void mpu9250::GetMPU9250(float *a, float *g, float &t)
 #if 0
     // There was a bug that prevented writing accel calibration values to the
     // corresponding registers. Keep this here just incase.
-    a[0] = (float)mpu9250Counts[0]*_accelScale - _aCal_bias[0];
-    a[1] = (float)mpu9250Counts[1]*_accelScale - _aCal_bias[1];
-    a[2] = (float)mpu9250Counts[2]*_accelScale - _aCal_bias[2];
+    data_out[0] = (float)mpu9250Counts[0]*_accelScale - _aCal_bias[0];
+    data_out[1] = (float)mpu9250Counts[1]*_accelScale - _aCal_bias[1];
+    data_out[2] = (float)mpu9250Counts[2]*_accelScale - _aCal_bias[2];
 #else
-    a[0] = (float)mpu9250Counts[0]*_accelScale;
-    a[1] = (float)mpu9250Counts[1]*_accelScale;
-    a[2] = (float)mpu9250Counts[2]*_accelScale;
+    data_out[0] = (float)mpu9250Counts[0]*_accelScale;
+    data_out[1] = (float)mpu9250Counts[1]*_accelScale;
+    data_out[2] = (float)mpu9250Counts[2]*_accelScale;
 #endif
 
-    // Temp in degC
-    t = (float) mpu9250Counts[3] / 333.87f + 21.0f;
+    // Temp counts in degrees celcius
+    data_out[3] = ((float)mpu9250Counts[3] - _tempOffset)/_tempScale + _tempOffset;
 
     // Gyro counts in deg/s
-    g[0] = (float)mpu9250Counts[4]*_gyroScale;
-    g[1] = (float)mpu9250Counts[5]*_gyroScale;
-    g[2] = (float)mpu9250Counts[6]*_gyroScale;
+    data_out[4] = (float)mpu9250Counts[4]*_gyroScale;
+    data_out[5] = (float)mpu9250Counts[5]*_gyroScale;
+    data_out[6] = (float)mpu9250Counts[6]*_gyroScale;
 }
 
 void mpu9250::GetAccelCounts(int16_t *counts_out)
 {
-    uint8_t rawData[6];  // x/y/z accel register data stored here
-    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);  // Read the six raw data registers into data array
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+    uint8_t rawData[6];
+
+    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
+    // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
+
+    // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetAccel(float *a)
+void mpu9250::GetAccelData(float *accel_out)
 {
     int16_t accelCounts[3];
 
@@ -316,21 +401,25 @@ void mpu9250::GetAccel(float *a)
     GetGyroCounts(accelCounts);
 
     // Convert counts to g
-    a[0] = (float)accelCounts[0]*_accelScale;
-    a[1] = (float)accelCounts[1]*_accelScale;
-    a[2] = (float)accelCounts[2]*_accelScale;
+    accel_out[0] = (float)accelCounts[0]*_accelScale;
+    accel_out[1] = (float)accelCounts[1]*_accelScale;
+    accel_out[2] = (float)accelCounts[2]*_accelScale;
 }
 
 void mpu9250::GetGyroCounts(int16_t *counts_out)
 {
-    uint8_t rawData[6];  // x/y/z gyro register data stored here
-    ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);   // Read the six raw data registers sequentially into data array
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+    uint8_t rawData[6];
+
+    ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);
+    // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
+
+    // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetGyro(float *g)
+void mpu9250::GetGyroData(float *gyro_out)
 {
     int16_t gyroCounts[3];
 
@@ -338,9 +427,9 @@ void mpu9250::GetGyro(float *g)
     GetGyroCounts(gyroCounts);
 
     // Convert counts to deg/s
-    g[0] = (float)gyroCounts[0]*_gyroScale;
-    g[1] = (float)gyroCounts[1]*_gyroScale;
-    g[2] = (float)gyroCounts[2]*_gyroScale;
+    gyro_out[0] = (float)gyroCounts[0]*_gyroScale;
+    gyro_out[1] = (float)gyroCounts[1]*_gyroScale;
+    gyro_out[2] = (float)gyroCounts[2]*_gyroScale;
 }
 
 void mpu9250::GetMagCounts(int16_t *counts_out)
@@ -351,13 +440,13 @@ void mpu9250::GetMagCounts(int16_t *counts_out)
 
     // Check if magnetic sensor overflow set, if not then report data
     if(!(c & 0x08)) {
-        counts_out[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
-        counts_out[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
-        counts_out[2] = ((int16_t)rawData[5] << 8) | rawData[4] ;
+        counts_out[0] = ((int16_t)rawData[1] << 8) | rawData[0];
+        counts_out[1] = ((int16_t)rawData[3] << 8) | rawData[2];
+        counts_out[2] = ((int16_t)rawData[5] << 8) | rawData[4];
     }
 }
 
-void mpu9250::GetMag(float *m)
+void mpu9250::GetMagData(float *mag_out)
 {
     int16_t magCounts[3];
 
@@ -366,20 +455,20 @@ void mpu9250::GetMag(float *m)
 
     // Convert counts to milliGauss, also include factory calibration per data sheet
     // and user environmental corrections (re-scaling)
-    m[0] = (float)magCounts[0]*_magScale*_mRes_factory[0] - _mCal_bias[0];
-    m[1] = (float)magCounts[1]*_magScale*_mRes_factory[1] - _mCal_bias[1];
-    m[2] = (float)magCounts[2]*_magScale*_mRes_factory[2] - _mCal_bias[2];
-    m[0] *= _mCal_scale[0];
-    m[1] *= _mCal_scale[1];
-    m[2] *= _mCal_scale[2];
+    mag_out[0] = (float)magCounts[0]*_magScale*_mRes_factory[0] - _mCal_bias[0];
+    mag_out[1] = (float)magCounts[1]*_magScale*_mRes_factory[1] - _mCal_bias[1];
+    mag_out[2] = (float)magCounts[2]*_magScale*_mRes_factory[2] - _mCal_bias[2];
+    mag_out[0] *= _mCal_scale[0];
+    mag_out[1] *= _mCal_scale[1];
+    mag_out[2] *= _mCal_scale[2];
 
 #ifdef MAG_EXPORT
     Serial.print( (int)((float)magCounts[0]*_magScale) ); Serial.print("\t");
     Serial.print( (int)((float)magCounts[1]*_magScale) ); Serial.print("\t");
     Serial.print( (int)((float)magCounts[2]*_magScale) ); Serial.print("\t");
-    Serial.print( (int) m[0] ); Serial.print("\t");
-    Serial.print( (int) m[1] ); Serial.print("\t");
-    Serial.print( (int) m[2] ); Serial.print("\n");
+    Serial.print( (int) mag_out[0] ); Serial.print("\t");
+    Serial.print( (int) mag_out[1] ); Serial.print("\t");
+    Serial.print( (int) mag_out[2] ); Serial.print("\n");
 #endif /* MAG_EXPORT */
 
 }
@@ -391,9 +480,9 @@ int16_t mpu9250::GetTempCounts()
     return ((int16_t)rawData[0] << 8) | rawData[1] ;
 }
 
-float mpu9250::GetTemp()
+float mpu9250::GetTempData()
 {
-    return (float)((GetTempCounts()  - _tempOffset)/_tempScale + _tempOffset);
+    return (((float)GetTempCounts() - _tempOffset)/_tempScale + _tempOffset);
 }
 
 void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out)
@@ -413,42 +502,98 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Set mag sampling rate
     _magRate = magRate;
 
+#ifndef I2C_SLV0
     // TODO: May want to reset mag sensor aswell?
 
     // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
     delay(10);
 
     // Enter Fuse ROM access mode
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_FUSE_ROM);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_FUSE_ROM);
     delay(10);
 
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
     uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128)/256. + 1.;
-    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128)/256. + 1.;
-    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128)/256. + 1.;
+    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128)/256.0f + 1.0f;
+    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128)/256.0f + 1.0f;
+    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128)/256.0f + 1.0f;
 
     // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
     delay(10);
 
     // Write magnetometer sampling rate and bit resolution to register
     uint8_t c = magRange << 4 | magRate;
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL, c);
+    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, c);
     delay(10);
+#else
+
+    // Reset magnetometer
+    WriteAK8963Register(AK8963_CNTL2, AK8963_RESET);
+    delay(10);
+
+    // Power down magnetometer
+    WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
+    delay(10);
+
+    // Enter Fuse ROM access mode
+    WriteAK8963Register(AK8963_CNTL1, AK8963_FUSE_ROM);
+    delay(10);
+
+    // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
+    uint8_t rawData[3];
+    ReadAK8963Registers( AK8963_ASAX, sizeof(rawData), &rawData[0]);
+    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128)/256.0f + 1.0f;
+    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128)/256.0f + 1.0f;
+    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128)/256.0f + 1.0f;
+
+    // Power down magnetometer
+    WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
+    delay(100);
+
+    // Write magnetometer sampling rate and bit resolution to register
+    uint8_t c = magRange << 4 | magRate;
+    WriteAK8963Register(AK8963_CNTL1, c);
+    delay(10);
+
+    // Config SLV0 for normal operation
+    WriteRegister(_address, I2C_SLV0_ADDR, I2C_READ_FLAG | AK8963_ADDRESS);  // set SLV0 to AK8963 and cfg for read
+    WriteRegister(_address, I2C_SLV0_REG, AK8963_ST1);                       // AK8963 register to read from
+
+    // Enable I2C to send 8 bytes (ST1 + mag_data[6] + ST2), mag_data[6] is in odd + even pairs
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | I2C_SLV0_GRP_EVN | 0x08 );
+
+    delayMicroseconds(100); // takes some time for these registers to fill
+    uint8_t data[8];
+
+    // read the bytes off the MPU9250 EXT_SENS_DATA registers
+    ReadRegisters(_address, EXT_SENS_DATA_00, sizeof(data), data);
+#endif /* I2C_SLV0 */
 }
 
-void mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD)
+int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD)
 {
-    // Wake up device and reset all registers
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, H_RESET);
-    delay(100); // Wait for all registers to reset
+    // Reset the MPU9250
+    WriteRegister(_address, PWR_MGMT_1, H_RESET);
 
-    // Auto select best clock source
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);
-    delay(200);
+    // wait for MPU-9250 to come back up
+    delay(1);
+
+    // auto-select best clock source
+    WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
+
+#ifdef I2C_SLV0
+    // enable I2C master mode
+    WriteRegister(_address,USER_CTRL, I2C_MST_EN);
+
+    // set the I2C bus speed to 400 kHz
+    WriteRegister(_address, I2C_MST_CTRL, I2C_MST_CLK);
+
+    // delay shadow of external sensor data until rx is complete
+    WriteRegister(_address, I2C_MST_DELAY_CTRL, I2C_DLY_ES_SHDW);
+#endif /* I2C_SLV0 */
 
     // Set the accel and gyro axis scale factors
     switch(accelRange) {
@@ -528,12 +673,32 @@ void mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange,
     // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)
     WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, SRD);
 
-    // Config interrupt, Clear on read | i2c bypass enable
-    WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
+    return 0;
+}
 
+void mpu9250::SetupInterrupt()
+{
+#ifndef I2C_SLV0
+    // Config interrupt: Auto-clear on reg read | i2c bypass enable
+    WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
+#else
+    // Config interrupt: latch mode (held high until cleared)
+    // NOTE: Auto-clear randomly triggers before readout in i2c_slv0 mode causing a bus stall.
+    WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
+#endif /* I2C_SLV0 */
+}
+
+void mpu9250::EnableInterrupt()
+{
     // Trigger interrupt on new raw data
-    WriteRegister(MPU9250_ADDRESS, INT_ENABLE, INT_RAW_RDY_EN);
+    WriteRegister(_address, INT_ENABLE, INT_RAW_RDY_EN);
     delay(100);
+}
+
+uint8_t mpu9250::ClearInterrupt()
+{
+    // If !INT_ANYRD_2CLEAR a 'manual' read of INT_STATUS clears the interrupt
+    return ReadRegister(_address, INT_STATUS);
 }
 
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
@@ -641,6 +806,17 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     accelBias_out[1] = (float)accel_bias[1]/(float)accelsensitivity;
     accelBias_out[2] = (float)accel_bias[2]/(float)accelsensitivity;
 
+#if 0
+    Serial.println("accel biases (mg)");
+    Serial.println(1000.*accelBias_out[0]);
+    Serial.println(1000.*accelBias_out[1]);
+    Serial.println(1000.*accelBias_out[2]);
+    Serial.println("gyro biases (dps)");
+    Serial.println(gyroBias_out[0]);
+    Serial.println(gyroBias_out[1]);
+    Serial.println(gyroBias_out[2]);
+#endif
+
     // The MPU9250 ships with accelermometer factory trim values, the respective register values
     // can be combined with user calcualted values to imporve accuracy
 
@@ -664,10 +840,12 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     accel_bias_reg[1] /= 2;
     accel_bias_reg[2] /= 2;
 
+#if 0
     Serial.println("accel factory trim (g)");
     for (int i = 0; i < 3; i++) {
         Serial.println(accel_bias_reg[i]*16.0f/16384.0f, 8);
     }
+#endif
 
     // accel_bias is AFS_2G = 2/32768 = 0,06mg/LSB, div by 16 to convert to 16/16384 = 0,98mg/LSB
     accel_bias_reg[0] -= (int16_t)(accel_bias[0]/16);
@@ -694,6 +872,7 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     WriteRegister(MPU9250_ADDRESS, YA_OFFSET_L, data[3]);
     WriteRegister(MPU9250_ADDRESS, ZA_OFFSET_H, data[4]);
     WriteRegister(MPU9250_ADDRESS, ZA_OFFSET_L, data[5]);
+
 #if 0
     ReadRegisters(MPU9250_ADDRESS, XA_OFFSET_H, 2, &data[0]); // Read factory accelerometer trim values
     mask_bit[0] = data[1] & 0x01;
@@ -725,6 +904,19 @@ void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
     _mCal_scale[0] = magScale_in[0];
     _mCal_scale[1] = magScale_in[1];
     _mCal_scale[2] = magScale_in[2];
+
+#if 1
+    Serial.println("Preset calibration: ");
+    Serial.println("AK8963 mag biases (mG)"); Serial.println(_mCal_bias[0], 8);
+    Serial.println(_mCal_bias[1], 8); Serial.println(_mCal_bias[2], 8);
+    Serial.println("AK8963 mag scale (mG)"); Serial.println(_mCal_scale[0], 8);
+    Serial.println(_mCal_scale[1], 8); Serial.println(_mCal_scale[2], 8);
+    Serial.print("\n");
+    Serial.println("Factory calibration: ");
+    Serial.print("X-Axis sensitivity scale "); Serial.println(_mRes_factory[0], 2);
+    Serial.print("Y-Axis sensitivity scale "); Serial.println(_mRes_factory[1], 2);
+    Serial.print("Z-Axis sensitivity scale "); Serial.println(_mRes_factory[2], 2);
+#endif
 }
 
 void mpu9250::MagCal(float *magBias_out, float *magScale_out)
@@ -732,6 +924,13 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     uint16_t ii = 0, sample_count = 0;
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
     int16_t mag_max[3] = {-32767, -32767, -32767}, mag_min[3] = {32767, 32767, 32767}, mag_temp[3] = {0, 0, 0};
+
+    // TODO: Notify the user that mag cal is about to start
+#if 0
+    Serial.println("AK8963 initialized for active data mode....");
+    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+    delay(4000);
+    #endif
 
     // shoot for ~thirty seconds of mag data
     if(_magRate == MAG_RATE_8HZ) sample_count = 30*8;  // at 8 Hz ODR, new mag data is available every 125 ms
@@ -749,18 +948,20 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     if(_magRate == MAG_RATE_100HZ) delay(12);  // at 100 Hz ODR, new mag data is available every 10 ms
     }
 
-    // Serial.println("mag x min/max:"); Serial.println(mag_max[0]); Serial.println(mag_min[0]);
-    // Serial.println("mag y min/max:"); Serial.println(mag_max[1]); Serial.println(mag_min[1]);
-    // Serial.println("mag z min/max:"); Serial.println(mag_max[2]); Serial.println(mag_min[2]);
+#if 0
+    Serial.println("mag x min/max:"); Serial.println(mag_max[0]); Serial.println(mag_min[0]);
+    Serial.println("mag y min/max:"); Serial.println(mag_max[1]); Serial.println(mag_min[1]);
+    Serial.println("mag z min/max:"); Serial.println(mag_max[2]); Serial.println(mag_min[2]);
+#endif
 
     // Get hard iron correction
     mag_bias[0]  = (mag_max[0] + mag_min[0])/2;  // get average x mag bias in counts
     mag_bias[1]  = (mag_max[1] + mag_min[1])/2;  // get average y mag bias in counts
     mag_bias[2]  = (mag_max[2] + mag_min[2])/2;  // get average z mag bias in counts
 
-    magBias_out[0] = (float) mag_bias[0]*_magScale * _mRes_factory[0];  // save mag biases in G for main program
-    magBias_out[1] = (float) mag_bias[1]*_magScale * _mRes_factory[1];
-    magBias_out[2] = (float) mag_bias[2]*_magScale * _mRes_factory[2];
+    _mCal_bias[0] = (float) mag_bias[0]*_magScale * _mRes_factory[0];  // save mag biases in G for main program
+    _mCal_bias[1] = (float) mag_bias[1]*_magScale * _mRes_factory[1];
+    _mCal_bias[2] = (float) mag_bias[2]*_magScale * _mRes_factory[2];
 
     // Get soft iron correction estimate
     mag_scale[0]  = (mag_max[0] - mag_min[0])/2;  // get average x axis max chord length in counts
@@ -770,9 +971,22 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     float avg_rad = mag_scale[0] + mag_scale[1] + mag_scale[2];
     avg_rad /= 3.0;
 
-    magScale_out[0] = avg_rad/((float)mag_scale[0]);
-    magScale_out[1] = avg_rad/((float)mag_scale[1]);
-    magScale_out[2] = avg_rad/((float)mag_scale[2]);
+    _mCal_scale[0] = avg_rad/((float)mag_scale[0]);
+    _mCal_scale[1] = avg_rad/((float)mag_scale[1]);
+    _mCal_scale[2] = avg_rad/((float)mag_scale[2]);
+
+#if 0
+    Serial.println("Mag calibration done!");
+    Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._mCal_bias[0], 8);
+    Serial.println(myImu._mCal_bias[1], 8); Serial.println(myImu._mCal_bias[2], 8);
+    Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._mCal_scale[0], 8);
+    Serial.println(myImu._mCal_scale[1], 8); Serial.println(myImu._mCal_scale[2], 8);
+    Serial.print("\n");
+    Serial.println("Calibration values: ");
+    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[0], 2);
+    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[1], 2);
+    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[2], 2);
+#endif
 }
 
 void mpu9250::SelfTest(float *selfTest_out)
@@ -859,16 +1073,34 @@ void mpu9250::SelfTest(float *selfTest_out)
     factoryTrim[5] = (float)(2620/1<<FS)*(pow( 1.01 , ((float)selfTest[5] - 1.0) ));
 
     // Report results as a ratio of (STR - FT)/FT in percent
+    // TODO: Do something with this information
     for (int i = 0; i < 3; i++) {
         selfTest_out[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;
         selfTest_out[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.;
     }
-    // Return percent deviation from factory trim values, +/- 14 or less deviation is a pass
+
+#if 0
+    // Print the values
+    Serial.print("x-axis self test: acceleration trim within : ");
+    Serial.print(selfTest[0],1); Serial.println("% of factory value");
+    Serial.print("y-axis self test: acceleration trim within : ");
+    Serial.print(selfTest[1],1); Serial.println("% of factory value");
+    Serial.print("z-axis self test: acceleration trim within : ");
+    Serial.print(selfTest[2],1); Serial.println("% of factory value");
+    Serial.print("x-axis self test: gyration trim within : ");
+    Serial.print(selfTest[3],1); Serial.println("% of factory value");
+    Serial.print("y-axis self test: gyration trim within : ");
+    Serial.print(selfTest[4],1); Serial.println("% of factory value");
+    Serial.print("z-axis self test: gyration trim within : ");
+    Serial.print(selfTest[5],1); Serial.println("% of factory value");
+#endif
 }
 
 // I2C read/write functions for the MPU9250 and AK8963 sensors
-void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
+bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
 {
+    uint8_t buff[1];
+
     /* write data to device */
     if( _useSPI ){
 
@@ -942,6 +1174,18 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
         i2c_t3(_bus).write(data_in);                 // Put data in Tx buffer
         i2c_t3(_bus).endTransmission();           // Send the Tx buffer
     }
+    delay(10); // need to slow down how fast I write to MPU9250
+
+    /* read back the register */
+    ReadRegisters(_address, subAddress, sizeof(buff), &buff[0]);
+
+    /* check the read back register against the written register */
+    if(buff[0] == data_in) {
+        return true;
+    }
+    else{
+        return false;
+    }
 }
 
 uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
@@ -950,10 +1194,8 @@ uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
     i2c_t3(_bus).beginTransmission(address);         // Initialize the Tx buffer
     i2c_t3(_bus).write(subAddress);                  // Put slave register address in Tx buffer
     i2c_t3(_bus).endTransmission(I2C_NOSTOP);        // Send the Tx buffer, but send a restart to keep connection alive
-//  i2c_t3(_bus).endTransmission(false);             // Send the Tx buffer, but send a restart to keep connection alive
-//  i2c_t3(_bus).requestFrom(address, 1);            // Read one byte from slave register address
     i2c_t3(_bus).requestFrom(address, (size_t) 1);   // Read one byte from slave register address
-    data = i2c_t3(_bus).read();                      // Fill Rx buffer with result
+    data = i2c_t3(_bus).readByte();                      // Fill Rx buffer with result
     return data;                             // Return data read from slave register
 }
 
@@ -1129,12 +1371,11 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
         i2c_t3(_bus).beginTransmission(address);   // Initialize the Tx buffer
         i2c_t3(_bus).write(subAddress);            // Put slave register address in Tx buffer
         i2c_t3(_bus).endTransmission(I2C_NOSTOP);  // Send the Tx buffer, but send a restart to keep connection alive
-    //  i2c_t3(_bus).endTransmission(false);       // Send the Tx buffer, but send a restart to keep connection alive
         uint8_t i = 0;
-    //        i2c_t3(_bus).requestFrom(address, count);     // Read bytes from slave register address
+
         i2c_t3(_bus).requestFrom(address, (size_t) count);  // Read bytes from slave register address
         while (i2c_t3(_bus).available()) {
-            data_out[i++] = i2c_t3(_bus).read();       // Put read results in the Rx buffer
+            data_out[i++] = i2c_t3(_bus).readByte();        // Put read results in the Rx buffer
         }
     }
 }
@@ -1145,10 +1386,10 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
     uint8_t count = 1;
     uint8_t buff[1];
 
-    WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS); // set slave 0 to the AK8963 and set for write
-    WriteRegister(_address, I2C_SLV0_REG, subAddress); // set the register to the desired AK8963 sub address
-    WriteRegister(_address, I2C_SLV0_DO, data); // store the data for write
-    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // enable I2C and send 1 byte
+    WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS);      // SLV0 to AK8963 & set for write
+    WriteRegister(_address, I2C_SLV0_REG, subAddress);           // Set desired AK8963 sub-address
+    WriteRegister(_address, I2C_SLV0_DO, data);                  // Data to be sent
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // Enable I2C & tx 'count' bytes
 
     // read the register and confirm
     ReadAK8963Registers(subAddress, sizeof(buff), &buff[0]);
@@ -1164,9 +1405,35 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 /* reads registers from the AK8963 */
 void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
-    WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS | I2C_READ_FLAG); // set slave 0 to the AK8963 and set for read
-    WriteRegister(_address, I2C_SLV0_REG,subAddress); // set the register to the desired AK8963 sub address
-    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // enable I2C and request the bytes
-    delayMicroseconds(100); // takes some time for these registers to fill
-    ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out); // read the bytes off the MPU9250 EXT_SENS_DATA registers
+    WriteRegister(_address, I2C_SLV0_ADDR, I2C_READ_FLAG | AK8963_ADDRESS); // SLV0 to AK8963 & set for read
+    WriteRegister(_address, I2C_SLV0_REG, subAddress);              // Set desired AK8963 sub-address
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count);    // Enable I2C & rx 'count' bytes
+
+    // takes some time for these registers to fill
+    delayMicroseconds(100);
+    ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out);     // read the received bytes
+}
+
+/* gets the MPU9250 WHO_AM_I register value, expected to be 0x71 */
+uint8_t mpu9250::whoAmI()
+{
+    uint8_t buff[1];
+
+    // read the WHO AM I register
+    ReadRegisters(_address, WHO_AM_I_MPU9250, sizeof(buff),&buff[0]);
+
+    // return the register value
+    return buff[0];
+}
+
+/* gets the AK8963 WHO_AM_I register value, expected to be 0x48 */
+uint8_t mpu9250::whoAmIAK8963()
+{
+    uint8_t buff[1];
+
+    // read the WHO AM I register
+    ReadAK8963Registers(AK8963_WHO_AM_I,sizeof(buff),&buff[0]);
+
+    // return the register value
+    return buff[0];
 }

@@ -81,7 +81,7 @@ enum ak8963_mag_rate {
 
 /* The MPU9250 Class
  *
- * See also MPU-9250 Register Map and Descriptions, Revision 4.0, RM-MPU-9250A-00, Rev. 1.4, 9/9/2013
+ * See also MPU-9250 Register Map and Descriptions, RM-MPU-9250A-00, Rev. 1.6, 01/07/2015
  * for registers not listed in above document; the MPU9250 and MPU9150 are virtually identical but the
  * latter has a different register map
  *
@@ -103,7 +103,8 @@ public:
     const uint8_t AK8963_ZOUT_L    = 0x07;
     const uint8_t AK8963_ZOUT_H    = 0x08;
     const uint8_t AK8963_ST2       = 0x09;
-    const uint8_t AK8963_CNTL      = 0x0A;
+    const uint8_t AK8963_CNTL1     = 0x0A;
+    const uint8_t AK8963_CNTL2     = 0x0B;
     const uint8_t AK8963_ASTC      = 0x0C;
     const uint8_t AK8963_I2CDIS    = 0x0F;
     const uint8_t AK8963_ASAX      = 0x10;
@@ -239,24 +240,20 @@ public:
     /* End */
 
     /* Register flags */
-    // MPU9250 gyro/accel
-    const uint8_t ACCEL_FS_SEL_2G  = 0x00;
-    const uint8_t ACCEL_FS_SEL_4G  = 0x08;
-    const uint8_t ACCEL_FS_SEL_8G  = 0x10;
-    const uint8_t ACCEL_FS_SEL_16G = 0x18;
-
-    const uint8_t GYRO_FS_SEL_250DPS  = 0x00;
-    const uint8_t GYRO_FS_SEL_500DPS  = 0x08;
-    const uint8_t GYRO_FS_SEL_1000DPS = 0x10;
-    const uint8_t GYRO_FS_SEL_2000DPS = 0x18;
-
     // MPU9250 general
     const uint8_t H_RESET          = 0x80;
+    const uint8_t CLKSEL_AUTO      = 0x01;
     const uint8_t INT_ANYRD_2CLEAR = 0x10;
     const uint8_t INT_RAW_RDY_EN   = 0x01;
     const uint8_t INT_BYPASS_EN    = 0x02;
+    const uint8_t INT_LATCH_EN     = 0x20;
     const uint8_t I2C_READ_FLAG    = 0x80;
+    const uint8_t I2C_WAIT_FOR_ES  = 0x40;
+    const uint8_t I2C_DLY_ES_SHDW  = 0x80;
+    const uint8_t I2C_SLV0_GRP_EVN = 0x10;
     const uint8_t I2C_SLV0_EN      = 0x80;
+    const uint8_t I2C_MST_EN       = 0x20;
+    const uint8_t I2C_MST_CLK      = 0x0D;  // 400 kHz
 
     // AK8963 magnetometer
     const uint8_t AK8963_PWR_DOWN = 0x00;
@@ -315,6 +312,7 @@ public:
     /* End */
 
     /* Member functions */
+    // Constructors
     mpu9250(uint8_t address, uint8_t bus);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
@@ -323,38 +321,46 @@ public:
 
     // Functions that start the communication and sensors
     void WireBegin();
-    void Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
+    int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
     void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out);
+    void SetupInterrupt();
+    void EnableInterrupt();
+    uint8_t ClearInterrupt();
 
     // Functions to fine tune the sensors
     void SelfTest(float *selfTest_out);
     void MagCal(float *magBias_out, float *magScale_out);
     void AcelGyroCal(float *accelBias_out, float *gyroBias_out);
     void SetMagCal(float *magBias_in, float *magScale_in);
+    void GetAllData(float *all_out);
 
-    // Functions that read the sensor ADC values
+    // Functions that return the raw sensor ADC values
     int16_t GetTempCounts();
     void GetMagCounts(int16_t *counts_out);
     void GetAccelCounts(int16_t *counts_out);
     void GetGyroCounts(int16_t *counts_out);
     void GetMPU9250Counts(int16_t *counts_out);
+    void GetAllCounts(int16_t *counts_out);
 
     int NewMagData();
     int NewData();
 
     // Functions that return the converted sensor values (g's, deg/s, milliGaus, DegCelcius)
-    float GetTemp();
-    void GetAccel(float *a);
-    void GetGyro(float *g);
-    void GetMPU9250(float *a, float *g, float &t);
-    void GetMag(float *m);
+    float GetTempData();
+    void GetAccelData(float *accel_out);
+    void GetGyroData(float *gyro_out);
+    void GetMPU9250Data(float *data_out);
+    void GetMagData(float *mag_out);
 
     // Register R/W access
-    void WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
+    bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
     uint8_t ReadRegister(uint8_t address, uint8_t subAddress);
     void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out);
     void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
+
+    uint8_t whoAmI();
+    uint8_t whoAmIAK8963();
     /* End */
 };
 #endif /* _MPU9250_H_ */

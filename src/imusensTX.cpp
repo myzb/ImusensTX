@@ -42,8 +42,8 @@
 #include "mpu9250.h"
 
 #define AHRS
-#define USB_RX
-//#define MAG_EXPORT
+//#define I2C_SLV0
+#define I2C_SPI_TIME
 //#define RESET_MAGCAL
 
 // Debug flag
@@ -54,12 +54,40 @@ static const int Debug = 1;
 static const int intPin = 33;
 static const int myLed = 13;
 
+#ifdef I2C_SPI_TIME
+// Times the avg sensor readout time
+volatile static int i = 0;
+volatile static float dt = 0, ts = 0, ts2 = 0;
+#endif
+
 // Globals
-mpu9250 myImu(0x68, 0); // MPU9250 on i2c bus 0 address 0x68
+mpu9250 myImu(0x68, 0, I2C_PINS_18_19, I2C_PULLUP_EXT); // MPU9250 on i2c bus 0 address 0x68
+static float imuData[10];
 
 void intFunc()
 {
-  myImu._newData = 1;
+#ifdef I2C_SLV0
+#ifdef I2C_SPI_TIME
+    ts2 = micros();
+#endif /* I2C_SPI_TIME */
+    myImu.GetAllData(imuData);
+    myImu.ClearInterrupt(); // FIXME: Calling this sadly adds 125us to IRS for I2C
+#ifdef I2C_SPI_TIME
+    dt = dt + micros() - ts2;
+    i++;
+    if (i > 1000) {
+        ts = micros() - ts;
+        Serial.print("IMU: fs = "); Serial.print((float)i/ts *1000000.f); Serial.println(" Hz");
+        ts = micros();
+        dt = dt/i;
+        Serial.print("IMU: I2C rate = "); Serial.print(dt, 2); Serial.println(" us");
+        dt = 0;
+        i = 0;
+    }
+#endif /* I2C_SPI_TIME */
+#else
+    myImu._newData = 1;
+#endif /* I2C_SLV0 */
 }
 
 void setup()
@@ -68,124 +96,80 @@ void setup()
     float selfTest[6];
     float magCalFactory[3];
 
-    float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};   // Pre-calibrated values
+#if 1
+    // Pre-calibrated values (office)
+    float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};
     float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
+#else
+    // Pre-calibrated values (golf)
+    float magBias[3] = {47.51190567f, 584.83221436f, -210.48852539};
+    float magScale[3] = {1.02854228f, 0.99213374f, 0.98056370f};
+#endif
+
+    Serial.begin(38400);
+    delay(4000);
 
     // Init I2C/SPI for this sensor
     myImu.WireBegin();
 
-    delay(4000);
-    Serial.begin(38400);
-  
     // Set up the interrupt pin, its set as active high, push-pull
     pinMode(intPin, INPUT);
     pinMode(myLed, OUTPUT);
     digitalWrite(myLed, HIGH);
 
+#ifndef I2C_SLV0
+    I2Cscan();// look for I2C devices on the bus
+#endif /* I2C_SLV0 */
+
+    // Loop forever if MPU9250 is not online
+    if (myImu.whoAmI() != 0x71) while(1);
+
     if (Debug) {
-        I2Cscan();// look for I2C devices on the bus
-        Serial.println("MPU9250 9-axis motion sensor...");
+        Serial.println("MPU9250: 9-axis motion sensor is online");
     }
 
-    // Read WHO_AM_I register for MPU-9250
-    byte c = myImu.ReadRegister(myImu.MPU9250_ADDRESS, myImu.WHO_AM_I_MPU9250);
+    // Start by performing self test and reporting values
+    myImu.SelfTest(selfTest);
+    delay(1000);
 
-    // WHO_AM_I should always be 0x68
-    if (c == 0x71) {
-        if (Debug)
-            Serial.println("MPU9250 is online...");
+    if (Debug) Serial.println("MPU9250: Calibrating gyro and accel");
 
-        // Start by performing self test and reporting values
-        myImu.SelfTest(selfTest);
-        delay(1000);
+    // Calibrate gyro and accelerometers, load biases in bias registers
+    myImu.AcelGyroCal(gyroBias, accelBias);
 
-        if (Debug) {
-            Serial.print("x-axis self test: acceleration trim within : ");
-            Serial.print(selfTest[0],1); Serial.println("% of factory value");
-            Serial.print("y-axis self test: acceleration trim within : ");
-            Serial.print(selfTest[1],1); Serial.println("% of factory value");
-            Serial.print("z-axis self test: acceleration trim within : ");
-            Serial.print(selfTest[2],1); Serial.println("% of factory value");
-            Serial.print("x-axis self test: gyration trim within : ");
-            Serial.print(selfTest[3],1); Serial.println("% of factory value");
-            Serial.print("y-axis self test: gyration trim within : ");
-            Serial.print(selfTest[4],1); Serial.println("% of factory value");
-            Serial.print("z-axis self test: gyration trim within : ");
-            Serial.print(selfTest[5],1); Serial.println("% of factory value");
-        }
+    if (Debug) Serial.println("MPU9250: Initialising for active data mode....");
 
-        if (Debug)
-            Serial.println("Calibrate gyro and accel");
+    // Config for normal operation
+    myImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x04);    // sample-rate div by 4 (0x03 + 1)
 
-        // Calibrate gyro and accelerometers, load biases in bias registers
-        myImu.AcelGyroCal(gyroBias, accelBias);
+    // Setup interrupts
+    myImu.SetupInterrupt();
 
-        if (Debug) {
-            Serial.println("accel biases (mg)");
-            Serial.println(1000.*accelBias[0]);
-            Serial.println(1000.*accelBias[1]);
-            Serial.println(1000.*accelBias[2]);
-            Serial.println("gyro biases (dps)");
-            Serial.println(gyroBias[0]);
-            Serial.println(gyroBias[1]);
-            Serial.println(gyroBias[2]);
-            Serial.println("MPU9250 initialized for active data mode....");
-        }
-
-        // Config for normal operation
-        myImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div to 4 (0x03 + 1)
-
+#ifdef I2C_SLV0
+    if(Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        byte d = myImu.ReadRegister(myImu.AK8963_ADDRESS, myImu.AK8963_WHO_AM_I);
+        Serial.print("AK8963: I'm "); Serial.println(myImu.whoAmIAK8963());
+        delay(100);
+    }
+#endif /* I2C_SLV0 */
 
-        if(Debug) {
-            Serial.print("AK8963 "); Serial.print("I AM "); Serial.print(d, HEX);
-            Serial.print(" I should be "); Serial.println(0x48, HEX);
-        }
-
-        // Get magnetometer calibration from AK8963 ROM
-        myImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
+    // Get magnetometer calibration from AK8963 ROM
+    myImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
 
 #ifdef RESET_MAGCAL
-        if (Debug) {
-            Serial.println("AK8963 initialized for active data mode....");
-            Serial.println("Mag Calibration: Wave device in a figure eight until done!");
-            delay(4000);
-        }
-
-        // FIXME: Add RawHid msg to wave device and also notice on done
-        myImu.MagCal(myImu._mCal_bias, myImu._mCal_scale);
+    // TODO: Add RawHid msg to wave device and also notice on done
+    myImu.MagCal(myImu._mCal_bias, myImu._mCal_scale);
 #else
-        Serial.println("Mag Calibration: Using pre-recorded calibration values");
-        myImu.SetMagCal(magBias, magScale);
+    Serial.println("AK8963: Mag calibration using pre-recorded values");
+    myImu.SetMagCal(magBias, magScale);
 #endif /* RESET_MAGCAL */
 
-        if (Debug) {
-            Serial.println("Mag Calibration done!");
-            Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._mCal_bias[0], 8);
-            Serial.println(myImu._mCal_bias[1], 8); Serial.println(myImu._mCal_bias[2], 8);
-            Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._mCal_scale[0], 8);
-            Serial.println(myImu._mCal_scale[1], 8); Serial.println(myImu._mCal_scale[2], 8);
-
-            delay(2000);
-
-            Serial.println("Calibration values: ");
-            Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[0], 2);
-            Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[1], 2);
-            Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[2], 2);
-        }
-
-        // Attach interrupt pin to MPU9250 and define interrupt function
-        attachInterrupt(intPin, intFunc, RISING);
-    } else {
-        Serial.print("MPU9250 "); Serial.print("I AM "); Serial.print(c, HEX);
-        Serial.print(" I should be "); Serial.println(0x71, HEX);
-        Serial.print("Could not connect to MPU9250: 0x");
-        Serial.println(c, HEX);
-        while(1) ; // Loop forever if communication doesn't happen
-    }
+    // Attach interrupt pin and int function
+    attachInterrupt(intPin, intFunc, RISING);
+    myImu.EnableInterrupt();
 
     // Wait for the application to be ready
+    Serial.println("Setup done!");
     while (!RawHID.available());
 }
 
@@ -203,22 +187,43 @@ void loop()
     static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
     static uint32_t packetCount = 0;                    // usb packet number
 
-    static float a[3], g[3], m[3], t;                   // accel, gyro, mag, temp data
-
+#ifndef I2C_SLV0
     // If intPin goes high, all data registers have new data
     if(myImu.NewData()) {
-        myImu.GetMPU9250(a, g, t);
+
+#ifdef I2C_SPI_TIME
+        ts2 = micros();
+#endif /* I2C_SPI_TIME */
+
+        myImu.GetMPU9250Data(imuData);
+
+#ifdef I2C_SPI_TIME
+        dt = dt + micros() - ts2;
+        i++;
+        if (i > 1000) {
+            ts = micros() - ts;
+            Serial.print("IMU: fs = "); Serial.print((float)i/ts *1000000.f); Serial.println(" Hz");
+            ts = micros();
+            dt = dt/i;
+            Serial.print("IMU: I2C rate = "); Serial.print(dt, 2); Serial.println(" us");
+            dt = 0;
+            i = 0;
+        }
+#endif /* I2C_SPI_TIME */
 
         if(myImu.NewMagData()) {
-            myImu.GetMag(m);
+            myImu.GetMagData(imuData+7); // MagData: imuData[7] ... imuData[10]
+
+            if (Debug == 3) {
+                Serial.print(imuData[0], 4);Serial.print(" ");Serial.print(imuData[1], 4);Serial.print(" ");Serial.println(imuData[2], 4);
+                Serial.println(imuData[3],4);
+                Serial.print(imuData[4], 4);Serial.print(" ");Serial.print(imuData[5], 4);Serial.print(" ");Serial.println(imuData[6], 4);
+                Serial.print(imuData[7], 4);Serial.print(" ");Serial.print(imuData[8], 4);Serial.print(" ");Serial.println(imuData[9], 4);
+                Serial.print("\n");
+            }
         }
     }
-
-    if (Debug == 3) {
-        Serial.print(a[0], 4);Serial.print(" ");Serial.print(a[1], 4);Serial.print(" ");Serial.println(a[2], 4);
-        Serial.print(g[0], 4);Serial.print(" ");Serial.print(g[1], 4);Serial.print(" ");Serial.println(g[2], 4);
-        Serial.print(m[0], 4);Serial.print(" ");Serial.print(m[1], 4);Serial.print(" ");Serial.println(m[2], 4);
-    }
+#endif /* I2C_SLV0 */
 
     // Calculate loop time
     now = micros();
@@ -226,9 +231,10 @@ void loop()
     lastUpdate = now;
 
 #ifdef AHRS
-    MadgwickQuaternionUpdate(-a[0], a[1], a[2], g[0]*PI/180.0f, -g[1]*PI/180.0f, -g[2]*PI/180.0f, m[1], -m[0], m[2], deltat);
-    //MahonyQuaternionUpdate(-a[0], a[1], a[2], g[0]*PI/180.0f, -g[1]*PI/180.0f, -g[2]*PI/180.0f, m[1], -m[0], m[2], deltat);
-#endif
+    MadgwickQuaternionUpdate(-imuData[0], imuData[1], imuData[2],
+                              imuData[4]*PI/180.0f, -imuData[5]*PI/180.0f, -imuData[6]*PI/180.0f,
+                              imuData[8], -imuData[7], imuData[9], deltat);
+#endif /* AHRS */
 
 #ifndef NO_USB
     // Set usb transfer rate to 1kHz
@@ -266,7 +272,6 @@ void loop()
         }
     }
 
-#ifdef USB_RX
     if (RawHID.available()) {
         // Only send data to device if really necessary as it slows down usb tx
         num = RawHID.recv(rx_buffer.raw, 10);
@@ -282,7 +287,6 @@ void loop()
         } else if (Debug == 2) {
             Serial.print(F("\tRX: Fail \t")); Serial.println(num);
         }
-#endif /* USB_RX */
     }
 #endif /* NO_USB */
 
@@ -297,7 +301,7 @@ void loop()
         //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
         if(Debug) {
             // Print the avg loop rate
-            Serial.print("rate = "); Serial.print((float)loopCount/loopCountTime, 2);
+            Serial.print("loop: rate = "); Serial.print((float)loopCount/loopCountTime, 2);
             Serial.println(" Hz");
         }
 

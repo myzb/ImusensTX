@@ -776,48 +776,6 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     dest2[2] = avg_rad/((float)mag_scale[2]);
 }
 
-void mpu9250::MagCal_Online(int16_t *magData)
-{
-    int32_t magCount_bias[3] = {0, 0, 0}, magCount_scale[3] = {0, 0, 0};
-    //int16_t mag_max[3] = {-32767, -32767, -32767}, mag_min[3] = {32767, 32767, 32767}, mag_temp[3] = {0, 0, 0};
-    const static int16_t factor = 1000;
-
-    // Hard iron
-    for (int i = 0; i < 3; i++) {
-        // Slowly shrink min/max
-        _mag_max[i] =- factor;
-        _mag_min[i] =+ factor;
-
-        if (magData[i] > _mag_max[i]) _mag_max[i] = magData[i];
-        if (magData[i] < _mag_min[i]) _mag_min[i] = magData[i];
-    }
-
-    magCount_bias[0]  = (_mag_max[0] + _mag_min[0])/2;  // get average x mag bias in counts
-    magCount_bias[1]  = (_mag_max[1] + _mag_min[1])/2;  // get average y mag bias in counts
-    magCount_bias[2]  = (_mag_max[2] + _mag_min[2])/2;  // get average z mag bias in counts
-
-    if (!(magCount_bias[0] && magCount_bias[1] && magCount_bias[2])) return;
-
-    // Convert counts to gauss and applying factory trim
-    _mag_bias[0] = (float) magCount_bias[0]*_magScale * _mRes_factory[0];
-    _mag_bias[1] = (float) magCount_bias[1]*_magScale * _mRes_factory[1];
-    _mag_bias[2] = (float) magCount_bias[2]*_magScale * _mRes_factory[2];
-
-    // Soft iron
-    magCount_scale[0]  = (_mag_max[0] - _mag_min[0])/2;  // get average x axis max chord length in counts
-    magCount_scale[1]  = (_mag_max[1] - _mag_min[1])/2;  // get average y axis max chord length in counts
-    magCount_scale[2]  = (_mag_max[2] - _mag_min[2])/2;  // get average z axis max chord length in counts
-
-    if (!(magCount_scale[0] && magCount_scale[1] && magCount_scale[2])) return;
-
-    float avg_radius = magCount_scale[0] + magCount_scale[1] + magCount_scale[2];
-    avg_radius /= 3.0;
-
-    _mCal_scale[0] = avg_radius/((float)magCount_scale[0]);
-    _mCal_scale[1] = avg_radius/((float)magCount_scale[1]);
-    _mCal_scale[2] = avg_radius/((float)magCount_scale[2]);
-}
-
 void mpu9250::SelfTest(float * destination)
 {
     uint8_t rawData[6] = {0, 0, 0, 0, 0, 0};

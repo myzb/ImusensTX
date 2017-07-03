@@ -298,12 +298,6 @@ public:
     int _newMagData = 0;                                            // new magData flag
     int _newData = 0;                                               // new MPU9250Data flag
 
-    // Online magCal
-    float _mag_bias[3] = {21.92857170f, 529.65936279f, -226.40782166f},
-          _mag_scale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
-    int16_t _mag_max[3] = {-32767, -32767, -32767},
-            _mag_min[3] = {32767, 32767, 32767};
-
     // SPI/I2C
     uint8_t _address;
     uint8_t _bus;
@@ -334,7 +328,6 @@ public:
     void MagCal(float * dest1, float * dest2);
     void AcelGyroCal(float * dest1, float * dest2);
     void SetMagCal(float *magBias, float *magScale);
-    void MagCal_Online(int16_t *magData);
 
     // Functions that read the sensor ADC values
     int16_t GetTempCounts();

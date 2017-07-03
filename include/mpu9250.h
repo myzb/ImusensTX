@@ -324,13 +324,13 @@ public:
     // Functions that start the communication and sensors
     void WireBegin();
     void Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
-    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *dest);
+    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out);
 
     // Functions to fine tune the sensors
-    void SelfTest(float *dest);
-    void MagCal(float *dest1, float *dest2);
-    void AcelGyroCal(float *dest1, float *dest2);
-    void SetMagCal(float *magBias, float *magScale);
+    void SelfTest(float *selfTest_out);
+    void MagCal(float *magBias_out, float *magScale_out);
+    void AcelGyroCal(float *accelBias_out, float *gyroBias_out);
+    void SetMagCal(float *magBias_in, float *magScale_in);
 
     // Functions that read the sensor ADC values
     int16_t GetTempCounts();
@@ -352,8 +352,8 @@ public:
     // Register R/W access
     void WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
     uint8_t ReadRegister(uint8_t address, uint8_t subAddress);
-    void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *dest);
-    void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *dest);
+    void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out);
+    void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
     /* End */
 };

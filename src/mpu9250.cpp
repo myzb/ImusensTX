@@ -396,7 +396,7 @@ float mpu9250::GetTemp()
     return (float)((GetTempCounts()  - _tempOffset)/_tempScale + _tempOffset);
 }
 
-void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *dest)
+void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out)
 {
     // Set mag axis scale factor
     switch (magRange) {
@@ -426,9 +426,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
     uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _mRes_factory[0] = dest[0] =  (float)(rawData[0] - 128)/256. + 1.;
-    _mRes_factory[1] = dest[1] =  (float)(rawData[1] - 128)/256. + 1.;
-    _mRes_factory[2] = dest[2] =  (float)(rawData[2] - 128)/256. + 1.;
+    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128)/256. + 1.;
+    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128)/256. + 1.;
+    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128)/256. + 1.;
 
     // Power down magnetometer
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
@@ -538,7 +538,7 @@ void mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange,
 
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
-void mpu9250::AcelGyroCal(float *dest1, float *dest2)
+void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
 {
     uint8_t data[12]; // data array to hold accelerometer and gyro x, y, z, data
     uint16_t ii, packet_count, fifo_count;
@@ -632,14 +632,14 @@ void mpu9250::AcelGyroCal(float *dest1, float *dest2)
     WriteRegister(MPU9250_ADDRESS, ZG_OFFSET_L, data[5]);
 
     // Output scaled gyro biases for display in the main program
-    dest1[0] = (float)gyro_bias[0]/(float)gyrosensitivity;
-    dest1[1] = (float)gyro_bias[1]/(float)gyrosensitivity;
-    dest1[2] = (float)gyro_bias[2]/(float)gyrosensitivity;
+    gyroBias_out[0] = (float)gyro_bias[0]/(float)gyrosensitivity;
+    gyroBias_out[1] = (float)gyro_bias[1]/(float)gyrosensitivity;
+    gyroBias_out[2] = (float)gyro_bias[2]/(float)gyrosensitivity;
 
     // Output scaled accelerometer biases for display in the main program
-    dest2[0] = (float)accel_bias[0]/(float)accelsensitivity;
-    dest2[1] = (float)accel_bias[1]/(float)accelsensitivity;
-    dest2[2] = (float)accel_bias[2]/(float)accelsensitivity;
+    accelBias_out[0] = (float)accel_bias[0]/(float)accelsensitivity;
+    accelBias_out[1] = (float)accel_bias[1]/(float)accelsensitivity;
+    accelBias_out[2] = (float)accel_bias[2]/(float)accelsensitivity;
 
     // The MPU9250 ships with accelermometer factory trim values, the respective register values
     // can be combined with user calcualted values to imporve accuracy
@@ -717,17 +717,17 @@ void mpu9250::AcelGyroCal(float *dest1, float *dest2)
 #endif
 }
 
-void mpu9250::SetMagCal(float *magBias, float *magScale)
+void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
 {
-    _mCal_bias[0] = magBias[0];
-    _mCal_bias[1] = magBias[1];
-    _mCal_bias[2] = magBias[2];
-    _mCal_scale[0] = magScale[0];
-    _mCal_scale[1] = magScale[1];
-    _mCal_scale[2] = magScale[2];
+    _mCal_bias[0] = magBias_in[0];
+    _mCal_bias[1] = magBias_in[1];
+    _mCal_bias[2] = magBias_in[2];
+    _mCal_scale[0] = magScale_in[0];
+    _mCal_scale[1] = magScale_in[1];
+    _mCal_scale[2] = magScale_in[2];
 }
 
-void mpu9250::MagCal(float *dest1, float *dest2)
+void mpu9250::MagCal(float *magBias_out, float *magScale_out)
 {
     uint16_t ii = 0, sample_count = 0;
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
@@ -758,9 +758,9 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     mag_bias[1]  = (mag_max[1] + mag_min[1])/2;  // get average y mag bias in counts
     mag_bias[2]  = (mag_max[2] + mag_min[2])/2;  // get average z mag bias in counts
 
-    dest1[0] = (float) mag_bias[0]*_magScale * _mRes_factory[0];  // save mag biases in G for main program
-    dest1[1] = (float) mag_bias[1]*_magScale * _mRes_factory[1];
-    dest1[2] = (float) mag_bias[2]*_magScale * _mRes_factory[2];
+    magBias_out[0] = (float) mag_bias[0]*_magScale * _mRes_factory[0];  // save mag biases in G for main program
+    magBias_out[1] = (float) mag_bias[1]*_magScale * _mRes_factory[1];
+    magBias_out[2] = (float) mag_bias[2]*_magScale * _mRes_factory[2];
 
     // Get soft iron correction estimate
     mag_scale[0]  = (mag_max[0] - mag_min[0])/2;  // get average x axis max chord length in counts
@@ -770,12 +770,12 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     float avg_rad = mag_scale[0] + mag_scale[1] + mag_scale[2];
     avg_rad /= 3.0;
 
-    dest2[0] = avg_rad/((float)mag_scale[0]);
-    dest2[1] = avg_rad/((float)mag_scale[1]);
-    dest2[2] = avg_rad/((float)mag_scale[2]);
+    magScale_out[0] = avg_rad/((float)mag_scale[0]);
+    magScale_out[1] = avg_rad/((float)mag_scale[1]);
+    magScale_out[2] = avg_rad/((float)mag_scale[2]);
 }
 
-void mpu9250::SelfTest(float *dest)
+void mpu9250::SelfTest(float *selfTest_out)
 {
     uint8_t rawData[6] = {0, 0, 0, 0, 0, 0};
     uint8_t selfTest[6];
@@ -860,14 +860,14 @@ void mpu9250::SelfTest(float *dest)
 
     // Report results as a ratio of (STR - FT)/FT in percent
     for (int i = 0; i < 3; i++) {
-        dest[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;
-        dest[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.;
+        selfTest_out[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;
+        selfTest_out[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.;
     }
     // Return percent deviation from factory trim values, +/- 14 or less deviation is a pass
 }
 
 // I2C read/write functions for the MPU9250 and AK8963 sensors
-void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
+void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
 {
     /* write data to device */
     if( _useSPI ){
@@ -879,7 +879,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI.transfer(subAddress); // write the register address
-                SPI.transfer(data); // write the data
+                SPI.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI.endTransaction(); // end the transaction
             }
@@ -893,7 +893,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI.transfer(subAddress); // write the register address
-                SPI.transfer(data); // write the data
+                SPI.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI.endTransaction(); // end the transaction
             }
@@ -901,7 +901,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI1.transfer(subAddress); // write the register address
-                SPI1.transfer(data); // write the data
+                SPI1.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI1.endTransaction(); // end the transaction
             }
@@ -909,7 +909,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI2.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI2.transfer(subAddress); // write the register address
-                SPI2.transfer(data); // write the data
+                SPI2.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI2.endTransaction(); // end the transaction
             }
@@ -922,7 +922,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI.transfer(subAddress); // write the register address
-                SPI.transfer(data); // write the data
+                SPI.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI.endTransaction(); // end the transaction
             }
@@ -930,7 +930,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
                 SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
                 SPI1.transfer(subAddress); // write the register address
-                SPI1.transfer(data); // write the data
+                SPI1.transfer(data_in); // write the data
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 SPI1.endTransaction(); // end the transaction
             }
@@ -939,7 +939,7 @@ void mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data)
     } else {
         i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
         i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
-        i2c_t3(_bus).write(data);                 // Put data in Tx buffer
+        i2c_t3(_bus).write(data_in);                 // Put data in Tx buffer
         i2c_t3(_bus).endTransmission();           // Send the Tx buffer
     }
 }
@@ -957,7 +957,7 @@ uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
     return data;                             // Return data read from slave register
 }
 
-void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *dest)
+void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
     if( _useSPI ){
 
@@ -982,7 +982,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI.transfer(0x00); // read the data
+                data_out[i] = SPI.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1012,7 +1012,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI.transfer(0x00); // read the data
+                data_out[i] = SPI.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1037,7 +1037,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI1.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI1.transfer(0x00); // read the data
+                data_out[i] = SPI1.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1062,7 +1062,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI2.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI.transfer(0x00); // read the data
+                data_out[i] = SPI.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1092,7 +1092,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI.transfer(0x00); // read the data
+                data_out[i] = SPI.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1117,7 +1117,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             SPI1.transfer(subAddress | SPI_READ); // specify the starting register address
 
             for(uint8_t i = 0; i < count; i++){
-                dest[i] = SPI1.transfer(0x00); // read the data
+                data_out[i] = SPI1.transfer(0x00); // read the data
             }
 
             digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
@@ -1134,7 +1134,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
     //        i2c_t3(_bus).requestFrom(address, count);     // Read bytes from slave register address
         i2c_t3(_bus).requestFrom(address, (size_t) count);  // Read bytes from slave register address
         while (i2c_t3(_bus).available()) {
-            dest[i++] = i2c_t3(_bus).read();       // Put read results in the Rx buffer
+            data_out[i++] = i2c_t3(_bus).read();       // Put read results in the Rx buffer
         }
     }
 }
@@ -1162,11 +1162,11 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 }
 
 /* reads registers from the AK8963 */
-void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *dest)
+void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
     WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS | I2C_READ_FLAG); // set slave 0 to the AK8963 and set for read
     WriteRegister(_address, I2C_SLV0_REG,subAddress); // set the register to the desired AK8963 sub address
     WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count); // enable I2C and request the bytes
     delayMicroseconds(100); // takes some time for these registers to fill
-    ReadRegisters(_address, EXT_SENS_DATA_00, count, dest); // read the bytes off the MPU9250 EXT_SENS_DATA registers
+    ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out); // read the bytes off the MPU9250 EXT_SENS_DATA registers
 }

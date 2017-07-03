@@ -257,17 +257,17 @@ int mpu9250::NewData()
     return 0;
 }
 
-void mpu9250::GetMPU9250Counts(int16_t *destination)
+void mpu9250::GetMPU9250Counts(int16_t *counts_out)
 {
     uint8_t rawData[14];  // x/y/z accel register data stored here
     ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 14, &rawData[0]);  // Read the 14 raw data registers into data array
-    destination[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
-    destination[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  // FIXME: Shift of signed values is platform specific
-    destination[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
-    destination[3] = ((int16_t)rawData[6] << 8) | rawData[7] ;
-    destination[4] = ((int16_t)rawData[8] << 8) | rawData[9] ;
-    destination[5] = ((int16_t)rawData[10] << 8) | rawData[11] ;
-    destination[6] = ((int16_t)rawData[12] << 8) | rawData[13] ;
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ;  // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;  // FIXME: Shift of signed values is platform specific
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+    counts_out[3] = ((int16_t)rawData[6] << 8) | rawData[7] ;
+    counts_out[4] = ((int16_t)rawData[8] << 8) | rawData[9] ;
+    counts_out[5] = ((int16_t)rawData[10] << 8) | rawData[11] ;
+    counts_out[6] = ((int16_t)rawData[12] << 8) | rawData[13] ;
 }
 
 void mpu9250::GetMPU9250(float *a, float *g, float &t)
@@ -299,13 +299,13 @@ void mpu9250::GetMPU9250(float *a, float *g, float &t)
     g[2] = (float)mpu9250Counts[6]*_gyroScale;
 }
 
-void mpu9250::GetAccelCounts(int16_t *destination)
+void mpu9250::GetAccelCounts(int16_t *counts_out)
 {
     uint8_t rawData[6];  // x/y/z accel register data stored here
     ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);  // Read the six raw data registers into data array
-    destination[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
-    destination[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
-    destination[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
 }
 
 void mpu9250::GetAccel(float *a)
@@ -321,13 +321,13 @@ void mpu9250::GetAccel(float *a)
     a[2] = (float)accelCounts[2]*_accelScale;
 }
 
-void mpu9250::GetGyroCounts(int16_t *destination)
+void mpu9250::GetGyroCounts(int16_t *counts_out)
 {
     uint8_t rawData[6];  // x/y/z gyro register data stored here
     ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);   // Read the six raw data registers sequentially into data array
-    destination[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
-    destination[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
-    destination[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
+    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1] ; // Turn the MSB and LSB into a signed 16-bit value
+    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3] ;
+    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5] ;
 }
 
 void mpu9250::GetGyro(float *g)
@@ -343,7 +343,7 @@ void mpu9250::GetGyro(float *g)
     g[2] = (float)gyroCounts[2]*_gyroScale;
 }
 
-void mpu9250::GetMagCounts(int16_t *destination)
+void mpu9250::GetMagCounts(int16_t *counts_out)
 {
     uint8_t rawData[7];  // x/y/z mag register data + ST2 register
     ReadRegisters(AK8963_ADDRESS, AK8963_XOUT_L, 7, &rawData[0]);
@@ -351,9 +351,9 @@ void mpu9250::GetMagCounts(int16_t *destination)
 
     // Check if magnetic sensor overflow set, if not then report data
     if(!(c & 0x08)) {
-        destination[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
-        destination[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
-        destination[2] = ((int16_t)rawData[5] << 8) | rawData[4] ;
+        counts_out[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
+        counts_out[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
+        counts_out[2] = ((int16_t)rawData[5] << 8) | rawData[4] ;
     }
 }
 
@@ -396,7 +396,7 @@ float mpu9250::GetTemp()
     return (float)((GetTempCounts()  - _tempOffset)/_tempScale + _tempOffset);
 }
 
-void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *destination)
+void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *dest)
 {
     // Set mag axis scale factor
     switch (magRange) {
@@ -426,9 +426,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
     uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _mRes_factory[0] = destination[0] =  (float)(rawData[0] - 128)/256. + 1.;
-    _mRes_factory[1] = destination[1] =  (float)(rawData[1] - 128)/256. + 1.;
-    _mRes_factory[2] = destination[2] =  (float)(rawData[2] - 128)/256. + 1.;
+    _mRes_factory[0] = dest[0] =  (float)(rawData[0] - 128)/256. + 1.;
+    _mRes_factory[1] = dest[1] =  (float)(rawData[1] - 128)/256. + 1.;
+    _mRes_factory[2] = dest[2] =  (float)(rawData[2] - 128)/256. + 1.;
 
     // Power down magnetometer
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL, AK8963_PWR_DOWN);
@@ -528,12 +528,11 @@ void mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange,
     // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)
     WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, SRD);
 
-    // Config interrupt
-    c = 1 << 4 | 1 << 1; // Clear INT on read | I2C bypass enable
-    WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, c);
+    // Config interrupt, Clear on read | i2c bypass enable
+    WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
 
-    // Connect data ready INT to INT pin
-    WriteRegister(MPU9250_ADDRESS, INT_ENABLE, 0x01);
+    // Trigger interrupt on new raw data
+    WriteRegister(MPU9250_ADDRESS, INT_ENABLE, INT_RAW_RDY_EN);
     delay(100);
 }
 
@@ -776,7 +775,7 @@ void mpu9250::MagCal(float *dest1, float *dest2)
     dest2[2] = avg_rad/((float)mag_scale[2]);
 }
 
-void mpu9250::SelfTest(float * destination)
+void mpu9250::SelfTest(float *dest)
 {
     uint8_t rawData[6] = {0, 0, 0, 0, 0, 0};
     uint8_t selfTest[6];
@@ -861,8 +860,8 @@ void mpu9250::SelfTest(float * destination)
 
     // Report results as a ratio of (STR - FT)/FT in percent
     for (int i = 0; i < 3; i++) {
-        destination[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;
-        destination[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.;
+        dest[i]   = 100.0*((float)(aSTAvg[i] - aAvg[i]))/factoryTrim[i] - 100.;
+        dest[i+3] = 100.0*((float)(gSTAvg[i] - gAvg[i]))/factoryTrim[i+3] - 100.;
     }
     // Return percent deviation from factory trim values, +/- 14 or less deviation is a pass
 }
@@ -1163,7 +1162,7 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 }
 
 /* reads registers from the AK8963 */
-void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest)
+void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *dest)
 {
     WriteRegister(_address, I2C_SLV0_ADDR, AK8963_ADDRESS | I2C_READ_FLAG); // set slave 0 to the AK8963 and set for read
     WriteRegister(_address, I2C_SLV0_REG,subAddress); // set the register to the desired AK8963 sub address

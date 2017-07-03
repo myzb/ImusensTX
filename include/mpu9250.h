@@ -251,9 +251,12 @@ public:
     const uint8_t GYRO_FS_SEL_2000DPS = 0x18;
 
     // MPU9250 general
-    const uint8_t H_RESET       = 0x80;
-    const uint8_t I2C_READ_FLAG = 0x80;
-    const uint8_t I2C_SLV0_EN   = 0x80;
+    const uint8_t H_RESET          = 0x80;
+    const uint8_t INT_ANYRD_2CLEAR = 0x10;
+    const uint8_t INT_RAW_RDY_EN   = 0x01;
+    const uint8_t INT_BYPASS_EN    = 0x02;
+    const uint8_t I2C_READ_FLAG    = 0x80;
+    const uint8_t I2C_SLV0_EN      = 0x80;
 
     // AK8963 magnetometer
     const uint8_t AK8963_PWR_DOWN = 0x00;
@@ -321,20 +324,20 @@ public:
     // Functions that start the communication and sensors
     void WireBegin();
     void Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
-    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *destination);
+    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *dest);
 
     // Functions to fine tune the sensors
-    void SelfTest(float * destination);
-    void MagCal(float * dest1, float * dest2);
-    void AcelGyroCal(float * dest1, float * dest2);
+    void SelfTest(float *dest);
+    void MagCal(float *dest1, float *dest2);
+    void AcelGyroCal(float *dest1, float *dest2);
     void SetMagCal(float *magBias, float *magScale);
 
     // Functions that read the sensor ADC values
     int16_t GetTempCounts();
-    void GetMagCounts(int16_t * destination);
-    void GetAccelCounts(int16_t * destination);
-    void GetGyroCounts(int16_t * destination);
-    void GetMPU9250Counts(int16_t * destination);
+    void GetMagCounts(int16_t *counts_out);
+    void GetAccelCounts(int16_t *counts_out);
+    void GetGyroCounts(int16_t *counts_out);
+    void GetMPU9250Counts(int16_t *counts_out);
 
     int NewMagData();
     int NewData();
@@ -349,8 +352,8 @@ public:
     // Register R/W access
     void WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);
     uint8_t ReadRegister(uint8_t address, uint8_t subAddress);
-    void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
-    void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest);
+    void ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *dest);
+    void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *dest);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
     /* End */
 };

@@ -299,7 +299,7 @@ public:
     int _newData = 0;                                               // new MPU9250Data flag
 
     // SPI/I2C
-    uint8_t _address;
+    uint8_t _address;                   // MPU9250 Address
     uint8_t _bus;
     i2c_pins _pins;
     i2c_pullup _pullups;
@@ -308,7 +308,7 @@ public:
     spi_mosi_pin _mosiPin;
     bool _useSPI;
     bool _useSPIHS;
-    const uint32_t _i2cRate = 400000; // 400 kHz, TODO: May want to allow changing this
+    const uint32_t _i2cRate = 400000;   // 400 kHz, TODO: May want to allow changing this
     /* End */
 
     /* Member functions */

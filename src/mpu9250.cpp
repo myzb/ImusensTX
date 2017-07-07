@@ -348,7 +348,7 @@ void mpu9250::GetMPU9250Counts(int16_t *counts_out)
 {
     uint8_t rawData[14];
 
-    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 14, &rawData[0]);
+    ReadRegisters(_address, ACCEL_XOUT_H, 14, &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value
     counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
     counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
@@ -394,7 +394,7 @@ void mpu9250::GetAccelCounts(int16_t *counts_out)
 {
     uint8_t rawData[6];
 
-    ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
+    ReadRegisters(_address, ACCEL_XOUT_H, 6, &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value
     counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
     counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
@@ -420,7 +420,7 @@ void mpu9250::GetGyroCounts(int16_t *counts_out)
 {
     uint8_t rawData[6];
 
-    ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);
+    ReadRegisters(_address, GYRO_XOUT_H, 6, &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value
     counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
     counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
@@ -486,7 +486,7 @@ void mpu9250::GetMagData(float *mag_out)
 int16_t mpu9250::GetTempCounts()
 {
     uint8_t rawData[2];
-    ReadRegisters(MPU9250_ADDRESS, TEMP_OUT_H, 2, &rawData[0]);
+    ReadRegisters(_address, TEMP_OUT_H, 2, &rawData[0]);
     return ((int16_t)rawData[0] << 8) | rawData[1] ;
 }
 
@@ -654,36 +654,36 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     }
 
     // Write gyroscope full-scale range config to register
-    uint8_t c = ReadRegister(MPU9250_ADDRESS, GYRO_CONFIG);
+    uint8_t c = ReadRegister(_address, GYRO_CONFIG);
     c = c & ~0xE0;              // Clear self-test bits [7:5]
     c = c & ~0x18;              // Clear GFS bits [4:3]
     c = c & ~0x03;              // Clear FCHOICE bits [1:0]
     c = c | gyroRange << 3;     // Set choosen gyroRange
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG, c );
+    WriteRegister(_address, GYRO_CONFIG, c );
 
     // Write accelerometer full-scale range config to register
-    c = ReadRegister(MPU9250_ADDRESS, ACCEL_CONFIG);
+    c = ReadRegister(_address, ACCEL_CONFIG);
     c = c & ~0xE0;              // Clear self-test bits [7:5]
     c = c & ~0x18;              // Clear AFS bits [4:3]
     c = c | accelRange << 3;    // Set choosen accelRange
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, c);
+    WriteRegister(_address, ACCEL_CONFIG, c);
 
     // Set gyro and thermometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
-    c = ReadRegister(MPU9250_ADDRESS, CONFIG);
+    c = ReadRegister(_address, CONFIG);
     c = c & ~0x03;          // Clear DLPFG bits [2:0]
     c = c | 0x03;           // Set gyro rate to 1kHz and bandwidth to 41Hz
-    WriteRegister(MPU9250_ADDRESS, CONFIG, c);
+    WriteRegister(_address, CONFIG, c);
 
     // Set accelerometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
-    c = ReadRegister(MPU9250_ADDRESS, ACCEL_CONFIG2);
+    c = ReadRegister(_address, ACCEL_CONFIG2);
     c = c & ~0x0F; // Clear ACCEL_FCHOICE_B (bit 3) and A_DLPFG (bits [2:0])
     c = c | 0x03;  // Set accel rate to 1 kHz and bandwidth to 41 Hz
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG2, c);
+    WriteRegister(_address, ACCEL_CONFIG2, c);
 
     // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)
-    WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, SRD);
+    WriteRegister(_address, SMPLRT_DIV, SRD);
 
     return 0;
 }
@@ -692,7 +692,7 @@ void mpu9250::SetupInterrupt()
 {
 #ifndef I2C_SLV0
     // Config interrupt: Auto-clear on reg read | i2c bypass enable
-    WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
+    WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
 #else
     if (_useSPI) {
         // Config interrupt: Auto-clear on reg read
@@ -728,47 +728,47 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     int32_t gyro_bias[3]  = { 0, 0, 0 }, accel_bias[3] = { 0, 0, 0 };
 
     // reset device
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x80); // Write a one to bit 7 reset bit; toggle reset device
+    WriteRegister(_address, PWR_MGMT_1, 0x80); // Write a one to bit 7 reset bit; toggle reset device
     delay(100);
 
     // get stable time source; Auto select clock source to be PLL gyroscope reference if ready
     // else use the internal oscillator, bits 2:0 = 001
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_2, 0x00);   // enable gyro/accel x,y,z axes
+    WriteRegister(_address, PWR_MGMT_1, 0x01);
+    WriteRegister(_address, PWR_MGMT_2, 0x00);   // enable gyro/accel x,y,z axes
     delay(200);
 
     // Configure device for bias calculation
-    WriteRegister(MPU9250_ADDRESS, INT_ENABLE, 0x00);   // Disable all interrupts
-    WriteRegister(MPU9250_ADDRESS, FIFO_EN, 0x00);      // Disable FIFO
-    WriteRegister(MPU9250_ADDRESS, PWR_MGMT_1, 0x00);   // Turn on internal clock source
-    WriteRegister(MPU9250_ADDRESS, I2C_MST_CTRL, 0x00); // Disable I2C master
-    WriteRegister(MPU9250_ADDRESS, USER_CTRL, 0x00);    // Disable FIFO and I2C master modes
-    WriteRegister(MPU9250_ADDRESS, USER_CTRL, 0x0C);    // Reset FIFO and DMP
+    WriteRegister(_address, INT_ENABLE, 0x00);   // Disable all interrupts
+    WriteRegister(_address, FIFO_EN, 0x00);      // Disable FIFO
+    WriteRegister(_address, PWR_MGMT_1, 0x00);   // Turn on internal clock source
+    WriteRegister(_address, I2C_MST_CTRL, 0x00); // Disable I2C master
+    WriteRegister(_address, USER_CTRL, 0x00);    // Disable FIFO and I2C master modes
+    WriteRegister(_address, USER_CTRL, 0x0C);    // Reset FIFO and DMP
     delay(15);
 
     // Configure MPU6050 gyro and accelerometer for bias calculation
-    WriteRegister(MPU9250_ADDRESS, CONFIG, 0x01);      // Set low-pass filter to 188 Hz
-    WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, 0x00);  // Set sample rate to 1 kHz
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG, 0x00);  // Set gyro full-scale to 250 degrees per second, maximum sensitivity
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, 0x00); // Set accelerometer full-scale to 2 g, maximum sensitivity
+    WriteRegister(_address, CONFIG, 0x01);      // Set low-pass filter to 188 Hz
+    WriteRegister(_address, SMPLRT_DIV, 0x00);  // Set sample rate to 1 kHz
+    WriteRegister(_address, GYRO_CONFIG, 0x00);  // Set gyro full-scale to 250 degrees per second, maximum sensitivity
+    WriteRegister(_address, ACCEL_CONFIG, 0x00); // Set accelerometer full-scale to 2 g, maximum sensitivity
 
     float  gyrosensitivity  = GFSF_250DPS;  // 131 LSB/degrees/sec
     float  accelsensitivity = AFSF_2G;      // 16384 LSB/g
 
     // Configure FIFO to capture accelerometer and gyro data for bias calculation
-    WriteRegister(MPU9250_ADDRESS, USER_CTRL, 0x40);   // Enable FIFO
-    WriteRegister(MPU9250_ADDRESS, FIFO_EN, 0x78);     // Enable gyro and accelerometer sensors for FIFO  (max size 512 bytes in MPU-9150)
+    WriteRegister(_address, USER_CTRL, 0x40);   // Enable FIFO
+    WriteRegister(_address, FIFO_EN, 0x78);     // Enable gyro and accelerometer sensors for FIFO  (max size 512 bytes in MPU-9150)
     delay(40); // accumulate 40 samples in 40 milliseconds = 480 bytes
 
     // At end of sample accumulation, turn off FIFO sensor read
-    WriteRegister(MPU9250_ADDRESS, FIFO_EN, 0x00);        // Disable gyro and accelerometer sensors for FIFO
-    ReadRegisters(MPU9250_ADDRESS, FIFO_COUNTH, 2, &data[0]); // read FIFO sample count
+    WriteRegister(_address, FIFO_EN, 0x00);        // Disable gyro and accelerometer sensors for FIFO
+    ReadRegisters(_address, FIFO_COUNTH, 2, &data[0]); // read FIFO sample count
     fifo_count = ((uint16_t)data[0] << 8) | data[1];
     packet_count = fifo_count/12;// How many sets of full gyro and accelerometer data for averaging
 
     for (ii = 0; ii < packet_count; ii++) {
         int16_t accel_temp[3] = { 0, 0, 0 }, gyro_temp[3] = { 0, 0, 0 };
-        ReadRegisters(MPU9250_ADDRESS, FIFO_R_W, sizeof(data), &data[0]); // read data for averaging
+        ReadRegisters(_address, FIFO_R_W, sizeof(data), &data[0]); // read data for averaging
         accel_temp[0] = (int16_t) (((uint16_t)data[0] << 8) | data[1]  );  // Form signed 16-bit integer for each sample in FIFO
         accel_temp[1] = (int16_t) (((uint16_t)data[2] << 8) | data[3]  );
         accel_temp[2] = (int16_t) (((uint16_t)data[4] << 8) | data[5]  );
@@ -807,12 +807,12 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     data[5] = (-gyro_bias[2]/4)       & 0xFF;
 
     // Push gyro biases to hardware registers
-    WriteRegister(MPU9250_ADDRESS, XG_OFFSET_H, data[0]);
-    WriteRegister(MPU9250_ADDRESS, XG_OFFSET_L, data[1]);
-    WriteRegister(MPU9250_ADDRESS, YG_OFFSET_H, data[2]);
-    WriteRegister(MPU9250_ADDRESS, YG_OFFSET_L, data[3]);
-    WriteRegister(MPU9250_ADDRESS, ZG_OFFSET_H, data[4]);
-    WriteRegister(MPU9250_ADDRESS, ZG_OFFSET_L, data[5]);
+    WriteRegister(_address, XG_OFFSET_H, data[0]);
+    WriteRegister(_address, XG_OFFSET_L, data[1]);
+    WriteRegister(_address, YG_OFFSET_H, data[2]);
+    WriteRegister(_address, YG_OFFSET_L, data[3]);
+    WriteRegister(_address, ZG_OFFSET_H, data[4]);
+    WriteRegister(_address, ZG_OFFSET_L, data[5]);
 
     // Output scaled gyro biases for display in the main program
     gyroBias_out[0] = (float)gyro_bias[0] / (float)gyrosensitivity;
@@ -842,13 +842,13 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     uint8_t mask_bit[3] = { 0, 0, 0 };
 
     // Read factory accel trim value bits (14:7|6:1) (15bit number!), save bit 0 to 'mask_bit'
-    ReadRegisters(MPU9250_ADDRESS, XA_OFFSET_H, 2, &data[0]);
+    ReadRegisters(_address, XA_OFFSET_H, 2, &data[0]);
     mask_bit[0] = data[1] & 0x01;
     accel_bias_reg[0] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE));
-    ReadRegisters(MPU9250_ADDRESS, YA_OFFSET_H, 2, &data[0]);
+    ReadRegisters(_address, YA_OFFSET_H, 2, &data[0]);
     mask_bit[1] = data[1] & 0x01;
     accel_bias_reg[1] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE));
-    ReadRegisters(MPU9250_ADDRESS, ZA_OFFSET_H, 2, &data[0]);
+    ReadRegisters(_address, ZA_OFFSET_H, 2, &data[0]);
     mask_bit[2] = data[1] & 0x01;
     accel_bias_reg[2] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE) );
 
@@ -884,21 +884,21 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     data[5] = data[5] | mask_bit[2];
 
     // Push accel biases to hardware registers
-    WriteRegister(MPU9250_ADDRESS, XA_OFFSET_H, data[0]);
-    WriteRegister(MPU9250_ADDRESS, XA_OFFSET_L, data[1]);
-    WriteRegister(MPU9250_ADDRESS, YA_OFFSET_H, data[2]);
-    WriteRegister(MPU9250_ADDRESS, YA_OFFSET_L, data[3]);
-    WriteRegister(MPU9250_ADDRESS, ZA_OFFSET_H, data[4]);
-    WriteRegister(MPU9250_ADDRESS, ZA_OFFSET_L, data[5]);
+    WriteRegister(_address, XA_OFFSET_H, data[0]);
+    WriteRegister(_address, XA_OFFSET_L, data[1]);
+    WriteRegister(_address, YA_OFFSET_H, data[2]);
+    WriteRegister(_address, YA_OFFSET_L, data[3]);
+    WriteRegister(_address, ZA_OFFSET_H, data[4]);
+    WriteRegister(_address, ZA_OFFSET_L, data[5]);
 
 #if 0
-    ReadRegisters(MPU9250_ADDRESS, XA_OFFSET_H, 2, &data[0]); // Read factory accelerometer trim values
+    ReadRegisters(_address, XA_OFFSET_H, 2, &data[0]); // Read factory accelerometer trim values
     mask_bit[0] = data[1] & 0x01;
     accel_bias_reg[0] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE));
-    ReadRegisters(MPU9250_ADDRESS, YA_OFFSET_H, 2, &data[0]);
+    ReadRegisters(_address, YA_OFFSET_H, 2, &data[0]);
     mask_bit[1] = data[1] & 0x01;
     accel_bias_reg[1] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE));
-    ReadRegisters(MPU9250_ADDRESS, ZA_OFFSET_H, 2, &data[0]);
+    ReadRegisters(_address, ZA_OFFSET_H, 2, &data[0]);
     mask_bit[2] = data[1] & 0x01;
     accel_bias_reg[2] = (int16_t) (((uint16_t)data[0] << 8) | (data[1] & 0xFE));
 
@@ -1021,23 +1021,23 @@ void mpu9250::SelfTest(float *selfTest_out)
     float factoryTrim[6];
     uint8_t FS = 0; // Max sensitivity AFS_2G and GFS_250DPS
 
-    WriteRegister(MPU9250_ADDRESS, SMPLRT_DIV, 0x00);       // Gyro sample rate to 1 kHz
-    WriteRegister(MPU9250_ADDRESS, CONFIG, 0x02);           // Gyro sample rate to 1 kHz and DLPF to 92 Hz
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG, FS << 3);   // Gyro scale to 250 dps
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG2, 0x02);    // Accel rate to 1 kHz and bandwidth to 92 Hz
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, FS << 3);  // Accel scale to 2g
+    WriteRegister(_address, SMPLRT_DIV, 0x00);       // Gyro sample rate to 1 kHz
+    WriteRegister(_address, CONFIG, 0x02);           // Gyro sample rate to 1 kHz and DLPF to 92 Hz
+    WriteRegister(_address, GYRO_CONFIG, FS << 3);   // Gyro scale to 250 dps
+    WriteRegister(_address, ACCEL_CONFIG2, 0x02);    // Accel rate to 1 kHz and bandwidth to 92 Hz
+    WriteRegister(_address, ACCEL_CONFIG, FS << 3);  // Accel scale to 2g
 
     // average 200 gyro and acclerometer values
     for (int ii = 0; ii < 200; ii++) {
 
         // Read raw accel data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
+        ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
         aAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         aAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         aAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
 
         // Read raw gyro data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
+        ReadRegisters(_address, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
         gAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         gAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         gAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
@@ -1050,20 +1050,20 @@ void mpu9250::SelfTest(float *selfTest_out)
     }
 
     // Configure the gyro/accel for self-test. Use max sensitivity (lowest FSCALE).
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, 0xE0);
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG,  0xE0);
+    WriteRegister(_address, ACCEL_CONFIG, 0xE0);
+    WriteRegister(_address, GYRO_CONFIG,  0xE0);
     delay(25);  // Delay a while to let the device stabilize
 
     for (int ii = 0; ii < 200; ii++) {  // get average self-test values of gyro and acclerometer
 
         // Read raw accel data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
+        ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
         aSTAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         aSTAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         aSTAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
 
         // Read raw gyro data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
+        ReadRegisters(_address, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
         gSTAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         gSTAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         gSTAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
@@ -1076,13 +1076,13 @@ void mpu9250::SelfTest(float *selfTest_out)
     }
 
     // Configure the gyro and accelerometer for normal operation
-    WriteRegister(MPU9250_ADDRESS, ACCEL_CONFIG, 0x00);
-    WriteRegister(MPU9250_ADDRESS, GYRO_CONFIG,  0x00);
+    WriteRegister(_address, ACCEL_CONFIG, 0x00);
+    WriteRegister(_address, GYRO_CONFIG,  0x00);
     delay(25);  // Delay a while to let the device stabilize
 
     // Retrieve accelerometer and gyro factory Self-Test result from USR_Reg
-    ReadRegisters(MPU9250_ADDRESS, SELF_TEST_X_ACCEL, 3, &selfTest[0]);
-    ReadRegisters(MPU9250_ADDRESS, SELF_TEST_X_GYRO,  3, &selfTest[3]);
+    ReadRegisters(_address, SELF_TEST_X_ACCEL, 3, &selfTest[0]);
+    ReadRegisters(_address, SELF_TEST_X_GYRO,  3, &selfTest[3]);
 
     // Retrieve factory self-test value from self-test code reads
     factoryTrim[0] = (float)(2620 / 1 << FS) * (pow(1.01, ((float)selfTest[0] - 1.0)));
@@ -1448,7 +1448,7 @@ uint8_t mpu9250::whoAmIAK8963()
     uint8_t buff[1];
 
     // read the WHO AM I register
-    ReadAK8963Registers(AK8963_WHO_AM_I,sizeof(buff),&buff[0]);
+    ReadAK8963Registers(AK8963_WHO_AM_I, sizeof(buff),&buff[0]);
 
     // return the register value
     return buff[0];

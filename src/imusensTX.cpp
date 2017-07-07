@@ -92,7 +92,7 @@ void intFunc()
 void setup()
 {
     float gyroBias[3], accelBias[3];
-    float selfTest[6];
+    float stPercent[6];
     float magCalFactory[3];
 
 #if 1
@@ -128,7 +128,7 @@ void setup()
     }
 
     // Start by performing self test and reporting values
-    //myImu.SelfTest(selfTest);
+    myImu.SelfTest(stPercent);
     delay(1000);
 
     if (Debug) Serial.println("MPU9250: Calibrating gyro and accel");

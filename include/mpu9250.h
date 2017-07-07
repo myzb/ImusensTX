@@ -241,8 +241,12 @@ public:
 
     /* Register flags */
     // MPU9250 general
+    const uint8_t DISABLE          = 0x00;
+    const uint8_t SENS_EN          = 0x00;
+    const uint8_t SENS_ST_EN       = 0xE0;
     const uint8_t H_RESET          = 0x80;
     const uint8_t CLKSEL_AUTO      = 0x01;
+    const uint8_t CLKSEL_INTRNL    = 0x00;
     const uint8_t INT_ANYRD_2CLEAR = 0x10;
     const uint8_t INT_RAW_RDY_EN   = 0x01;
     const uint8_t INT_BYPASS_EN    = 0x02;
@@ -254,6 +258,7 @@ public:
     const uint8_t I2C_SLV0_EN      = 0x80;
     const uint8_t I2C_MST_EN       = 0x20;
     const uint8_t I2C_MST_CLK      = 0x0D;  // 400 kHz
+    const uint8_t FIFO_DMP_RST     = 0x0C;
 
     // AK8963 magnetometer
     const uint8_t AK8963_PWR_DOWN = 0x00;
@@ -328,7 +333,7 @@ public:
     uint8_t ClearInterrupt();
 
     // Functions to fine tune the sensors
-    void SelfTest(float *selfTest_out);
+    void SelfTest(float *deviation_out);
     void MagCal(float *magBias_out, float *magScale_out);
     void AcelGyroCal(float *accelBias_out, float *gyroBias_out);
     void SetMagCal(float *magBias_in, float *magScale_in);

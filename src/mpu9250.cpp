@@ -767,7 +767,7 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
 
     for (ii = 0; ii < packet_count; ii++) {
         int16_t accel_temp[3] = { 0, 0, 0 }, gyro_temp[3] = { 0, 0, 0 };
-        ReadRegisters(MPU9250_ADDRESS, FIFO_R_W, 12, &data[0]); // read data for averaging
+        ReadRegisters(MPU9250_ADDRESS, FIFO_R_W, sizeof(data), &data[0]); // read data for averaging
         accel_temp[0] = (int16_t) (((uint16_t)data[0] << 8) | data[1]  );  // Form signed 16-bit integer for each sample in FIFO
         accel_temp[1] = (int16_t) (((uint16_t)data[2] << 8) | data[3]  );
         accel_temp[2] = (int16_t) (((uint16_t)data[4] << 8) | data[5]  );
@@ -1030,13 +1030,13 @@ void mpu9250::SelfTest(float *selfTest_out)
     for (int ii = 0; ii < 200; ii++) {
 
         // Read raw accel data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
+        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
         aAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         aAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         aAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
 
         // Read raw gyro data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);
+        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
         gAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         gAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         gAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
@@ -1056,13 +1056,13 @@ void mpu9250::SelfTest(float *selfTest_out)
     for (int ii = 0; ii < 200; ii++) {  // get average self-test values of gyro and acclerometer
 
         // Read raw accel data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
+        ReadRegisters(MPU9250_ADDRESS, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
         aSTAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         aSTAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         aSTAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
 
         // Read raw gyro data for 8bit reg pairs and convert to int16_t
-        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);
+        ReadRegisters(MPU9250_ADDRESS, GYRO_XOUT_H, sizeof(rawData), &rawData[0]);
         gSTAvg[0] += (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]);
         gSTAvg[1] += (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
         gSTAvg[2] += (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);

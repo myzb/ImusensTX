@@ -42,7 +42,7 @@
 #include "mpu9250.h"
 
 #define AHRS
-//#define I2C_SLV0
+#define I2C_SLV0
 #define I2C_SPI_TIME
 //#define RESET_MAGCAL
 
@@ -61,7 +61,7 @@ volatile static float dt = 0, ts = 0, ts2 = 0;
 #endif
 
 // Globals
-mpu9250 myImu(0x68, 0, I2C_PINS_18_19, I2C_PULLUP_EXT); // MPU9250 on i2c bus 0 address 0x68
+mpu9250 myImu(34, MOSI_PIN_28); // MPU9250 On SPI bus 0
 static float imuData[10];
 
 void intFunc()
@@ -71,7 +71,7 @@ void intFunc()
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
     myImu.GetAllData(imuData);
-    myImu.ClearInterrupt(); // FIXME: Calling this sadly adds 125us to IRS for I2C
+    myImu.ClearInterrupt(); // FIXME: Calling this sadly adds 125us to IRS in I2C mode
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -80,7 +80,7 @@ void intFunc()
         Serial.print("IMU: fs = "); Serial.print((float)i/ts *1000000.f); Serial.println(" Hz");
         ts = micros();
         dt = dt/i;
-        Serial.print("IMU: I2C rate = "); Serial.print(dt, 2); Serial.println(" us");
+        Serial.print("IMU: I2C/SPI rate = "); Serial.print(dt, 2); Serial.println(" us");
         dt = 0;
         i = 0;
     }
@@ -129,7 +129,7 @@ void setup()
     }
 
     // Start by performing self test and reporting values
-    myImu.SelfTest(selfTest);
+    //myImu.SelfTest(selfTest);
     delay(1000);
 
     if (Debug) Serial.println("MPU9250: Calibrating gyro and accel");

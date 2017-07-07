@@ -11,7 +11,7 @@
 
 #include "mpu9250.h"
 
-//#define I2C_SLV0
+#define I2C_SLV0
 
 /* MPU9250 object, input the I2C address and I2C bus */
 mpu9250::mpu9250(uint8_t address, uint8_t bus){
@@ -262,6 +262,7 @@ int mpu9250::NewData()
 void mpu9250::GetAllCounts(int16_t *counts_out)
 {
     uint8_t rawData[22];
+    _useSPIHS = true; // use the high speed SPI for data readout
 
     ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value
@@ -658,7 +659,7 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
 
     // Set gyro and thermometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
-    ReadRegister(MPU9250_ADDRESS, CONFIG);
+    c = ReadRegister(MPU9250_ADDRESS, CONFIG);
     c = c & ~0x03;          // Clear DLPFG bits [2:0]
     c = c | 0x03;           // Set gyro rate to 1kHz and bandwidth to 41Hz
     WriteRegister(MPU9250_ADDRESS, CONFIG, c);
@@ -1057,12 +1058,8 @@ void mpu9250::SelfTest(float *selfTest_out)
     delay(25);  // Delay a while to let the device stabilize
 
     // Retrieve accelerometer and gyro factory Self-Test result from USR_Reg
-    selfTest[0] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_X_ACCEL);
-    selfTest[1] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_Y_ACCEL);
-    selfTest[2] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_Z_ACCEL);
-    selfTest[3] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_X_GYRO);
-    selfTest[4] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_Y_GYRO);
-    selfTest[5] = ReadRegister(MPU9250_ADDRESS, SELF_TEST_Z_GYRO);
+    ReadRegisters(MPU9250_ADDRESS, SELF_TEST_X_ACCEL, 3, &selfTest[0]);
+    ReadRegisters(MPU9250_ADDRESS, SELF_TEST_X_GYRO,  3, &selfTest[3]);
 
     // Retrieve factory self-test value from self-test code reads
     factoryTrim[0] = (float)(2620/1<<FS)*(pow( 1.01 , ((float)selfTest[0] - 1.0) ));
@@ -1188,16 +1185,6 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
     }
 }
 
-uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
-{
-    uint8_t data;                            // `data` will store the register data
-    i2c_t3(_bus).beginTransmission(address);         // Initialize the Tx buffer
-    i2c_t3(_bus).write(subAddress);                  // Put slave register address in Tx buffer
-    i2c_t3(_bus).endTransmission(I2C_NOSTOP);        // Send the Tx buffer, but send a restart to keep connection alive
-    i2c_t3(_bus).requestFrom(address, (size_t) 1);   // Read one byte from slave register address
-    data = i2c_t3(_bus).readByte();                      // Fill Rx buffer with result
-    return data;                             // Return data read from slave register
-}
 
 void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
@@ -1378,6 +1365,14 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
             data_out[i++] = i2c_t3(_bus).readByte();        // Put read results in the Rx buffer
         }
     }
+}
+
+/* Reads 1 register(s) at subAddress and return the data */
+uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
+{
+    uint8_t data;
+    ReadRegisters(address, subAddress, 1, &data);
+    return data;
 }
 
 /* writes a register to the AK8963 given a register address and data */

@@ -501,11 +501,11 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     switch (magRange) {
 
     case MAG_RANGE_14BIT:
-        _magScale = 10.f * 4912.0f / 8190.0f;
+        _magScale = 4912.0f / 8190.0f;  // counts to micro Tesla
         break;
 
     case MAG_RANGE_16BIT:
-        _magScale = 10.0f * 4912.0f / 32760.0f;
+        _magScale = 4912.0f / 32760.0f; // counts micro Tesla
         break;
     }
 
@@ -605,30 +605,31 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     WriteRegister(_address, I2C_MST_DELAY_CTRL, I2C_DLY_ES_SHDW);
 #endif /* I2C_SLV0 */
 
-    // Set the accel and gyro axis scale factors
+    // Set accel-counts to m/s2 scale factor
     switch (accelRange) {
 
     case ACCEL_RANGE_2G:
         // setting the accel range to 2G
-        _accelScale = _G * 2.0f / 32767.5f;
+        _accelScale = 2.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_4G:
         // setting the accel range to 4G
-        _accelScale = _G * 4.0f / 32767.5f;
+        _accelScale = 4.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_8G:
         // setting the accel range to 8G
-        _accelScale = _G * 8.0f / 32767.5f;
+        _accelScale = 8.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_16G:
         // setting the accel range to 16G
-        _accelScale = _G * 16.0f / 32767.5f;
+        _accelScale = 16.0f / 32767.5f * _G;
         break;
     }
 
+    // Set gyro-counts to deg/s (rad/s) scale factor
     switch (gyroRange) {
 
     case GYRO_RANGE_250DPS:

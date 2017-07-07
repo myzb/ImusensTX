@@ -280,8 +280,8 @@ public:
     const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz
 
     // Misc
-    const float _G = 1.0f; //9.807f;
-    const float _d2r = 1.0f; //3.14159265359f/180.0f;
+    const float _G = 9.807f;
+    const float _d2r = 3.14159265359f/180.0f;
     const float _tempScale = 333.87f;
     const float _tempOffset = 21.0f;
     /* End */

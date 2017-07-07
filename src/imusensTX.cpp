@@ -71,7 +71,6 @@ void intFunc()
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
     myImu.GetAllData(imuData);
-    myImu.ClearInterrupt(); // FIXME: Calling this sadly adds 125us to IRS in I2C mode
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -232,7 +231,7 @@ void loop()
 
 #ifdef AHRS
     MadgwickQuaternionUpdate(-imuData[0], imuData[1], imuData[2],
-                              imuData[4]*PI/180.0f, -imuData[5]*PI/180.0f, -imuData[6]*PI/180.0f,
+                              imuData[4], -imuData[5], -imuData[6],
                               imuData[8], -imuData[7], imuData[9], deltat);
 #endif /* AHRS */
 

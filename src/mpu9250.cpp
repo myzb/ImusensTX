@@ -287,6 +287,11 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
         counts_out[7] = counts_out[8] = counts_out[9] = 0;
     }
 
+    // NOTE: In I2C master mode and INT_ANYRD_2CLEAR there is an issue with clears triggering
+    // randomly before slave 0 register readout. This causes the I2C bus to stall. Using LATCH
+    // mode circumvents this but requires the interrupt to be cleared manually.
+    if (!_useSPI) ClearInterrupt();
+
     // FIXME: Shift of signed values is platform specific
 }
 
@@ -688,9 +693,15 @@ void mpu9250::SetupInterrupt()
     // Config interrupt: Auto-clear on reg read | i2c bypass enable
     WriteRegister(MPU9250_ADDRESS, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
 #else
-    // Config interrupt: latch mode (held high until cleared)
-    // NOTE: Auto-clear randomly triggers before readout in i2c_slv0 mode causing a bus stall.
-    WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
+    if (_useSPI) {
+        // Config interrupt: Auto-clear on reg read
+        WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
+    } else {
+        // NOTE: In I2C master mode and INT_ANYRD_2CLEAR there is an issue with clears triggering
+        // randomly before slave 0 register readout. This causes the I2C bus to stall. Use LATCH
+        // mode and clear the interrupt manually to circumvent. This sadly adds about 125us to IRS.
+        WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
+    }
 #endif /* I2C_SLV0 */
 }
 

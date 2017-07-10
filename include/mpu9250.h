@@ -289,6 +289,11 @@ public:
     const float _d2r = 3.14159265359f/180.0f;
     const float _tempScale = 333.87f;
     const float _tempOffset = 21.0f;
+
+    // Transformation matrix, to match accel and gyro with magnetomerer axes
+    const int16_t tX[3] = { 0, 1,  0 };
+    const int16_t tY[3] = { 1, 0,  0 };
+    const int16_t tZ[3] = { 0, 0, -1 };
     /* End */
 
     /* Member variables */
@@ -337,7 +342,6 @@ public:
     void MagCal(float *magBias_out, float *magScale_out);
     void AcelGyroCal(float *accelBias_out, float *gyroBias_out);
     void SetMagCal(float *magBias_in, float *magScale_in);
-    void GetAllData(float *all_out);
 
     // Functions that return the raw sensor ADC values
     int16_t GetTempCounts();
@@ -356,6 +360,7 @@ public:
     void GetGyroData(float *gyro_out);
     void GetMPU9250Data(float *data_out);
     void GetMagData(float *mag_out);
+    void GetAllData(float *all_out);
 
     // Register R/W access
     bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);

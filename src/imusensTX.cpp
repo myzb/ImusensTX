@@ -97,8 +97,8 @@ void setup()
 
 #if 1
     // Pre-calibrated values (office)
-    float magBias[3] = {21.92857170f, 529.65936279f, -226.40782166f};
-    float magScale[3] = {1.04433501f, 0.97695851f, 0.98148149f};
+    float magBias[3] = {6.21309566f, 48.00038147f, -26.88592911};
+    float magScale[3] = {1.05979073f, 0.90549165f, 1.05037034f};
 #else
     // Pre-calibrated values (golf)
     float magBias[3] = {47.51190567f, 584.83221436f, -210.48852539};
@@ -157,7 +157,10 @@ void setup()
 
 #ifdef RESET_MAGCAL
     // TODO: Add RawHid msg to wave device and also notice on done
-    myImu.MagCal(myImu._mCal_bias, myImu._mCal_scale);
+    Serial.println("AK8963 initialized for active data mode....");
+    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+    delay(4000);
+    myImu.MagCal(magBias, magScale);
 #else
     Serial.println("AK8963: Mag calibration using pre-recorded values");
     myImu.SetMagCal(magBias, magScale);
@@ -230,9 +233,15 @@ void loop()
     lastUpdate = now;
 
 #ifdef AHRS
+#if 0
     MadgwickQuaternionUpdate(-imuData[0], imuData[1], imuData[2],
                               imuData[4], -imuData[5], -imuData[6],
                               imuData[8], -imuData[7], imuData[9], deltat);
+#else
+    MadgwickQuaternionUpdate(imuData[0], imuData[1], imuData[2],
+                             imuData[4], imuData[5], imuData[6],
+                             imuData[7], imuData[8], imuData[9], deltat);
+#endif
 #endif /* AHRS */
 
 #ifndef NO_USB
@@ -302,6 +311,13 @@ void loop()
             // Print the avg loop rate
             Serial.print("loop: rate = "); Serial.print((float)loopCount/loopCountTime, 2);
             Serial.println(" Hz");
+        }
+        if (Debug) {
+            Serial.print(imuData[0], 4);Serial.print(" ");Serial.print(imuData[1], 4);Serial.print(" ");Serial.println(imuData[2], 4);
+            Serial.println(imuData[3],4);
+            Serial.print(imuData[4], 4);Serial.print(" ");Serial.print(imuData[5], 4);Serial.print(" ");Serial.println(imuData[6], 4);
+            Serial.print(imuData[7], 4);Serial.print(" ");Serial.print(imuData[8], 4);Serial.print(" ");Serial.println(imuData[9], 4);
+            Serial.print("\n");
         }
 
         // Toggle the LED

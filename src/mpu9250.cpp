@@ -298,6 +298,7 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
 void mpu9250::GetAllData(float *all_out)
 {
     int16_t counts[10];
+    float mag[3];
 
     GetAllCounts(counts);
 
@@ -324,8 +325,8 @@ void mpu9250::GetAllData(float *all_out)
 
     // Return if mag data not rdy or mag overflow (and use previous data)
     if (!(counts[7] | counts[8] | counts[9])) return;
-
-    // Convert counts to milliGauss, also include factory calibration per data sheet
+#if 0
+    // Convert counts to microTesla, also include factory calibration per data sheet
     // and user environmental corrections (re-scaling)
     all_out[7] = (float)counts[7] * _magScale * _mRes_factory[0] - _mCal_bias[0];
     all_out[8] = (float)counts[8] * _magScale * _mRes_factory[1] - _mCal_bias[1];
@@ -333,7 +334,21 @@ void mpu9250::GetAllData(float *all_out)
     all_out[7] *= _mCal_scale[0];
     all_out[8] *= _mCal_scale[1];
     all_out[9] *= _mCal_scale[2];
+#else
+    // Convert counts to microTesla, also include factory calibration per data sheet
+    // and user environmental corrections (re-scaling)
+    mag[0] = (float)counts[7] * _magScale * _mRes_factory[0] - _mCal_bias[0];
+    mag[1] = (float)counts[8] * _magScale * _mRes_factory[1] - _mCal_bias[1];
+    mag[2] = (float)counts[9] * _magScale * _mRes_factory[2] - _mCal_bias[2];
+    mag[0] *= _mCal_scale[0];
+    mag[1] *= _mCal_scale[1];
+    mag[2] *= _mCal_scale[2];
 
+    // Transform accel and gyro axes to match magnetometer axes
+    all_out[7] = tX[0]*mag[0] + tX[1]*mag[1] + tX[2]*mag[2];
+    all_out[8] = tY[0]*mag[0] + tY[1]*mag[1] + tY[2]*mag[2];
+    all_out[9] = tZ[0]*mag[0] + tZ[1]*mag[1] + tZ[2]*mag[2];
+#endif
 #ifdef MAG_EXPORT
     Serial.print((int)((float)counts[7] * _magScale) ); Serial.print("\t");
     Serial.print((int)((float)counts[8] * _magScale) ); Serial.print("\t");
@@ -444,15 +459,19 @@ void mpu9250::GetGyroData(float *gyro_out)
 
 void mpu9250::GetMagCounts(int16_t *counts_out)
 {
-    uint8_t rawData[7];  // x/y/z mag register data + ST2 register
-    ReadRegisters(AK8963_ADDRESS, AK8963_XOUT_L, 7, &rawData[0]);
-    uint8_t c = rawData[6];
+    uint8_t rawData[8];  // ST1 + x/y/z mag data + ST2 register
 
-    // Check if magnetic sensor overflow set, if not then report data
-    if (!(c & 0x08)) {
-        counts_out[0] = ((int16_t)rawData[1] << 8) | rawData[0];
-        counts_out[1] = ((int16_t)rawData[3] << 8) | rawData[2];
-        counts_out[2] = ((int16_t)rawData[5] << 8) | rawData[4];
+    if (_useSPI) {
+        ReadRegisters(_address, EXT_SENS_DATA_00, sizeof(rawData), &rawData[0]);
+    } else {
+        ReadRegisters(AK8963_ADDRESS, AK8963_ST1, sizeof(rawData), &rawData[0]);
+    }
+
+    if ((rawData[0] & 0x01) && !(rawData[7] & 0x08)) {
+        // Mag data is ready && no mag overflow
+        counts_out[0] = ((int16_t)rawData[2] << 8) | rawData[1];
+        counts_out[1] = ((int16_t)rawData[4] << 8) | rawData[3];
+        counts_out[2] = ((int16_t)rawData[6] << 8) | rawData[5];
     }
 }
 
@@ -553,8 +572,8 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     delay(10);
 
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
-    uint8_t rawData[3];
-    ReadAK8963Registers( AK8963_ASAX, sizeof(rawData), &rawData[0]);
+    uint8_t rawData[8];
+    ReadAK8963Registers( AK8963_ASAX, 3, &rawData[0]);
     _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
     _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
     _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
@@ -568,18 +587,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     WriteAK8963Register(AK8963_CNTL1, c);
     delay(10);
 
-    // Config SLV0 for normal operation
-    WriteRegister(_address, I2C_SLV0_ADDR, I2C_READ_FLAG | AK8963_ADDRESS);  // set SLV0 to AK8963 and cfg for read
-    WriteRegister(_address, I2C_SLV0_REG, AK8963_ST1);                       // AK8963 register to read from
-
-    // Enable I2C to send 8 bytes (ST1 + mag_data[6] + ST2), mag_data[6] is in odd + even pairs
-    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | I2C_SLV0_GRP_EVN | 0x08);
-
-    delayMicroseconds(100); // takes some time for these registers to fill
-    uint8_t data[8];
-
-    // read the bytes off the MPU9250 EXT_SENS_DATA registers
-    ReadRegisters(_address, EXT_SENS_DATA_00, sizeof(data), data);
+    // Read one set of mag data. This tells the MPU9250 which AK8963 register(s) data has to be
+    // sequentially written to the 'EXT_SENS_DATA_00' MPU9250 register
+    ReadAK8963Registers(AK8963_ST1, sizeof(rawData), &rawData[0]);
 #endif /* I2C_SLV0 */
 }
 
@@ -609,46 +619,42 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     switch (accelRange) {
 
     case ACCEL_RANGE_2G:
-        // setting the accel range to 2G
         _accelScale = 2.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_4G:
-        // setting the accel range to 4G
         _accelScale = 4.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_8G:
-        // setting the accel range to 8G
         _accelScale = 8.0f / 32767.5f * _G;
         break;
 
     case ACCEL_RANGE_16G:
-        // setting the accel range to 16G
         _accelScale = 16.0f / 32767.5f * _G;
         break;
     }
+    // By convention gravity vector is positive up (+1G along the +z-axis). We will be using
+    // the vector resulting from the force that pulls the MEMS probe mass downwards. Multiply
+    // the accel sensor values by -1 to account for this:
+    _accelScale *= -1;
 
     // Set gyro-counts to deg/s (rad/s) scale factor
     switch (gyroRange) {
 
     case GYRO_RANGE_250DPS:
-        // setting the gyro range to 250DPS
         _gyroScale = 250.0f / 32767.5f * _d2r;
         break;
 
     case GYRO_RANGE_500DPS:
-        // setting the gyro range to 500DPS
         _gyroScale = 500.0f / 32767.5f * _d2r;
         break;
 
     case GYRO_RANGE_1000DPS:
-        // setting the gyro range to 1000DPS
         _gyroScale = 1000.0f / 32767.5f * _d2r;
         break;
 
     case GYRO_RANGE_2000DPS:
-        // setting the gyro range to 2000DPS
         _gyroScale = 2000.0f / 32767.5f * _d2r;
         break;
     }
@@ -953,7 +959,7 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     Serial.println("AK8963 initialized for active data mode....");
     Serial.println("Mag Calibration: Wave device in a figure eight until done!");
     delay(4000);
-    #endif
+#endif
 
     // shoot for ~thirty seconds of mag data
     if (_magRate == MAG_RATE_8HZ) sample_count = 30 * 8;      // at 8 Hz ODR, new mag data every 125 ms
@@ -1005,15 +1011,15 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
 
 #if 0
     Serial.println("Mag calibration done!");
-    Serial.println("AK8963 mag biases (mG)"); Serial.println(myImu._mCal_bias[0], 8);
-    Serial.println(myImu._mCal_bias[1], 8); Serial.println(myImu._mCal_bias[2], 8);
-    Serial.println("AK8963 mag scale (mG)"); Serial.println(myImu._mCal_scale[0], 8);
-    Serial.println(myImu._mCal_scale[1], 8); Serial.println(myImu._mCal_scale[2], 8);
+    Serial.println("AK8963 mag biases (mG)"); Serial.println(_mCal_bias[0], 8);
+    Serial.println(_mCal_bias[1], 8); Serial.println(_mCal_bias[2], 8);
+    Serial.println("AK8963 mag scale (mG)"); Serial.println(_mCal_scale[0], 8);
+    Serial.println(_mCal_scale[1], 8); Serial.println(_mCal_scale[2], 8);
     Serial.print("\n");
     Serial.println("Calibration values: ");
-    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[0], 2);
-    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[1], 2);
-    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(myImu._mRes_factory[2], 2);
+    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[0], 2);
+    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[1], 2);
+    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[2], 2);
 #endif
 }
 
@@ -1425,13 +1431,15 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 /* Reads registers from the AK8963 */
 void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
+    // Config SLV0 for normal operation
     WriteRegister(_address, I2C_SLV0_ADDR, I2C_READ_FLAG | AK8963_ADDRESS); // SLV0 to AK8963 & set for read
-    WriteRegister(_address, I2C_SLV0_REG, subAddress);              // Set desired AK8963 sub-address
-    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count);    // Enable I2C & rx 'count' bytes
+    WriteRegister(_address, I2C_SLV0_REG, subAddress);                      // AK8963 register to read from
+    WriteRegister(_address, I2C_SLV0_CTRL, I2C_SLV0_EN | count);            // Enable I2C to send 'count' bytes
 
-    // takes some time for these registers to fill
-    delayMicroseconds(100);
-    ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out);     // read the received bytes
+    delayMicroseconds(100);     // takes some time for these registers to fill
+
+    // read the bytes off the MPU9250 EXT_SENS_DATA registers
+    ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out);
 }
 
 /* Gets the MPU9250 WHO_AM_I register value, expected to be 0x71 */

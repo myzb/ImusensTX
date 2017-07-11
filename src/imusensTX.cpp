@@ -206,15 +206,9 @@ void loop()
     lastUpdate = now;
 
 #ifdef AHRS
-#if 0
-    MadgwickQuaternionUpdate(-imuData[0], imuData[1], imuData[2],
-                              imuData[4], -imuData[5], -imuData[6],
-                              imuData[8], -imuData[7], imuData[9], deltat);
-#else
     MadgwickQuaternionUpdate(imuData[0], imuData[1], imuData[2],
                              imuData[4], imuData[5], imuData[6],
                              imuData[7], imuData[8], imuData[9], deltat);
-#endif
 #endif /* AHRS */
 
 #ifndef NO_USB

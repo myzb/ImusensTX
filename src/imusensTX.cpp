@@ -112,7 +112,7 @@ void setup()
     if (Debug) Serial.println("MPU9250: Initialising for active data mode....");
 
     // Config for normal operation
-    myImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x04);    // sample-rate div by 4 (0x03 + 1)
+    myImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);    // sample-rate div by 1 (0x00 + 1)
 
     // Setup interrupts
     myImu.SetupInterrupt();

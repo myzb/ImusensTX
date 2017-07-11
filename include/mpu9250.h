@@ -290,7 +290,7 @@ public:
     const float _tempScale = 333.87f;
     const float _tempOffset = 21.0f;
 
-    // Transformation matrix, to match accel and gyro with magnetomerer axes
+    // Transformation matrix, to match accel/gyro with magnetomerer axes
     const int16_t tX[3] = { 0, 1,  0 };
     const int16_t tY[3] = { 1, 0,  0 };
     const int16_t tZ[3] = { 0, 0, -1 };
@@ -298,9 +298,9 @@ public:
 
     /* Member variables */
     // Sensors
-    float _mCal_bias[3] = {0, 0, 0}, _mCal_scale[3]  = {0, 0, 0};   // Hard iron offset (bias), Soft iron axis re-scale
-    float _mRes_factory[3] = {0, 0, 0};                             // Factory axis resolution factor
-    float _gCal_bias[3] = {0, 0, 0}, _aCal_bias[3] = {0, 0, 0};     // Accel/Gyro bias
+    float _magHardIron[3] = {0, 0, 0}, _magSoftIron[3]  = {0, 0, 0};    // Hard iron offset, soft iron axis re-scale
+    float _magScale_factory[3] = {0, 0, 0};                             // Factory axis scale factor
+    float _gyroBias[3] = {0, 0, 0}, _accelBias[3] = {0, 0, 0};          // Accel/Gyro bias
 
     float _accelScale, _gyroScale, _magScale;                       // Sensor resolutions per LSB
     uint8_t _magRate;                                               // Sensor sampling rate

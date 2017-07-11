@@ -302,13 +302,13 @@ void mpu9250::GetAllData(float *all_out)
 
     GetAllCounts(counts);
 
-    // Accel counts in g's
+    // Accel counts in m/s^2 accounting for direction of gravitational force (downwards)
 #if 0
     // There was a bug that prevented writing accel calibration values to the
     // corresponding registers. Keep this here just incase.
-    all_out[0] = (float)counts[0] * _accelScale - _aCal_bias[0];
-    all_out[1] = (float)counts[1] * _accelScale - _aCal_bias[1];
-    all_out[2] = (float)counts[2] * _accelScale - _aCal_bias[2];
+    all_out[0] = (float)counts[0] * _accelScale - _accelBias[0];
+    all_out[1] = (float)counts[1] * _accelScale - _accelBias[1];
+    all_out[2] = (float)counts[2] * _accelScale - _accelBias[2];
 #else
     all_out[0] = (float)counts[0] * _accelScale;
     all_out[1] = (float)counts[1] * _accelScale;
@@ -318,37 +318,28 @@ void mpu9250::GetAllData(float *all_out)
     // Temp counts in degrees celcius
     all_out[3] = ((float)counts[3] - _tempOffset)/_tempScale + _tempOffset;
 
-    // Gyro counts in deg/s
+    // Gyro counts in rad/s
     all_out[4] = (float)counts[4] * _gyroScale;
     all_out[5] = (float)counts[5] * _gyroScale;
     all_out[6] = (float)counts[6] * _gyroScale;
 
-    // Return if mag data not rdy or mag overflow (and use previous data)
+    // Return if mag data not ready or mag overflow (and use previous data)
     if (!(counts[7] | counts[8] | counts[9])) return;
-#if 0
-    // Convert counts to microTesla, also include factory calibration per data sheet
-    // and user environmental corrections (re-scaling)
-    all_out[7] = (float)counts[7] * _magScale * _mRes_factory[0] - _mCal_bias[0];
-    all_out[8] = (float)counts[8] * _magScale * _mRes_factory[1] - _mCal_bias[1];
-    all_out[9] = (float)counts[9] * _magScale * _mRes_factory[2] - _mCal_bias[2];
-    all_out[7] *= _mCal_scale[0];
-    all_out[8] *= _mCal_scale[1];
-    all_out[9] *= _mCal_scale[2];
-#else
-    // Convert counts to microTesla, also include factory calibration per data sheet
-    // and user environmental corrections (re-scaling)
-    mag[0] = (float)counts[7] * _magScale * _mRes_factory[0] - _mCal_bias[0];
-    mag[1] = (float)counts[8] * _magScale * _mRes_factory[1] - _mCal_bias[1];
-    mag[2] = (float)counts[9] * _magScale * _mRes_factory[2] - _mCal_bias[2];
-    mag[0] *= _mCal_scale[0];
-    mag[1] *= _mCal_scale[1];
-    mag[2] *= _mCal_scale[2];
 
-    // Transform accel and gyro axes to match magnetometer axes
+    // Convert counts to microTesla, also include factory calibration per data sheet
+    // and user environmental corrections for soft/hard iron distortions
+    mag[0] = (float)counts[7] * _magScale * _magScale_factory[0] - _magHardIron[0];
+    mag[1] = (float)counts[8] * _magScale * _magScale_factory[1] - _magHardIron[1];
+    mag[2] = (float)counts[9] * _magScale * _magScale_factory[2] - _magHardIron[2];
+    mag[0] *= _magSoftIron[0];
+    mag[1] *= _magSoftIron[1];
+    mag[2] *= _magSoftIron[2];
+
+    // Transform magnetometer axes to match gyro/accel axes (less compute load than gyro/accel to mag)
     all_out[7] = tX[0]*mag[0] + tX[1]*mag[1] + tX[2]*mag[2];
     all_out[8] = tY[0]*mag[0] + tY[1]*mag[1] + tY[2]*mag[2];
     all_out[9] = tZ[0]*mag[0] + tZ[1]*mag[1] + tZ[2]*mag[2];
-#endif
+
 #ifdef MAG_EXPORT
     Serial.print((int)((float)counts[7] * _magScale) ); Serial.print("\t");
     Serial.print((int)((float)counts[8] * _magScale) ); Serial.print("\t");
@@ -387,9 +378,9 @@ void mpu9250::GetMPU9250Data(float *data_out)
 #if 0
     // There was a bug that prevented writing accel calibration values to the
     // corresponding registers. Keep this here just incase.
-    data_out[0] = (float)mpu9250Counts[0] * _accelScale - _aCal_bias[0];
-    data_out[1] = (float)mpu9250Counts[1] * _accelScale - _aCal_bias[1];
-    data_out[2] = (float)mpu9250Counts[2] * _accelScale - _aCal_bias[2];
+    data_out[0] = (float)mpu9250Counts[0] * _accelScale - _accelBias[0];
+    data_out[1] = (float)mpu9250Counts[1] * _accelScale - _accelBias[1];
+    data_out[2] = (float)mpu9250Counts[2] * _accelScale - _accelBias[2];
 #else
     data_out[0] = (float)mpu9250Counts[0] * _accelScale;
     data_out[1] = (float)mpu9250Counts[1] * _accelScale;
@@ -484,12 +475,12 @@ void mpu9250::GetMagData(float *mag_out)
 
     // Convert counts to milliGauss, also include factory calibration per data sheet
     // and user environmental corrections (re-scaling)
-    mag_out[0] = (float)magCounts[0] * _magScale * _mRes_factory[0] - _mCal_bias[0];
-    mag_out[1] = (float)magCounts[1] * _magScale * _mRes_factory[1] - _mCal_bias[1];
-    mag_out[2] = (float)magCounts[2] * _magScale * _mRes_factory[2] - _mCal_bias[2];
-    mag_out[0] *= _mCal_scale[0];
-    mag_out[1] *= _mCal_scale[1];
-    mag_out[2] *= _mCal_scale[2];
+    mag_out[0] = (float)magCounts[0] * _magScale * _magScale_factory[0] - _magHardIron[0];
+    mag_out[1] = (float)magCounts[1] * _magScale * _magScale_factory[1] - _magHardIron[1];
+    mag_out[2] = (float)magCounts[2] * _magScale * _magScale_factory[2] - _magHardIron[2];
+    mag_out[0] *= _magSoftIron[0];
+    mag_out[1] *= _magSoftIron[1];
+    mag_out[2] *= _magSoftIron[2];
 
 #ifdef MAG_EXPORT
     Serial.print( (int)((float)magCounts[0] * _magScale) ); Serial.print("\t");
@@ -545,9 +536,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
     uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
+    _magScale_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
+    _magScale_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
+    _magScale_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
 
     // Power down magnetometer
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
@@ -574,9 +565,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
     uint8_t rawData[8];
     ReadAK8963Registers( AK8963_ASAX, 3, &rawData[0]);
-    _mRes_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _mRes_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _mRes_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
+    _magScale_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
+    _magScale_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
+    _magScale_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
 
     // Power down magnetometer
     WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
@@ -615,7 +606,7 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     WriteRegister(_address, I2C_MST_DELAY_CTRL, I2C_DLY_ES_SHDW);
 #endif /* I2C_SLV0 */
 
-    // Set accel-counts to m/s2 scale factor
+    // Set accel-counts to m/s^2 scale factor
     switch (accelRange) {
 
     case ACCEL_RANGE_2G:
@@ -634,9 +625,9 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
         _accelScale = 16.0f / 32767.5f * _G;
         break;
     }
-    // By convention gravity vector is positive up (+1G along the +z-axis). We will be using
-    // the vector resulting from the force that pulls the MEMS probe mass downwards. Multiply
-    // the accel sensor values by -1 to account for this:
+    // By convention gravity-vector is defined positive up (+1G). For NED world coordinates the
+    // z axis points downwards in the direction of the gravitational force. The accel g-vector
+    // measured by the sensor has to be inverted to also point downwards:
     _accelScale *= -1;
 
     // Set gyro-counts to deg/s (rad/s) scale factor
@@ -926,24 +917,24 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
 
 void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
 {
-    _mCal_bias[0] = magBias_in[0];
-    _mCal_bias[1] = magBias_in[1];
-    _mCal_bias[2] = magBias_in[2];
-    _mCal_scale[0] = magScale_in[0];
-    _mCal_scale[1] = magScale_in[1];
-    _mCal_scale[2] = magScale_in[2];
+    _magHardIron[0] = magBias_in[0];
+    _magHardIron[1] = magBias_in[1];
+    _magHardIron[2] = magBias_in[2];
+    _magSoftIron[0] = magScale_in[0];
+    _magSoftIron[1] = magScale_in[1];
+    _magSoftIron[2] = magScale_in[2];
 
 #if 0
     Serial.println("Preset calibration: ");
-    Serial.println("AK8963 mag biases (mG)"); Serial.println(_mCal_bias[0], 8);
-    Serial.println(_mCal_bias[1], 8); Serial.println(_mCal_bias[2], 8);
-    Serial.println("AK8963 mag scale (mG)"); Serial.println(_mCal_scale[0], 8);
-    Serial.println(_mCal_scale[1], 8); Serial.println(_mCal_scale[2], 8);
+    Serial.println("AK8963 mag biases (mG)"); Serial.println(_magHardIron[0], 8);
+    Serial.println(_magHardIron[1], 8); Serial.println(_magHardIron[2], 8);
+    Serial.println("AK8963 mag scale (mG)"); Serial.println(_magSoftIron[0], 8);
+    Serial.println(_magSoftIron[1], 8); Serial.println(_magSoftIron[2], 8);
     Serial.print("\n");
     Serial.println("Factory calibration: ");
-    Serial.print("X-Axis sensitivity scale "); Serial.println(_mRes_factory[0], 2);
-    Serial.print("Y-Axis sensitivity scale "); Serial.println(_mRes_factory[1], 2);
-    Serial.print("Z-Axis sensitivity scale "); Serial.println(_mRes_factory[2], 2);
+    Serial.print("X-Axis sensitivity scale "); Serial.println(_magScale_factory[0], 2);
+    Serial.print("Y-Axis sensitivity scale "); Serial.println(_magScale_factory[1], 2);
+    Serial.print("Z-Axis sensitivity scale "); Serial.println(_magScale_factory[2], 2);
 #endif
 }
 
@@ -991,9 +982,9 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     mag_bias[2] = (mag_max[2] + mag_min[2]) / 2;
 
     // save mag biases in G for main program
-    _mCal_bias[0] = (float)mag_bias[0] * _magScale * _mRes_factory[0];
-    _mCal_bias[1] = (float)mag_bias[1] * _magScale * _mRes_factory[1];
-    _mCal_bias[2] = (float)mag_bias[2] * _magScale * _mRes_factory[2];
+    _magHardIron[0] = (float)mag_bias[0] * _magScale * _magScale_factory[0];
+    _magHardIron[1] = (float)mag_bias[1] * _magScale * _magScale_factory[1];
+    _magHardIron[2] = (float)mag_bias[2] * _magScale * _magScale_factory[2];
 
     // Get soft iron correction estimate for xyz axes in counts
     // This is the sphere/elipse diameter for each dimension
@@ -1005,21 +996,21 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     avg_rad /= 3.0;
 
     // Calc circularisation factor
-    _mCal_scale[0] = avg_rad / ((float)mag_scale[0]);
-    _mCal_scale[1] = avg_rad / ((float)mag_scale[1]);
-    _mCal_scale[2] = avg_rad / ((float)mag_scale[2]);
+    _magSoftIron[0] = avg_rad / ((float)mag_scale[0]);
+    _magSoftIron[1] = avg_rad / ((float)mag_scale[1]);
+    _magSoftIron[2] = avg_rad / ((float)mag_scale[2]);
 
 #if 0
     Serial.println("Mag calibration done!");
-    Serial.println("AK8963 mag biases (mG)"); Serial.println(_mCal_bias[0], 8);
-    Serial.println(_mCal_bias[1], 8); Serial.println(_mCal_bias[2], 8);
-    Serial.println("AK8963 mag scale (mG)"); Serial.println(_mCal_scale[0], 8);
-    Serial.println(_mCal_scale[1], 8); Serial.println(_mCal_scale[2], 8);
+    Serial.println("AK8963 mag biases (mG)"); Serial.println(_magHardIron[0], 8);
+    Serial.println(_magHardIron[1], 8); Serial.println(_magHardIron[2], 8);
+    Serial.println("AK8963 mag scale (mG)"); Serial.println(_magSoftIron[0], 8);
+    Serial.println(_magSoftIron[1], 8); Serial.println(_magSoftIron[2], 8);
     Serial.print("\n");
     Serial.println("Calibration values: ");
-    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[0], 2);
-    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[1], 2);
-    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(_mRes_factory[2], 2);
+    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[0], 2);
+    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[1], 2);
+    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[2], 2);
 #endif
 }
 

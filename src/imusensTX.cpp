@@ -305,8 +305,6 @@ void loop()
     // Print current vals each 2000ms
     if (millis() - lastPrint >= 2000) {
 
-        // TODO: Inline version is faster
-        //dumpData(ax, ay, az, gx, gy, gz, mx, my, mz, myImu.ReadTempData());
         if(Debug) {
             // Print the avg loop rate
             Serial.print("loop: rate = "); Serial.print((float)loopCount/loopCountTime, 2);

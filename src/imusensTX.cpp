@@ -15,7 +15,6 @@
 #include "mpu9250.h"
 
 #define AHRS
-#define I2C_SLV0
 #define I2C_SPI_TIME
 //#define RESET_MAGCAL
 
@@ -39,7 +38,6 @@ static float imuData[10];
 
 void intFunc()
 {
-#ifdef I2C_SLV0
 #ifdef I2C_SPI_TIME
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
@@ -57,9 +55,6 @@ void intFunc()
         i = 0;
     }
 #endif /* I2C_SPI_TIME */
-#else
-    myImu._newData = 1;
-#endif /* I2C_SLV0 */
 }
 
 void setup()
@@ -89,10 +84,6 @@ void setup()
     pinMode(myLed, OUTPUT);
     digitalWrite(myLed, HIGH);
 
-#ifndef I2C_SLV0
-    I2Cscan();// look for I2C devices on the bus
-#endif /* I2C_SLV0 */
-
     // Loop forever if MPU9250 is not online
     if (myImu.whoAmI() != 0x71) while(1);
 
@@ -117,13 +108,11 @@ void setup()
     // Setup interrupts
     myImu.SetupInterrupt();
 
-#ifdef I2C_SLV0
     if(Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         Serial.print("AK8963: I'm "); Serial.println(myImu.whoAmIAK8963());
         delay(100);
     }
-#endif /* I2C_SLV0 */
 
     // Get magnetometer calibration from AK8963 ROM
     myImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
@@ -161,44 +150,6 @@ void loop()
     static uint8_t num;                                 // usb return code
     static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
     static uint32_t packetCount = 0;                    // usb packet number
-
-#ifndef I2C_SLV0
-    // If intPin goes high, all data registers have new data
-    if(myImu.NewData()) {
-
-#ifdef I2C_SPI_TIME
-        ts2 = micros();
-#endif /* I2C_SPI_TIME */
-
-        myImu.GetMPU9250Data(imuData);
-
-#ifdef I2C_SPI_TIME
-        dt = dt + micros() - ts2;
-        i++;
-        if (i > 1000) {
-            ts = micros() - ts;
-            Serial.print("IMU: fs = "); Serial.print((float)i/ts *1000000.f); Serial.println(" Hz");
-            ts = micros();
-            dt = dt/i;
-            Serial.print("IMU: I2C rate = "); Serial.print(dt, 2); Serial.println(" us");
-            dt = 0;
-            i = 0;
-        }
-#endif /* I2C_SPI_TIME */
-
-        if(myImu.NewMagData()) {
-            myImu.GetMagData(imuData+7); // MagData: imuData[7] ... imuData[10]
-
-            if (Debug == 3) {
-                Serial.print(imuData[0], 4);Serial.print(" ");Serial.print(imuData[1], 4);Serial.print(" ");Serial.println(imuData[2], 4);
-                Serial.println(imuData[3],4);
-                Serial.print(imuData[4], 4);Serial.print(" ");Serial.print(imuData[5], 4);Serial.print(" ");Serial.println(imuData[6], 4);
-                Serial.print(imuData[7], 4);Serial.print(" ");Serial.print(imuData[8], 4);Serial.print(" ");Serial.println(imuData[9], 4);
-                Serial.print("\n");
-            }
-        }
-    }
-#endif /* I2C_SLV0 */
 
     // Calculate loop time
     now = micros();

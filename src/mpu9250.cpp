@@ -11,8 +11,6 @@
 
 #include "mpu9250.h"
 
-#define I2C_SLV0
-
 /* MPU9250 object, input the I2C address and I2C bus */
 mpu9250::mpu9250(uint8_t address, uint8_t bus){
     _address = address;
@@ -528,34 +526,6 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Set mag sampling rate
     _magRate = magRate;
 
-#ifndef I2C_SLV0
-    // TODO: May want to reset mag sensor aswell?
-
-    // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
-    delay(10);
-
-    // Enter Fuse ROM access mode
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_FUSE_ROM);
-    delay(10);
-
-    // Read the x-, y-, and z-axis factory calibration values and calculate magScale as per datasheet
-    uint8_t rawData[3];
-    ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _magScale_factory[0] = magScale_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _magScale_factory[1] = magScale_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _magScale_factory[2] = magScale_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
-
-    // Power down magnetometer
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
-    delay(10);
-
-    // Write magnetometer sampling rate and bit resolution to register
-    uint8_t c = magRange << 4 | magRate;
-    WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, c);
-    delay(10);
-#else
-
     // Reset magnetometer
     WriteAK8963Register(AK8963_CNTL2, AK8963_RESET);
     delay(10);
@@ -588,7 +558,6 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // sequentially written to the 'EXT_SENS_DATA_00' MPU9250 register. These are AK8963_ST1
     // 'magData[6]' and AK8963_ST2
     ReadAK8963Registers(AK8963_ST1, 8, &rawData[0]);
-#endif /* I2C_SLV0 */
 }
 
 int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD)
@@ -602,7 +571,6 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     // auto-select best clock source
     WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
 
-#ifdef I2C_SLV0
     // enable I2C master mode
     WriteRegister(_address,USER_CTRL, I2C_MST_EN);
 
@@ -611,7 +579,6 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
 
     // delay shadow of external sensor data until rx is complete
     WriteRegister(_address, I2C_MST_DELAY_CTRL, I2C_DLY_ES_SHDW);
-#endif /* I2C_SLV0 */
 
     // Set accel-counts to m/s^2 scale factor
     switch (accelRange) {
@@ -694,10 +661,6 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
 
 void mpu9250::SetupInterrupt()
 {
-#ifndef I2C_SLV0
-    // Config interrupt: Auto-clear on reg read | i2c bypass enable
-    WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR | INT_BYPASS_EN);
-#else
     if (_useSPI) {
         // Config interrupt: Auto-clear on reg read
         WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
@@ -707,7 +670,6 @@ void mpu9250::SetupInterrupt()
         // mode and clear the interrupt manually to circumvent. This sadly adds about 125us to IRS.
         WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
     }
-#endif /* I2C_SLV0 */
 }
 
 void mpu9250::EnableInterrupt()

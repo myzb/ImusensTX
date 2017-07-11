@@ -70,12 +70,12 @@ void setup()
 
 #if 1
     // Pre-calibrated values (office)
-    float magBias[3] = {6.21309566f, 48.00038147f, -26.88592911};
-    float magScale[3] = {1.05979073f, 0.90549165f, 1.05037034f};
+    float magHardIron[3] = {6.21309566f, 48.00038147f, -26.88592911};
+    float magSoftIron[3] = {1.05979073f, 0.90549165f, 1.05037034f};
 #else
     // Pre-calibrated values (golf)
-    float magBias[3] = {47.51190567f, 584.83221436f, -210.48852539};
-    float magScale[3] = {1.02854228f, 0.99213374f, 0.98056370f};
+    float magHardIron[3] = {47.51190567f, 584.83221436f, -210.48852539};
+    float magSoftIron[3] = {1.02854228f, 0.99213374f, 0.98056370f};
 #endif
 
     Serial.begin(38400);
@@ -133,10 +133,10 @@ void setup()
     Serial.println("AK8963 initialized for active data mode....");
     Serial.println("Mag Calibration: Wave device in a figure eight until done!");
     delay(4000);
-    myImu.MagCal(magBias, magScale);
+    myImu.MagCal(magHardIron, magSoftIron);
 #else
     Serial.println("AK8963: Mag calibration using pre-recorded values");
-    myImu.SetMagCal(magBias, magScale);
+    myImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
     // Attach interrupt pin and int function

@@ -1,37 +1,10 @@
-/* MPU9250_MS5637_t3 Basic Example Code
- by: Kris Winer
- date: April 1, 2014
- license: Beerware - Use this code however you'd like. If you 
- find it useful you can buy me a beer some time.
- 
- Demonstrate basic MPU-9250 functionality including parameterizing the register addresses, initializing the sensor, 
- getting properly scaled accelerometer, gyroscope, and magnetometer data out. Added display functions to 
- allow display to on breadboard monitor. Addition of 9 DoF sensor fusion using open source Madgwick and 
- Mahony filter algorithms. Sketch runs on the 3.3 V 8 MHz Pro Mini and the Teensy 3.1.
- 
- This sketch is intended specifically for the MPU9250+MS5637 Add-on shield for the Teensy 3.1.
- It uses SDA/SCL on pins 17/16, respectively, and it uses the Teensy 3.1-specific Wire library i2c_t3.h.
- The MS5637 is a simple but high resolution pressure sensor, which can be used in its high resolution
- mode but with power consumption of 20 microAmp, or in a lower resolution mode with power consumption of
- only 1 microAmp. The choice will depend on the application.
- 
- SDA and SCL should have external pull-up resistors (to 3.3V).
- 4K7 resistors are on the MPU9250+MS5637 breakout board.
- 
- Hardware setup:
- MPU9250 Breakout --------- Arduino
- VDD ---------------------- 3.3V
- VDDI --------------------- 3.3V
- SDA ----------------------- A4
- SCL ----------------------- A5
- GND ---------------------- GND
- 
- Note: The MPU9250 is an I2C sensor and uses the Arduino Wire library. 
- Because the sensor is not 5V tolerant, we are using a 3.3 V 8 MHz Pro Mini or a 3.3 V Teensy 3.1.
- We have disabled the internal pull-ups used by the Wire library in the Wire.h/twi.c utility file.
- We are also using the 400 kHz fast I2C mode by setting the TWI_FREQ  to 400000L /twi.h utility file.
+/*
+ * imusensTX.cpp
+ *
+ *  Created on: Jun 12, 2017
+ *      Author: may
  */
-//#include "Wire.h"
+
 #include <i2c_t3.h>
 #include <SPI.h>
 

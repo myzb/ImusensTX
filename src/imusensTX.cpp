@@ -108,7 +108,7 @@ void setup()
     // Setup interrupts
     myImu.SetupInterrupt();
 
-    if(Debug) {
+    if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         Serial.print("AK8963: I'm "); Serial.println(myImu.whoAmIAK8963());
         delay(100);
@@ -163,21 +163,21 @@ void loop()
 #endif /* AHRS */
 
 #ifndef NO_USB
-    // Set usb transfer rate to 1kHz
+    // Set usb transfer rate to 1kHz // TODO: Use a timer
     if (micros() - lastTx >= 1000) {
         // Prepare usb packet
 #ifdef AHRS
         tx_buffer = {
-                *(getQ()), *(getQ()+1), *(getQ()+2), *(getQ()+3),
-                /* 48 extra bytes */
-                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+            *(getQ()), *(getQ()+1), *(getQ()+2), *(getQ()+3),
+            /* 48 extra bytes */
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
 #else
         tx_buffer = {
-                -ax, ay, az,
-                gx*PI/180.0f, -gy*PI/180.0f, -gz*PI/180.0f,
-                my, -mx, mz, deltat,
+            imuData[0], imuData[1], imuData[2],
+            imuData[4], imuData[5], imuData[6],
+            imuData[7], imuData[8], imuData[9], deltat
                 /* 24 extra bytes */
                 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
         };
@@ -194,7 +194,6 @@ void loop()
 
         } else if (Debug == 2) {
             Serial.print(F("TX: Fail \t")); Serial.println(num);
-
         }
     }
 
@@ -223,16 +222,19 @@ void loop()
     // Print current vals each 2000ms
     if (millis() - lastPrint >= 2000) {
 
-        if(Debug) {
+        if (Debug) {
             // Print the avg loop rate
             Serial.print("loop: rate = "); Serial.print((float)loopCount/loopCountTime, 2);
             Serial.println(" Hz");
         }
         if (Debug) {
-            Serial.print(imuData[0], 4);Serial.print(" ");Serial.print(imuData[1], 4);Serial.print(" ");Serial.println(imuData[2], 4);
+            Serial.print(imuData[0], 4); Serial.print(" ");
+            Serial.print(imuData[1], 4); Serial.print(" "); Serial.println(imuData[2], 4);
             Serial.println(imuData[3],4);
-            Serial.print(imuData[4], 4);Serial.print(" ");Serial.print(imuData[5], 4);Serial.print(" ");Serial.println(imuData[6], 4);
-            Serial.print(imuData[7], 4);Serial.print(" ");Serial.print(imuData[8], 4);Serial.print(" ");Serial.println(imuData[9], 4);
+            Serial.print(imuData[4], 4); Serial.print(" ");
+            Serial.print(imuData[5], 4); Serial.print(" "); Serial.println(imuData[6], 4);
+            Serial.print(imuData[7], 4); Serial.print(" ");
+            Serial.print(imuData[8], 4); Serial.print(" "); Serial.println(imuData[9], 4);
             Serial.print("\n");
         }
 

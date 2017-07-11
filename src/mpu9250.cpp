@@ -717,8 +717,8 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     WriteRegister(_address, GYRO_CONFIG, 0x00);  // Set gyro FS to 250 deg/s, maximum sensitivity
     WriteRegister(_address, ACCEL_CONFIG, 0x00); // Set accel FS to 2 g, maximum sensitivity
 
-    float  gyro_res  = GFSF_250DPS;  // 131 LSB/degrees/sec
-    float  accel_res = AFSF_2G;      // 16384 LSB/g
+    float gyro_res  = GFSF_250DPS;  // 131 LSB/degrees/sec
+    float accel_res = AFSF_2G;      // 16384 LSB/g
 
     // Configure FIFO to capture accelerometer and gyro data for bias calculation
     WriteRegister(_address, USER_CTRL, 0x40);   // Enable FIFO
@@ -761,7 +761,7 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     gyro_bias[1]  /= (int32_t)packet_count;
     gyro_bias[2]  /= (int32_t)packet_count;
 
-    if(accel_bias[2] > 0L) {
+    if (accel_bias[2] > 0L) {
         // Remove gravity from the z-axis accelerometer bias calculation
         accel_bias[2] -= (int32_t)accel_res;
     } else {
@@ -1382,8 +1382,7 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 
     if (buff[0] == data) {
         return true;
-    }
-    else{
+    } else {
         return false;
     }
 }

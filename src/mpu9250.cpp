@@ -251,7 +251,13 @@ void mpu9250::WireBegin()
 
 int mpu9250::NewMagData()
 {
-    return _newMagData = (ReadRegister(AK8963_ADDRESS, AK8963_ST1) & 0x01);
+    uint8_t rawData;
+    if (_useSPI) {
+        ReadRegisters(_address, EXT_SENS_DATA_00, 1, &rawData);
+        return _newMagData = (rawData & 0x01);
+    } else {
+        return _newMagData = (ReadRegister(AK8963_ADDRESS, AK8963_ST1) & 0x01);
+    }
 }
 
 int mpu9250::NewData()
@@ -505,7 +511,7 @@ float mpu9250::GetTempData()
     return (((float)GetTempCounts() - _tempOffset) / _tempScale + _tempOffset);
 }
 
-void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out)
+void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out)
 {
     // Set mag axis scale factor
     switch (magRange) {
@@ -533,12 +539,12 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_FUSE_ROM);
     delay(10);
 
-    // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
+    // Read the x-, y-, and z-axis factory calibration values and calculate magScale as per datasheet
     uint8_t rawData[3];
     ReadRegisters(AK8963_ADDRESS, AK8963_ASAX, 3, &rawData[0]);
-    _magScale_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _magScale_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _magScale_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
+    _magScale_factory[0] = magScale_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
+    _magScale_factory[1] = magScale_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
+    _magScale_factory[2] = magScale_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
 
     // Power down magnetometer
     WriteRegister(AK8963_ADDRESS, AK8963_CNTL1, AK8963_PWR_DOWN);
@@ -562,12 +568,12 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     WriteAK8963Register(AK8963_CNTL1, AK8963_FUSE_ROM);
     delay(10);
 
-    // Read the x-, y-, and z-axis factory calibration values and calculate _mRes* as per datasheet
+    // Read the x-, y-, and z-axis factory calibration values and calculate magScale as per datasheet
     uint8_t rawData[8];
     ReadAK8963Registers( AK8963_ASAX, 3, &rawData[0]);
-    _magScale_factory[0] = mRes_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _magScale_factory[1] = mRes_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _magScale_factory[2] = mRes_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
+    _magScale_factory[0] = magScale_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
+    _magScale_factory[1] = magScale_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
+    _magScale_factory[2] = magScale_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
 
     // Power down magnetometer
     WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
@@ -579,8 +585,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     delay(10);
 
     // Read one set of mag data. This tells the MPU9250 which AK8963 register(s) data has to be
-    // sequentially written to the 'EXT_SENS_DATA_00' MPU9250 register
-    ReadAK8963Registers(AK8963_ST1, sizeof(rawData), &rawData[0]);
+    // sequentially written to the 'EXT_SENS_DATA_00' MPU9250 register. These are AK8963_ST1
+    // 'magData[6]' and AK8963_ST2
+    ReadAK8963Registers(AK8963_ST1, 8, &rawData[0]);
 #endif /* I2C_SLV0 */
 }
 
@@ -721,7 +728,7 @@ uint8_t mpu9250::ClearInterrupt()
 void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
 {
     uint8_t data[12];
-    uint16_t ii, packet_count, fifo_count;
+    uint16_t packet_count, fifo_count;
     int32_t gyro_bias[3]  = { 0, 0, 0 }, accel_bias[3] = { 0, 0, 0 };
 
     // reset device
@@ -766,7 +773,7 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     packet_count = fifo_count/12;                       // 6x (2x bytes per sensor) = 12 bytes
 
     // Sum data for averaging
-    for (ii = 0; ii < packet_count; ii++) {
+    for (unsigned int i = 0; i < packet_count; i++) {
         int16_t accel_temp[3] = { 0, 0, 0 }, gyro_temp[3] = { 0, 0, 0 };
         ReadRegisters(_address, FIFO_R_W, sizeof(data), &data[0]);
         accel_temp[0] = (int16_t) (((uint16_t)data[0] << 8) | data[1]  );

@@ -302,8 +302,8 @@ public:
     float _magScale_factory[3] = {0, 0, 0};                             // Factory axis scale factor
     float _gyroBias[3] = {0, 0, 0}, _accelBias[3] = {0, 0, 0};          // Accel/Gyro bias
 
-    float _accelScale, _gyroScale, _magScale;                       // Sensor resolutions per LSB
-    uint8_t _magRate;                                               // Sensor sampling rate
+    float _accelScale = 0, _gyroScale = 0, _magScale = 0;               // Sensor resolutions per LSB
+    uint8_t _magRate = 0;                                               // Sensor sampling rate
 
     int _newMagData = 0;                                            // new magData flag
     int _newData = 0;                                               // new MPU9250Data flag
@@ -332,7 +332,7 @@ public:
     // Functions that start the communication and sensors
     void WireBegin();
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
-    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *mRes_f_out);
+    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out);
     void SetupInterrupt();
     void EnableInterrupt();
     uint8_t ClearInterrupt();

@@ -23,7 +23,8 @@
 static const int Debug = 1;
 
 // Pin definitions
-static const int intPin = 33;
+//static const int intPin = 33; // MPU9250 1 intPin
+static const int intPin = 16;   // MPU9250 2 intPin
 static const int myLed = 13;
 
 #ifdef I2C_SPI_TIME
@@ -33,7 +34,8 @@ volatile static float dt = 0, ts = 0, ts2 = 0;
 #endif
 
 // Globals
-mpu9250 myImu(34, MOSI_PIN_28); // MPU9250 On SPI bus 0
+//mpu9250 myImu(34, MOSI_PIN_28);   // MPU9250 1 On SPI bus 0
+mpu9250 myImu(17, MOSI_PIN_28);     // MPU9250 2 On SPI bus 0
 static float imuData[10];
 
 void intFunc()
@@ -53,6 +55,9 @@ void intFunc()
         Serial.print("IMU: I2C/SPI rate = "); Serial.print(dt, 2); Serial.println(" us");
         dt = 0;
         i = 0;
+
+        // Toggle the LED
+        digitalWrite(myLed, !digitalRead(myLed));
     }
 #endif /* I2C_SPI_TIME */
 }
@@ -78,6 +83,8 @@ void setup()
 
     // Init I2C/SPI for this sensor
     myImu.WireBegin();
+
+    Serial.println("Starting ...");
 
     // Set up the interrupt pin, its set as active high, push-pull
     pinMode(intPin, INPUT);
@@ -239,7 +246,7 @@ void loop()
         }
 
         // Toggle the LED
-        digitalWrite(myLed, !digitalRead(myLed));
+        //digitalWrite(myLed, !digitalRead(myLed));
 
         // Reset print counters
         lastPrint = millis();

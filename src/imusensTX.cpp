@@ -43,7 +43,7 @@ void intFunc()
 #ifdef I2C_SPI_TIME
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
-    myImu.GetAllData(imuData);
+    myImu.GetAllData(false, imuData);
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;

@@ -270,7 +270,6 @@ int mpu9250::NewData()
 void mpu9250::GetAllCounts(int16_t *counts_out)
 {
     uint8_t rawData[22];
-    //_useSPIHS = true; // use high speed SPI for data readout
 
     ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value
@@ -299,12 +298,13 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
     // FIXME: Shift of signed values is platform specific
 }
 
-void mpu9250::GetAllData(float *all_out)
+void mpu9250::GetAllData(bool useSPIHS, float *all_out)
 {
     int16_t counts[10];
     float mag[3];
 
-    GetAllCounts(counts);
+    _useSPIHS = useSPIHS;   // Use high speed SPI for data readout
+    GetAllCounts(counts);   // Get raw ADC counts
 
     // Accel counts in m/s^2 accounting for direction of gravitational force (downwards)
 #if 0
@@ -371,12 +371,12 @@ void mpu9250::GetMPU9250Counts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetMPU9250Data(float *data_out)
+void mpu9250::GetMPU9250Data(bool useSPIHS, float *data_out)
 {
     int16_t mpu9250Counts[7];
 
-    // Get raw ADC counts
-    GetMPU9250Counts(mpu9250Counts);
+    _useSPIHS = useSPIHS;               // Use high speed SPI for data readout
+    GetMPU9250Counts(mpu9250Counts);    // Get raw ADC counts
 
     // Accel counts in g's
 #if 0
@@ -413,12 +413,12 @@ void mpu9250::GetAccelCounts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetAccelData(float *accel_out)
+void mpu9250::GetAccelData(bool useSPIHS, float *accel_out)
 {
     int16_t accelCounts[3];
 
-    // Get raw ADC counts
-    GetGyroCounts(accelCounts);
+    _useSPIHS = useSPIHS;           // Use high speed SPI for data readout
+    GetGyroCounts(accelCounts);     // Get raw ADC counts
 
     // Convert counts to g
     accel_out[0] = (float)accelCounts[0] * _accelScale;
@@ -439,12 +439,12 @@ void mpu9250::GetGyroCounts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetGyroData(float *gyro_out)
+void mpu9250::GetGyroData(bool useSPIHS, float *gyro_out)
 {
     int16_t gyroCounts[3];
 
-    // Get raw ADC counts
-    GetGyroCounts(gyroCounts);
+    _useSPIHS = useSPIHS;       // Use high speed SPI for data readout
+    GetGyroCounts(gyroCounts);  // Get raw ADC counts
 
     // Convert counts to deg/s
     gyro_out[0] = (float)gyroCounts[0] * _gyroScale;
@@ -470,14 +470,14 @@ void mpu9250::GetMagCounts(int16_t *counts_out)
     }
 }
 
-void mpu9250::GetMagData(float *mag_out)
+void mpu9250::GetMagData(bool useSPIHS, float *mag_out)
 {
     int16_t magCounts[3];
 
-    // Get raw ADC counts
-    GetMagCounts(magCounts);
+    _useSPIHS = useSPIHS;       // Use high speed SPI for data readout
+    GetMagCounts(magCounts);    // Get raw ADC counts
 
-    // Convert counts to milliGauss, also include factory calibration per data sheet
+    // Convert counts to microTesla, also include factory calibration per data sheet
     // and user environmental corrections (re-scaling)
     mag_out[0] = (float)magCounts[0] * _magScale * _magScale_factory[0] - _magHardIron[0];
     mag_out[1] = (float)magCounts[1] * _magScale * _magScale_factory[1] - _magHardIron[1];
@@ -504,8 +504,10 @@ int16_t mpu9250::GetTempCounts()
     return ((int16_t)rawData[0] << 8) | rawData[1] ;
 }
 
-float mpu9250::GetTempData()
+float mpu9250::GetTempData(bool useSPIHS)
 {
+    _useSPIHS = useSPIHS;   // Use high speed SPI for data readout
+
     return (((float)GetTempCounts() - _tempOffset) / _tempScale + _tempOffset);
 }
 

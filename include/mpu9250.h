@@ -354,13 +354,13 @@ public:
     int NewMagData();
     int NewData();
 
-    // Functions that return the converted sensor values (g's, deg/s, milliGaus, DegCelcius)
-    float GetTempData();
-    void GetAccelData(float *accel_out);
-    void GetGyroData(float *gyro_out);
-    void GetMPU9250Data(float *data_out);
-    void GetMagData(float *mag_out);
-    void GetAllData(float *all_out);
+    // Functions that return the converted sensor values (m/s^2, rad/s, microTesla, DegCelcius)
+    float GetTempData(bool useSPIHS);
+    void GetAccelData(bool useSPIHS,float *accel_out);
+    void GetGyroData(bool useSPIHS,float *gyro_out);
+    void GetMPU9250Data(bool useSPIHS,float *data_out);
+    void GetMagData(bool useSPIHS,float *mag_out);
+    void GetAllData(bool useSPIHS, float *all_out);
 
     // Register R/W access
     bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);

@@ -243,7 +243,7 @@ void mpu9250::WireBegin()
 #endif
         }
         // starting the I2C bus
-        i2c_t3(_bus).begin(I2C_MASTER, 0x00, _pins, _pullups, _i2cRate);
+        i2c_t3(_bus).begin(I2C_MASTER, 0x00, _pins, _pullups, I2C_RATE);
     }
 }
 
@@ -270,7 +270,7 @@ int mpu9250::NewData()
 void mpu9250::GetAllCounts(int16_t *counts_out)
 {
     uint8_t rawData[22];
-    _useSPIHS = true; // use the high speed SPI for data readout
+    //_useSPIHS = true; // use high speed SPI for data readout
 
     ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
     // Turn the MSB and LSB into a signed 16-bit value

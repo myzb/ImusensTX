@@ -281,8 +281,9 @@ public:
 
     // SPI/I2C
     const uint8_t SPI_READ = 0x80;
-    const uint32_t SPI_LS_CLOCK = 1000000;  // 1 MHz
-    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz
+    const uint32_t SPI_LS_CLOCK = 400000;   // 100 - 1000 kHz (All registers r/w)
+    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz (Sensor/Interrupt registers read only)
+    const uint32_t I2C_RATE = 400000;       // 400 kHz
 
     // Misc
     const float _G = 9.807f;
@@ -318,7 +319,6 @@ public:
     spi_mosi_pin _mosiPin;
     bool _useSPI;
     bool _useSPIHS;
-    const uint32_t _i2cRate = 400000;   // 400 kHz, TODO: May want to allow changing this
     /* End */
 
     /* Member functions */

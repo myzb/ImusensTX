@@ -8,7 +8,7 @@
 #include <i2c_t3.h>
 
 #include "utils.h"
-#include "quaternionFilters.h"
+#include "FusionFilter.h"
 
 // I2C scan function
 void I2Cscan()
@@ -22,9 +22,8 @@ void I2Cscan()
   nDevices = 0;
   for(address = 1; address < 127; address++ )
   {
-    // The i2c_scanner uses the return value of
-    // the Write.endTransmisstion to see if
-    // a device did acknowledge to the address.
+    // The i2c_scanner uses the return value of the Write.endTransmisstion to
+    // see if a device did acknowledge to the address.
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
 
@@ -66,12 +65,14 @@ float getTimeDelta(uint32_t *lastUpdate)
     return deltat;
 }
 
-void quatDiv(float *q, float *r, float *q_out)
+// Quaternion division
+void quatDiv(const float *q, const float *r, float *q_out)
 {
-    float q_norm = r[0]*r[0] + r[1]*r[1] + r[2]*r[2] +r[3]*r[3];
+    // q_out = result = q/r
+    float q_rr = r[0]*r[0] + r[1]*r[1] + r[2]*r[2] +r[3]*r[3];
 
-    q_out[0] = (r[0]*q[0] + r[1]*q[1] + r[2]*q[2] + r[3]*q[3])/q_norm;
-    q_out[1] = (r[0]*q[1] - r[1]*q[0] - r[2]*q[3] + r[3]*q[2])/q_norm;
-    q_out[2] = (r[0]*q[2] + r[1]*q[3] - r[2]*q[0] - r[3]*q[1])/q_norm;
-    q_out[3] = (r[0]*q[3] - r[1]*q[2] + r[2]*q[1] - r[3]*q[0])/q_norm;
+    q_out[0] = (r[0]*q[0] + r[1]*q[1] + r[2]*q[2] + r[3]*q[3])/q_rr;
+    q_out[1] = (r[0]*q[1] - r[1]*q[0] - r[2]*q[3] + r[3]*q[2])/q_rr;
+    q_out[2] = (r[0]*q[2] + r[1]*q[3] - r[2]*q[0] - r[3]*q[1])/q_rr;
+    q_out[3] = (r[0]*q[3] - r[1]*q[2] + r[2]*q[1] - r[3]*q[0])/q_rr;
 }

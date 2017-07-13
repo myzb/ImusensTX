@@ -1,25 +1,21 @@
-#ifndef _QUATERNIONFILTERS_H_
-#define _QUATERNIONFILTERS_H_
-
-#include <math.h>
+#ifndef _FUSIONFILTER_H_
+#define _FUSIONFILTER_H_
 
 #include "mpu9250.h"
 
-class qFilter {
+class FusionFilter {
 
 public:
 
-    // Pull in M_PI from math.h
-    #define PI M_PI
-
     // These are the free parameters in the Mahony filter and fusion scheme, Kp
     // for proportional feedback, Ki for integral
-    #define Kp 2.0f * 2.0f
-    #define Ki 0.001f
+    const float Kp = 2.0f * 2.0f;
+    const float Ki = 0.001f;
 
-    const float GyroMeasError = PI * (20.0f / 180.0f);
     // gyroscope measurement drift in rad/s/s (start at 0.0 deg/s/s)
-    const float GyroMeasDrift = PI * (0.0f  / 180.0f);
+    const float GyroMeasError = PI * (20.0f / 180.0f);
+
+    const float GyroMeasDrift = PI * (0.0f / 180.0f);
     // There is a tradeoff in the beta parameter between accuracy and response
     // speed. In the original Madgwick study, beta of 0.041 (corresponding to
     // GyroMeasError of 2.7 degrees/s) was found to give optimal accuracy.
@@ -33,23 +29,21 @@ public:
     // the faster the solution converges, usually at the expense of accuracy.
     // In any case, this is the free parameter in the Madgwick filtering and
     // fusion scheme.
-    const float beta = sqrt(3.0f / 4.0f) * GyroMeasError;   // Compute beta
+    const float beta = sqrt(3.0f / 4.0f) * GyroMeasError;
     // Compute zeta, the other free parameter in the Madgwick scheme usually
     // set to a small or zero value
     const float zeta = sqrt(3.0f / 4.0f) * GyroMeasDrift;
 
     // Vector to hold integral error for Mahony method
-    float eInt[3] = {0.0f, 0.0f, 0.0f};
+    float eInt[3] = { 0.0f, 0.0f, 0.0f };
     // Vector to hold quaternion
-    float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    float q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 
-    void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy,
-                                  float gz, float mx, float my, float mz,
-                                  float deltat);
-    void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy,
-                                float gz, float mx, float my, float mz,
-                                float deltat);
-    const float * getQ();
+    void MadgwickUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx,
+        float my, float mz, float dt);
+    void MahonyUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx,
+        float my, float mz, float dt);
+    const float *GetQuat();
 };
 
-#endif /* _QUATERNIONFILTERS_H_ */
+#endif /* _FUSIONFILTER_H_ */

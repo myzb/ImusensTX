@@ -9,6 +9,6 @@ typedef union {
 
 void I2Cscan();
 float getTimeDelta(uint32_t *now, uint32_t *lastUpdate);
-void quatDiv(float *q, float *r, float *q_out);
+void quatDiv(const float *q, const float *r, float *q_out);
 
 #endif /* _UTILS_H_ */

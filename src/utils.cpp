@@ -65,3 +65,13 @@ float getTimeDelta(uint32_t *lastUpdate)
 
     return deltat;
 }
+
+void quatDiv(float *q, float *r, float *q_out)
+{
+    float q_norm = r[0]*r[0] + r[1]*r[1] + r[2]*r[2] +r[3]*r[3];
+
+    q_out[0] = (r[0]*q[0] + r[1]*q[1] + r[2]*q[2] + r[3]*q[3])/q_norm;
+    q_out[1] = (r[0]*q[1] - r[1]*q[0] - r[2]*q[3] + r[3]*q[2])/q_norm;
+    q_out[2] = (r[0]*q[2] + r[1]*q[3] - r[2]*q[0] - r[3]*q[1])/q_norm;
+    q_out[3] = (r[0]*q[3] - r[1]*q[2] + r[2]*q[1] - r[3]*q[0])/q_norm;
+}

@@ -47,7 +47,7 @@ void irs1Func_vhcl()
 #ifdef I2C_SPI_TIME
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
-    vhclImu.GetAllData(true, imuData1);
+    vhclImu.GetAllData(false, imuData1);
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -59,16 +59,18 @@ void irs1Func_vhcl()
         Serial.print("IMU: I2C/SPI rate = "); Serial.print(dt, 2); Serial.println(" us");
         dt = 0;
         i = 0;
-
         // Toggle the LED (signal sensor rx is active)
-        digitalWrite(myLed, !digitalRead(myLed));
+        //digitalWrite(myLed, !digitalRead(myLed));
     }
 #endif /* I2C_SPI_TIME */
 }
 
 void irs2Func_head()
 {
-    headImu.GetAllData(true, imuData2);
+    headImu.GetAllData(false, imuData2);
+
+    // Toggle the LED (signal sensor rx is active)
+    if (!i) digitalWrite(myLed, !digitalRead(myLed));
 }
 
 void setup()

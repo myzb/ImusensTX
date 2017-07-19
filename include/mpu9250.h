@@ -330,7 +330,7 @@ public:
     mpu9250(uint8_t csPin, spi_mosi_pin pin);
 
     // Functions that start the communication and sensors
-    void WireBegin();
+    void WireBegin(int intPin);
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
     void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out);
     void SetupInterrupt();

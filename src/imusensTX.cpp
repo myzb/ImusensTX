@@ -100,7 +100,7 @@ void setup()
 
     /* IMU 1 (Vehicle) Setup */
     // Init I2C/SPI for this sensor
-    vhclImu.WireBegin();
+    vhclImu.WireBegin(intPin1_vhcl);
 
     // Loop forever if MPU9250 is not online
     if (vhclImu.whoAmI() != 0x71) while(1);
@@ -148,7 +148,7 @@ void setup()
 
     /* IMU 2 (Head) Setup */
     // Init I2C/SPI for this sensor
-    headImu.WireBegin();
+    headImu.WireBegin(intPin1_vhcl);
 
     // Loop forever if MPU9250 is not online
     if (headImu.whoAmI() != 0x71) while(1);

@@ -55,7 +55,7 @@ mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
     _useSPIHS = false;
 }
 
-void mpu9250::WireBegin()
+void mpu9250::WireBegin(int intPin)
 {
     // using SPI for communication
     if (_useSPI) {
@@ -182,6 +182,9 @@ void mpu9250::WireBegin()
         }
 
 #endif
+
+        // Calling SPI from IRS // TODO: move into above switch case for other bus lines
+        SPI.usingInterrupt(intPin);
     } else {
         // using I2C for communication
         if (!_userDefI2C) {

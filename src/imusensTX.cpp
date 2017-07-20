@@ -103,7 +103,7 @@ void setup()
     vhclImu.WireBegin(intPin1_vhcl);
 
     // Loop forever if MPU9250 is not online
-    if (vhclImu.whoAmI() != 0x71) while(1);
+    if (vhclImu.whoAmI() != 0x71) goto next;
 
     if (Debug) {
         Serial.println("MPU9250 (1): 9-axis motion sensor is online");
@@ -146,12 +146,13 @@ void setup()
     vhclImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
+next:
     /* IMU 2 (Head) Setup */
     // Init I2C/SPI for this sensor
     headImu.WireBegin(intPin1_vhcl);
 
     // Loop forever if MPU9250 is not online
-    if (headImu.whoAmI() != 0x71) while(1);
+    if (headImu.whoAmI() != 0x71) goto error;
 
     if (Debug) Serial.println("MPU9250 (2): 9-axis motion sensor is online");
 
@@ -205,6 +206,11 @@ void setup()
     // Wait for the host application to be ready
     if (Debug) Serial.println("Setup done!");
     while (!RawHID.available());
+    return;
+
+error:
+    if (Debug) Serial.println("MPU9250 Setup failed!");
+    while(1);
 }
 
 void loop()

@@ -16,6 +16,7 @@
 
 #define AHRS
 #define I2C_SPI_TIME
+//#define I2C
 //#define RESET_MAGCAL
 
 // Debug flag
@@ -23,9 +24,9 @@
 static const int Debug = 1;
 
 // Pin definitions
-static const int intPin1_vhcl = 33; // MPU9250 1 vhcl intPin
-static const int intPin2_head = 16; // MPU9250 1 head intPin
-static const int myLed = 13;
+static const int intPin1_vhcl = 36; // MPU9250 1 vhcl intPin
+static const int intPin2_head = 2;  // MPU9250 2 head intPin
+static const int ledPin = 13;
 
 #ifdef I2C_SPI_TIME
 // Times the avg sensor readout time
@@ -34,8 +35,11 @@ volatile static float dt = 0, ts = 0, ts2 = 0;
 #endif
 
 // Globals
-mpu9250 vhclImu(34, MOSI_PIN_28);   // MPU9250 1 On SPI bus 0
-mpu9250 headImu(17, MOSI_PIN_28);   // MPU9250 2 On SPI bus 0
+//mpu9250 vhclImu(0x69, 0, I2C_PINS_33_34);   // MPU9250 1 on I2C bus 0 at addr 0x68
+mpu9250 headImu(0x69, 0, I2C_PINS_18_19);   // MPU9250 2 On I2C bus 0 at addr 0x69
+
+mpu9250 vhclImu(35, MOSI_PIN_28, IRS_TRUE);   // MPU9250 1 On SPI bus 0, read called from IRS
+//mpu9250 headImu(3,  MOSI_PIN_21, IRS_TRUE);   // MPU9250 2 On SPI bus 0, read called from IRS
 
 FusionFilter vhclFilter;
 FusionFilter headFilter;
@@ -47,7 +51,7 @@ void irs1Func_vhcl()
 #ifdef I2C_SPI_TIME
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
-    vhclImu.GetAllData(false, imuData1);
+    vhclImu.GetAllData(imuData1, HS_TRUE);
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -60,17 +64,17 @@ void irs1Func_vhcl()
         dt = 0;
         i = 0;
         // Toggle the LED (signal sensor rx is active)
-        //digitalWrite(myLed, !digitalRead(myLed));
+        //digitalWrite(ledPin, !digitalRead(ledPin));
     }
 #endif /* I2C_SPI_TIME */
 }
 
 void irs2Func_head()
 {
-    headImu.GetAllData(false, imuData2);
+    headImu.GetAllData(imuData2, HS_FALSE);
 
     // Toggle the LED (signal sensor rx is active)
-    if (!i) digitalWrite(myLed, !digitalRead(myLed));
+    if (!i) digitalWrite(ledPin, !digitalRead(ledPin));
 }
 
 void setup()
@@ -93,14 +97,17 @@ void setup()
     delay(4000);
 
     // Setup the LED
-    pinMode(myLed, OUTPUT);
-    digitalWrite(myLed, HIGH);
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, HIGH);
 
     if (Debug) Serial.println("Starting ...");
 
     /* IMU 1 (Vehicle) Setup */
-    // Init I2C/SPI for this sensor
-    vhclImu.WireBegin(intPin1_vhcl);
+    // Setup bus specifics for this device
+    vhclImu.WireSetup(intPin1_vhcl);
+
+    // Start the bus (only one device needs to start it on a shared bus)
+    vhclImu.WireBegin();
 
     // Loop forever if MPU9250 is not online
     if (vhclImu.whoAmI() != 0x71) goto next;
@@ -146,13 +153,20 @@ void setup()
     vhclImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
+    // Attach interrupt pin and irs function
+    pinMode(intPin1_vhcl, INPUT);
+    attachInterrupt(intPin1_vhcl, irs1Func_vhcl, RISING);
+
 next:
     /* IMU 2 (Head) Setup */
-    // Init I2C/SPI for this sensor
-    headImu.WireBegin(intPin1_vhcl);
+    // Setup bus specifics for this device
+    headImu.WireSetup(intPin2_head);
+
+    // Start the bus (only one device needs to start it on a shared bus)
+    headImu.WireBegin();
 
     // Loop forever if MPU9250 is not online
-    if (headImu.whoAmI() != 0x71) goto error;
+    if (headImu.whoAmI() != 0x71) goto end;
 
     if (Debug) Serial.println("MPU9250 (2): 9-axis motion sensor is online");
 
@@ -171,7 +185,7 @@ next:
     headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
 
     // Setup interrupts
-     headImu.SetupInterrupt();
+    headImu.SetupInterrupt();
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -194,11 +208,10 @@ next:
 #endif /* RESET_MAGCAL */
 
     // Attach interrupt pin and irs function
-    pinMode(intPin1_vhcl, INPUT);
-    attachInterrupt(intPin1_vhcl, irs1Func_vhcl, RISING);
     pinMode(intPin2_head, INPUT);
     attachInterrupt(intPin2_head, irs2Func_head, RISING);
 
+end:
     // Enable interrupts
     vhclImu.EnableInterrupt();
     headImu.EnableInterrupt();
@@ -206,11 +219,6 @@ next:
     // Wait for the host application to be ready
     if (Debug) Serial.println("Setup done!");
     while (!RawHID.available());
-    return;
-
-error:
-    if (Debug) Serial.println("MPU9250 Setup failed!");
-    while(1);
 }
 
 void loop()
@@ -336,7 +344,7 @@ void loop()
         }
 
         // Toggle the LED (signal mainloop is running)
-        //digitalWrite(myLed, !digitalRead(myLed));
+        //digitalWrite(ledPin, !digitalRead(ledPin));
 
         // Reset print counters
         lastPrint = millis();

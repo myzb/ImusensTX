@@ -13,37 +13,44 @@
 
 #ifndef SPI_MOSI_PIN
 #define SPI_MOSI_PIN
-    // Teensy 3.0 || Teensy 3.1/3.2
-    #if defined(__MK20DX128__) || defined(__MK20DX256__)
-    enum spi_mosi_pin
-    {
-      MOSI_PIN_7,
-      MOSI_PIN_11
-    };
-    #endif
-    // Teensy 3.5 || Teensy 3.6
-    #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-    enum spi_mosi_pin
-    {
-      MOSI_PIN_0,
-      MOSI_PIN_7,
-      MOSI_PIN_11,
-      MOSI_PIN_21,
-      MOSI_PIN_28,
-      MOSI_PIN_44,
-      MOSI_PIN_52
-    };
-    #endif
-    // Teensy LC
-    #if defined(__MKL26Z64__)
-    enum spi_mosi_pin
-    {
-      MOSI_PIN_0,
-      MOSI_PIN_7,
-      MOSI_PIN_11,
-      MOSI_PIN_21
-    };
-    #endif
+
+// Teensy 3.0 || Teensy 3.1/3.2
+#if defined(__MK20DX128__) || defined(__MK20DX256__)
+enum spi_mosi_pin {
+    MOSI_PIN_7,
+    MOSI_PIN_11
+};
+#endif
+// Teensy 3.5 || Teensy 3.6
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+enum spi_mosi_pin {
+    MOSI_PIN_0,
+    MOSI_PIN_7,
+    MOSI_PIN_11,
+    MOSI_PIN_21,
+    MOSI_PIN_28,
+    MOSI_PIN_44,
+    MOSI_PIN_52
+};
+#endif
+// Teensy LC
+#if defined(__MKL26Z64__)
+enum spi_mosi_pin {
+    MOSI_PIN_0,
+    MOSI_PIN_7,
+    MOSI_PIN_11,
+    MOSI_PIN_21
+};
+#endif
+enum spi_irs {
+    IRS_FALSE,
+    IRS_TRUE
+};
+
+enum bus_hs {
+    HS_FALSE,
+    HS_TRUE
+};
 #endif
 
 enum mpu9250_gyro_range {
@@ -317,6 +324,7 @@ public:
     bool _userDefI2C;
     uint8_t _csPin;
     spi_mosi_pin _mosiPin;
+    spi_irs _irsSPI;
     bool _useSPI;
     bool _useSPIHS;
     /* End */
@@ -326,11 +334,12 @@ public:
     mpu9250(uint8_t address, uint8_t bus);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
-    mpu9250(uint8_t csPin);
-    mpu9250(uint8_t csPin, spi_mosi_pin pin);
+    mpu9250(uint8_t csPin, spi_irs mode);
+    mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode);
 
     // Functions that start the communication and sensors
-    void WireBegin(int intPin);
+    void WireSetup(int intPin);
+    void WireBegin();
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
     void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out);
     void SetupInterrupt();
@@ -355,12 +364,12 @@ public:
     int NewData();
 
     // Functions that return the converted sensor values (m/s^2, rad/s, microTesla, DegCelcius)
-    float GetTempData(bool useSPIHS);
-    void GetAccelData(bool useSPIHS,float *accel_out);
-    void GetGyroData(bool useSPIHS,float *gyro_out);
-    void GetMPU9250Data(bool useSPIHS,float *data_out);
-    void GetMagData(bool useSPIHS,float *mag_out);
-    void GetAllData(bool useSPIHS, float *all_out);
+    float GetTempData(bus_hs mode);
+    void GetAccelData(float *accel_out, bus_hs mode);
+    void GetGyroData(float *gyro_out, bus_hs mode);
+    void GetMPU9250Data(float *data_out, bus_hs mode);
+    void GetMagData(float *mag_out, bus_hs mode);
+    void GetAllData(float *all_out, bus_hs mode);
 
     // Register R/W access
     bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);

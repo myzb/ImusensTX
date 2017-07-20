@@ -40,31 +40,102 @@ mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups
 }
 
 /* MPU9250 object, input the SPI CS Pin */
-mpu9250::mpu9250(uint8_t csPin){
+mpu9250::mpu9250(uint8_t csPin, spi_irs mode){
     _csPin = csPin;
+    _irsSPI = mode;
     _mosiPin = MOSI_PIN_11;
     _useSPI = true;
     _useSPIHS = false;
 }
 
 /* MPU9250 object, input the SPI CS Pin and MOSI Pin */
-mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
+mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode){
     _csPin = csPin;
     _mosiPin = pin;
+    _irsSPI = mode;
     _useSPI = true;
     _useSPIHS = false;
 }
 
-void mpu9250::WireBegin(int intPin)
+void mpu9250::WireSetup(int intPin)
+{
+    // Only SPI needs device specific bus setup
+    if (!_useSPI) return;
+
+    // setting CS pin to output
+    pinMode(_csPin, OUTPUT);
+
+    // setting CS pin high
+    digitalWriteFast(_csPin, HIGH);
+
+    // Also register the intPin with SPI incase beginTransaction() is called from within an IRS
+    if (_irsSPI) {
+#if defined(__MK20DX128__) || defined(__MK20DX256__)
+
+        // configure and begin the SPI
+        switch( _mosiPin ) {
+
+        case MOSI_PIN_7:    // SPI bus 0 alternate 1
+        case MOSI_PIN_11:// SPI bus 0 default
+            SPI.usingInterrupt(intPin);
+            break;
+
+        }
+
+#endif
+
+    // Teensy 3.5 || Teensy 3.6
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+
+        // configure and begin the SPI
+        switch (_mosiPin) {
+
+        case MOSI_PIN_0:    // SPI bus 1 default
+        case MOSI_PIN_21:   // SPI bus 1 alternate
+            SPI1.usingInterrupt(intPin);
+            break;
+
+        case MOSI_PIN_7:    // SPI bus 0 alternate 1
+        case MOSI_PIN_11:   // SPI bus 0 default
+        case MOSI_PIN_28:   // SPI bus 0 alternate 2
+            SPI.usingInterrupt(intPin);
+            break;
+
+        case MOSI_PIN_44:   // SPI bus 2 default
+        case MOSI_PIN_52:   // SPI bus 2 alternate
+            SPI2.usingInterrupt(intPin);
+            break;
+        }
+
+#endif
+
+    // Teensy LC
+#if defined(__MKL26Z64__)
+
+        // configure and begin the SPI
+        switch( _mosiPin ) {
+
+        case MOSI_PIN_0:    // SPI bus 1 default
+        case MOSI_PIN_21:   // SPI bus 1 alternate
+            SPI1.usingInterrupt(intPin);
+            break;
+
+        case MOSI_PIN_7:    // SPI bus 0 alternate 1
+        case MOSI_PIN_11:   // SPI bus 0 default
+            SPI.usingInterrupt(intPin);
+            break;
+
+        }
+
+#endif
+
+    }
+}
+
+void mpu9250::WireBegin()
 {
     // using SPI for communication
     if (_useSPI) {
-
-        // setting CS pin to output
-        pinMode(_csPin, OUTPUT);
-
-        // setting CS pin high
-        digitalWriteFast(_csPin, HIGH);
 
         // Teensy 3.0 || Teensy 3.1/3.2
 #if defined(__MK20DX128__) || defined(__MK20DX256__)
@@ -72,13 +143,15 @@ void mpu9250::WireBegin(int intPin)
         // configure and begin the SPI
         switch( _mosiPin ) {
 
-            case MOSI_PIN_7:    // SPI bus 0 alternate 1
+        case MOSI_PIN_7:    // SPI bus 0 alternate 1
             SPI.setMOSI(7);
             SPI.setMISO(8);
             SPI.setSCK(14);
+            if(_intSPI) SPI.
             SPI.begin();
             break;
-            case MOSI_PIN_11:// SPI bus 0 default
+
+        case MOSI_PIN_11:// SPI bus 0 default
             SPI.setMOSI(11);
             SPI.setMISO(12);
             SPI.setSCK(13);
@@ -183,8 +256,6 @@ void mpu9250::WireBegin(int intPin)
 
 #endif
 
-        // Calling SPI from IRS // TODO: move into above switch case for other bus lines
-        SPI.usingInterrupt(intPin);
     } else {
         // using I2C for communication
         if (!_userDefI2C) {
@@ -301,12 +372,12 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
     // FIXME: Shift of signed values is platform specific
 }
 
-void mpu9250::GetAllData(bool useSPIHS, float *all_out)
+void mpu9250::GetAllData(float *all_out, bus_hs mode)
 {
     int16_t counts[10];
     float mag[3];
 
-    _useSPIHS = useSPIHS;   // Use high speed SPI for data readout
+    _useSPIHS = mode;       // Use high speed SPI for data readout
     GetAllCounts(counts);   // Get raw ADC counts
 
     // Accel counts in m/s^2 accounting for direction of gravitational force (downwards)
@@ -374,11 +445,11 @@ void mpu9250::GetMPU9250Counts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetMPU9250Data(bool useSPIHS, float *data_out)
+void mpu9250::GetMPU9250Data(float *data_out, bus_hs mode)
 {
     int16_t mpu9250Counts[7];
 
-    _useSPIHS = useSPIHS;               // Use high speed SPI for data readout
+    _useSPIHS = mode;                   // Use high speed SPI for data readout
     GetMPU9250Counts(mpu9250Counts);    // Get raw ADC counts
 
     // Accel counts in g's
@@ -416,12 +487,12 @@ void mpu9250::GetAccelCounts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetAccelData(bool useSPIHS, float *accel_out)
+void mpu9250::GetAccelData(float *accel_out, bus_hs mode)
 {
     int16_t accelCounts[3];
 
-    _useSPIHS = useSPIHS;           // Use high speed SPI for data readout
-    GetGyroCounts(accelCounts);     // Get raw ADC counts
+    _useSPIHS = mode;           // Use high speed SPI for data readout
+    GetGyroCounts(accelCounts); // Get raw ADC counts
 
     // Convert counts to g
     accel_out[0] = (float)accelCounts[0] * _accelScale;
@@ -442,11 +513,11 @@ void mpu9250::GetGyroCounts(int16_t *counts_out)
     // FIXME: Shift outcome of signed values is platform specific
 }
 
-void mpu9250::GetGyroData(bool useSPIHS, float *gyro_out)
+void mpu9250::GetGyroData(float *gyro_out, bus_hs mode)
 {
     int16_t gyroCounts[3];
 
-    _useSPIHS = useSPIHS;       // Use high speed SPI for data readout
+    _useSPIHS = mode;           // Use high speed SPI for data readout
     GetGyroCounts(gyroCounts);  // Get raw ADC counts
 
     // Convert counts to deg/s
@@ -473,11 +544,11 @@ void mpu9250::GetMagCounts(int16_t *counts_out)
     }
 }
 
-void mpu9250::GetMagData(bool useSPIHS, float *mag_out)
+void mpu9250::GetMagData(float *mag_out, bus_hs mode)
 {
     int16_t magCounts[3];
 
-    _useSPIHS = useSPIHS;       // Use high speed SPI for data readout
+    _useSPIHS = mode;           // Use high speed SPI for data readout
     GetMagCounts(magCounts);    // Get raw ADC counts
 
     // Convert counts to microTesla, also include factory calibration per data sheet
@@ -507,9 +578,9 @@ int16_t mpu9250::GetTempCounts()
     return ((int16_t)rawData[0] << 8) | rawData[1] ;
 }
 
-float mpu9250::GetTempData(bool useSPIHS)
+float mpu9250::GetTempData(bus_hs mode)
 {
-    _useSPIHS = useSPIHS;   // Use high speed SPI for data readout
+    _useSPIHS = mode;   // Use high speed SPI for data readout
 
     return (((float)GetTempCounts() - _tempOffset) / _tempScale + _tempOffset);
 }

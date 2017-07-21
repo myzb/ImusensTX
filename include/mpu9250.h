@@ -378,6 +378,11 @@ public:
     void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
 
+    // DMA
+    void RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count);
+    void ReadRequested(uint8_t *rawData_out);
+    uint8_t RequestedAvailable();
+
     uint8_t whoAmI();
     uint8_t whoAmIAK8963();
     /* End */

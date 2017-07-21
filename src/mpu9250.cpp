@@ -147,7 +147,6 @@ void mpu9250::WireBegin()
             SPI.setMOSI(7);
             SPI.setMISO(8);
             SPI.setSCK(14);
-            if(_intSPI) SPI.
             SPI.begin();
             break;
 
@@ -345,7 +344,12 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
 {
     uint8_t rawData[22];
 
-    ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
+    if (_useSPI) {
+        ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
+    } else {
+        ReadRequested(rawData);
+    }
+
     // Turn the MSB and LSB into a signed 16-bit value
     counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
     counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
@@ -1422,14 +1426,20 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
 #endif
 
     } else {
-        i2c_t3(_bus).beginTransmission(address);   // Initialize the Tx buffer
-        i2c_t3(_bus).write(subAddress);            // Put slave register address in Tx buffer
-        i2c_t3(_bus).endTransmission(I2C_NOSTOP);  // Send the Tx buffer, but send a restart to keep connection alive
+
+        i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
+        i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
+        i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
+        i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
+
+        //wait
+        Wire.finish();
+
         uint8_t i = 0;
 
-        i2c_t3(_bus).requestFrom(address, (size_t) count);  // Read bytes from slave register address
+        // Read (and empty) the rx buffer as long as there is data
         while (i2c_t3(_bus).available()) {
-            data_out[i++] = i2c_t3(_bus).readByte();        // Put read results in the Rx buffer
+            data_out[i++] = i2c_t3(_bus).readByte();        // Copy i2c rx buffer to our buffer
         }
     }
 }
@@ -1440,6 +1450,34 @@ uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
     uint8_t data;
     ReadRegisters(address, subAddress, 1, &data);
     return data;
+}
+
+void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count)
+{
+    i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
+    i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
+    i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
+    i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
+
+    //Serial.println("Regested Registers!");
+}
+
+void mpu9250::ReadRequested(uint8_t *rawData_out)
+{
+    uint8_t i = 0;
+
+    //Serial.println("Reading Requested!");
+
+    // Read (and empty) the rx buffer as long as there is data
+    while (i2c_t3(_bus).available()) {
+        rawData_out[i++] = i2c_t3(_bus).readByte();        // Copy i2c rx buffer to our buffer
+    }
+}
+
+uint8_t mpu9250::RequestedAvailable()
+{
+    //Serial.println("New Available!");
+    return i2c_t3(_bus).done();
 }
 
 /* Writes a register on the AK8963 given a register address and data */

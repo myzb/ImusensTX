@@ -46,12 +46,21 @@ FusionFilter headFilter;
 
 static float imuData1[10], imuData2[10];
 
+volatile int flag = 0;
+
 void irs1Func_vhcl()
+{
+    vhclImu.GetAllData(imuData1, HS_TRUE);
+}
+
+void irs2Func_head()
 {
 #ifdef I2C_SPI_TIME
     ts2 = micros();
 #endif /* I2C_SPI_TIME */
-    vhclImu.GetAllData(imuData1, HS_TRUE);
+
+    //headImu.GetAllData(imuData2, HS_FALSE);
+    headImu.RequestRegisters(0x69, headImu.ACCEL_XOUT_H, 22);
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -64,17 +73,10 @@ void irs1Func_vhcl()
         dt = 0;
         i = 0;
         // Toggle the LED (signal sensor rx is active)
-        //digitalWrite(ledPin, !digitalRead(ledPin));
+        digitalWrite(ledPin, !digitalRead(ledPin));
     }
 #endif /* I2C_SPI_TIME */
-}
-
-void irs2Func_head()
-{
-    headImu.GetAllData(imuData2, HS_FALSE);
-
-    // Toggle the LED (signal sensor rx is active)
-    if (!i) digitalWrite(ledPin, !digitalRead(ledPin));
+    flag = 1;
 }
 
 void setup()
@@ -235,8 +237,14 @@ void loop()
     static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
     static uint32_t packetCount = 0;                    // usb packet number
 
-    // Calculate loop time
     noInterrupts();
+
+    // Read the DMA buffer after the request flag has been set and once i2c is done
+    if (flag && i2c_t3(0).done()) {
+        headImu.GetAllData(imuData2, HS_FALSE);
+        flag = 0;
+    }
+
     now = micros();
     deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last data arrival
     lastUpdate = now;

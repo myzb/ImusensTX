@@ -12,6 +12,8 @@
 #include "utils.h"
 #include "FusionFilter.h"
 #include "mpu9250.h"
+#include "MetroExt.h"
+#include "Stopwatch.h"
 
 #define AHRS
 #define I2C_SPI_TIME
@@ -42,6 +44,12 @@ mpu9250 vhclImu(35, MOSI_PIN_28, IRS_TRUE);   // MPU9250 1 On SPI bus 0, read ca
 
 FusionFilter vhclFilter;
 FusionFilter headFilter;
+
+MetroExt task_filter = MetroExt(100);       // 100 usec
+MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
+MetroExt task_dbgOut = MetroExt(5000000);   //   5 sec
+
+Stopwatch chrono_1, chrono_2;
 
 static float imuData1[10], imuData2[10];
 
@@ -212,16 +220,14 @@ end:
     // Wait for the host application to be ready
     if (Debug) Serial.println("Setup done!");
     while (!RawHID.available());
+
+    chrono_1.Reset();
+    chrono_2.Reset();
 }
 
 void loop()
 {
-    static uint32_t loopCount = 0;                      // loop counter
-    static float loopCountTime = 0.0f;                  // loop time counter
-    static uint32_t lastPrint = 0;                      // time of serial debug and delta to last print
-
-    static uint32_t now, lastUpdate = 0;                // used to calculate integration interval
-    static float deltat = 0.0f;                         // time (integration interval) between filter updates
+    static uint32_t filterCnt = 0;                      // loop counter
 
     static data_t rx_buffer, tx_buffer = { 0 };         // usb rx/tx buffer zero initialized
     static uint8_t num;                                 // usb return code
@@ -235,23 +241,23 @@ void loop()
         headImu.GetAllData(imuData2, HS_FALSE);
     }
 
-    now = micros();
-    deltat = ((now - lastUpdate)/1000000.0f); // set integration time by time elapsed since last data arrival
-    lastUpdate = now;
-
 #ifdef AHRS
-    vhclFilter.MadgwickUpdate(imuData1[0], imuData1[1], imuData1[2],
-                             imuData1[4], imuData1[5], imuData1[6],
-                             imuData1[7], imuData1[8], imuData1[9], deltat);
+    if (task_filter.check()) {
 
-    headFilter.MadgwickUpdate(imuData2[0], imuData2[1], imuData2[2],
-                             imuData2[4], imuData2[5], imuData2[6],
-                             imuData2[7], imuData2[8], imuData2[9], deltat);
+        vhclFilter.MadgwickUpdate(imuData1[0], imuData1[1], imuData1[2],
+                                 imuData1[4], imuData1[5], imuData1[6],
+                                 imuData1[7], imuData1[8], imuData1[9], chrono_1.Split());
+
+        headFilter.MadgwickUpdate(imuData2[0], imuData2[1], imuData2[2],
+                                 imuData2[4], imuData2[5], imuData2[6],
+                                 imuData2[7], imuData2[8], imuData2[9], chrono_2.Split());
 
 
-    // Get quat rotation difference, store result in tx_buffer[0:3]
-    quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
+        // Get quat rotation difference, store result in tx_buffer[0:3]
+        quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
 
+        filterCnt++;
+    }
 #endif /* AHRS */
 
 #if 0
@@ -306,16 +312,14 @@ void loop()
 
 #if 1
     /* Major debug print routines */
-    // time for 1 loop = loopCountTime/loopCount. this is the filter update rate
-    loopCountTime += deltat;
-    loopCount++;
+    // time for 1 loop = loopCountTime/filterCnt. this is the filter update rate
 
-    // Print current vals each 2000ms
-    if (millis() - lastPrint >= 2000) {
+    // Print current vals each 5sec
+    if (task_dbgOut.check()) {
 
         if (Debug) {
             // Print the avg loop rate
-            Serial.print("loop: rate = "); Serial.print((float)loopCount/loopCountTime, 2);
+            Serial.print("filter: rate = "); Serial.print((float)filterCnt/5.0f, 2);
             Serial.println(" Hz");
         }
         if (1) {
@@ -342,9 +346,7 @@ void loop()
         //digitalWrite(ledPin, !digitalRead(ledPin));
 
         // Reset print counters
-        lastPrint = millis();
-        loopCount = 0;
-        loopCountTime = 0;
+        filterCnt = 0;
     }
 #endif
 }

@@ -245,26 +245,23 @@ void loop()
                              imuData1[4], imuData1[5], imuData1[6],
                              imuData1[7], imuData1[8], imuData1[9], deltat);
 
-#if 0
-    Serial.print(q1[0],2); Serial.print(" ");   Serial.print(q1[1],2); Serial.print(" ");
-    Serial.print(q1[2],2); Serial.print(" "); Serial.println(q1[3],2);
-#endif
-
     headFilter.MadgwickUpdate(imuData2[0], imuData2[1], imuData2[2],
                              imuData2[4], imuData2[5], imuData2[6],
                              imuData2[7], imuData2[8], imuData2[9], deltat);
 
-#if 0
-    Serial.print(q2[0],2); Serial.print(" ");   Serial.print(q2[1],2); Serial.print(" ");
-    Serial.print(q2[2],2); Serial.print(" "); Serial.println(q2[3],2);
-#endif
-
-#endif /* AHRS */
 
     // Get quat rotation difference, store result in tx_buffer[0:3]
     quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
 
+#endif /* AHRS */
+
 #if 0
+    Serial.print(q1[0],2); Serial.print(" ");   Serial.print(q1[1],2); Serial.print(" ");
+    Serial.print(q1[2],2); Serial.print(" "); Serial.println(q1[3],2);
+
+    Serial.print(q2[0],2); Serial.print(" ");   Serial.print(q2[1],2); Serial.print(" ");
+    Serial.print(q2[2],2); Serial.print(" "); Serial.println(q2[3],2);
+
     Serial.print(q[0],2); Serial.print(" ");   Serial.print(q[1],2); Serial.print(" ");
     Serial.print(q[2],2); Serial.print(" "); Serial.println(q[3],2); Serial.print("\n");
 #endif

@@ -47,7 +47,7 @@ FusionFilter headFilter;
 
 MetroExt task_filter = MetroExt(100);       // 100 usec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
-MetroExt task_dbgOut = MetroExt(5000000);   //   5 sec
+MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
 
 Stopwatch chrono_1, chrono_2;
 
@@ -273,20 +273,21 @@ void loop()
 
     interrupts();
 
-    // Set usb transfer rate to 1kHz TODO: User a timer
-    if (micros() - lastTx >= 1000) {
+    if (task_usbTx.check()) {
 
         // Place packetCount into last 4 bytes
         tx_buffer.num_d[15] = packetCount;
 
         // Send the packet
         noInterrupts();
-        num = RawHID.send(tx_buffer.raw, 10);
+        //int ts = micros();
+        num = RawHID.send(tx_buffer.raw, 0);
+        //Serial.printf("RawHID.send() blocking delay: %d us\n", micros() - ts);
+        if (num <= 0) task_usbTx.requeue();
         interrupts();
         if (num > 0) {
+            packetCount++;
             lastTx = micros();
-            packetCount = packetCount + 1;
-
         } else if (Debug == 2) {
             Serial.print(F("TX: Fail \t")); Serial.println(num);
         }
@@ -319,7 +320,7 @@ void loop()
 
         if (Debug) {
             // Print the avg loop rate
-            Serial.print("filter: rate = "); Serial.print((float)filterCnt/5.0f, 2);
+            Serial.print("filter: rate = "); Serial.print((float)filterCnt/2.0f, 2);
             Serial.println(" Hz");
         }
         if (1) {

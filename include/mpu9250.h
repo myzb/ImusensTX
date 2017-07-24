@@ -327,6 +327,9 @@ public:
     spi_irs _irsSPI;
     bool _useSPI;
     bool _useSPIHS;
+
+    // DMA
+    bool _requestedData = false;
     /* End */
 
     /* Member functions */
@@ -338,11 +341,11 @@ public:
     mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode);
 
     // Functions that start the communication and sensors
-    void WireSetup(int intPin);
+    void WireSetup();
     void WireBegin();
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
     void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out);
-    void SetupInterrupt();
+    void SetupInterrupt(int intPin, void(*irsFunc)());
     void EnableInterrupt();
     uint8_t ClearInterrupt();
 
@@ -379,6 +382,7 @@ public:
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
 
     // DMA
+    void RequestAllData();
     void RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count);
     void ReadRequested(uint8_t *rawData_out);
     uint8_t RequestedAvailable();

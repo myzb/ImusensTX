@@ -57,79 +57,14 @@ mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode){
     _useSPIHS = false;
 }
 
-void mpu9250::WireSetup(int intPin)
+void mpu9250::WireSetup()
 {
-    // Only SPI needs device specific bus setup
+    // I2C does not need extra setup
     if (!_useSPI) return;
 
-    // setting CS pin to output
+    // each SPI device uses a unique chip select pin
     pinMode(_csPin, OUTPUT);
-
-    // setting CS pin high
     digitalWriteFast(_csPin, HIGH);
-
-    // Also register the intPin with SPI incase beginTransaction() is called from within an IRS
-    if (_irsSPI) {
-#if defined(__MK20DX128__) || defined(__MK20DX256__)
-
-        // configure and begin the SPI
-        switch( _mosiPin ) {
-
-        case MOSI_PIN_7:    // SPI bus 0 alternate 1
-        case MOSI_PIN_11:// SPI bus 0 default
-            SPI.usingInterrupt(intPin);
-            break;
-
-        }
-
-#endif
-
-    // Teensy 3.5 || Teensy 3.6
-#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-
-        // configure and begin the SPI
-        switch (_mosiPin) {
-
-        case MOSI_PIN_0:    // SPI bus 1 default
-        case MOSI_PIN_21:   // SPI bus 1 alternate
-            SPI1.usingInterrupt(intPin);
-            break;
-
-        case MOSI_PIN_7:    // SPI bus 0 alternate 1
-        case MOSI_PIN_11:   // SPI bus 0 default
-        case MOSI_PIN_28:   // SPI bus 0 alternate 2
-            SPI.usingInterrupt(intPin);
-            break;
-
-        case MOSI_PIN_44:   // SPI bus 2 default
-        case MOSI_PIN_52:   // SPI bus 2 alternate
-            SPI2.usingInterrupt(intPin);
-            break;
-        }
-
-#endif
-
-    // Teensy LC
-#if defined(__MKL26Z64__)
-
-        // configure and begin the SPI
-        switch( _mosiPin ) {
-
-        case MOSI_PIN_0:    // SPI bus 1 default
-        case MOSI_PIN_21:   // SPI bus 1 alternate
-            SPI1.usingInterrupt(intPin);
-            break;
-
-        case MOSI_PIN_7:    // SPI bus 0 alternate 1
-        case MOSI_PIN_11:   // SPI bus 0 default
-            SPI.usingInterrupt(intPin);
-            break;
-
-        }
-
-#endif
-
-    }
 }
 
 void mpu9250::WireBegin()
@@ -338,6 +273,12 @@ int mpu9250::NewData()
         return 1;
     }
     return 0;
+}
+
+void mpu9250::RequestAllData()
+{
+    RequestRegisters(_address, ACCEL_XOUT_H, 22);
+    _requestedData = true;
 }
 
 void mpu9250::GetAllCounts(int16_t *counts_out)
@@ -739,17 +680,83 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     return 0;
 }
 
-void mpu9250::SetupInterrupt()
+void mpu9250::SetupInterrupt(int intPin, void(*irsFunc)())
 {
     if (_useSPI) {
         // Config interrupt: Auto-clear on reg read
         WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
+
+        // If SPI transactions are to be called from an interrupt the corresponding intPin
+        // has to be registered
+
+    #if defined(__MK20DX128__) || defined(__MK20DX256__)
+
+            // configure and begin the SPI
+            switch( _mosiPin ) {
+
+            case MOSI_PIN_7:    // SPI bus 0 alternate 1
+            case MOSI_PIN_11:// SPI bus 0 default
+                SPI.usingInterrupt(intPin);
+                break;
+
+            }
+
+    #endif
+
+        // Teensy 3.5 || Teensy 3.6
+    #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+
+            // configure and begin the SPI
+            switch (_mosiPin) {
+
+            case MOSI_PIN_0:    // SPI bus 1 default
+            case MOSI_PIN_21:   // SPI bus 1 alternate
+                SPI1.usingInterrupt(intPin);
+                break;
+
+            case MOSI_PIN_7:    // SPI bus 0 alternate 1
+            case MOSI_PIN_11:   // SPI bus 0 default
+            case MOSI_PIN_28:   // SPI bus 0 alternate 2
+                SPI.usingInterrupt(intPin);
+                break;
+
+            case MOSI_PIN_44:   // SPI bus 2 default
+            case MOSI_PIN_52:   // SPI bus 2 alternate
+                SPI2.usingInterrupt(intPin);
+                break;
+            }
+
+    #endif
+
+        // Teensy LC
+    #if defined(__MKL26Z64__)
+
+            // configure and begin the SPI
+            switch( _mosiPin ) {
+
+            case MOSI_PIN_0:    // SPI bus 1 default
+            case MOSI_PIN_21:   // SPI bus 1 alternate
+                SPI1.usingInterrupt(intPin);
+                break;
+
+            case MOSI_PIN_7:    // SPI bus 0 alternate 1
+            case MOSI_PIN_11:   // SPI bus 0 default
+                SPI.usingInterrupt(intPin);
+                break;
+
+            }
+
+    #endif
+
     } else {
         // NOTE: In I2C master mode and INT_ANYRD_2CLEAR there is an issue with clears triggering
         // randomly before slave 0 register readout. This causes the I2C bus to stall. Use LATCH
         // mode and clear the interrupt manually to circumvent. This sadly adds about 125us to IRS.
         WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
     }
+    // Attach interrupt pin and irs function
+    pinMode(intPin, INPUT);
+    attachInterrupt(intPin, irsFunc, RISING);
 }
 
 void mpu9250::EnableInterrupt()
@@ -1430,10 +1437,7 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
         i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
         i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
         i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
-        i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
-
-        //wait
-        Wire.finish();
+        i2c_t3(_bus).requestFrom(address, (size_t) count, I2C_STOP);  // Blocking request of 'count' data at subaddr
 
         uint8_t i = 0;
 
@@ -1465,7 +1469,6 @@ void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t coun
 void mpu9250::ReadRequested(uint8_t *rawData_out)
 {
     uint8_t i = 0;
-
     //Serial.println("Reading Requested!");
 
     // Read (and empty) the rx buffer as long as there is data
@@ -1477,7 +1480,12 @@ void mpu9250::ReadRequested(uint8_t *rawData_out)
 uint8_t mpu9250::RequestedAvailable()
 {
     //Serial.println("New Available!");
-    return i2c_t3(_bus).done();
+    if (i2c_t3(_bus).done() && _requestedData) {
+        _requestedData = false;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 /* Writes a register on the AK8963 given a register address and data */

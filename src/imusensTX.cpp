@@ -60,7 +60,7 @@ void irs2Func_head()
 #endif /* I2C_SPI_TIME */
 
     //headImu.GetAllData(imuData2, HS_FALSE);
-    headImu.RequestRegisters(0x69, headImu.ACCEL_XOUT_H, 22);
+    headImu.RequestAllData();
 #ifdef I2C_SPI_TIME
     dt = dt + micros() - ts2;
     i++;
@@ -106,7 +106,7 @@ void setup()
 
     /* IMU 1 (Vehicle) Setup */
     // Setup bus specifics for this device
-    vhclImu.WireSetup(intPin1_vhcl);
+    vhclImu.WireSetup();
 
     // Start the bus (only one device needs to start it on a shared bus)
     vhclImu.WireBegin();
@@ -133,7 +133,7 @@ void setup()
     vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
 
     // Setup interrupts
-    vhclImu.SetupInterrupt();
+    vhclImu.SetupInterrupt(intPin1_vhcl, irs1Func_vhcl);
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -155,14 +155,10 @@ void setup()
     vhclImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
-    // Attach interrupt pin and irs function
-    pinMode(intPin1_vhcl, INPUT);
-    attachInterrupt(intPin1_vhcl, irs1Func_vhcl, RISING);
-
 next:
     /* IMU 2 (Head) Setup */
     // Setup bus specifics for this device
-    headImu.WireSetup(intPin2_head);
+    headImu.WireSetup();
 
     // Start the bus (only one device needs to start it on a shared bus)
     headImu.WireBegin();
@@ -187,7 +183,7 @@ next:
     headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
 
     // Setup interrupts
-    headImu.SetupInterrupt();
+    headImu.SetupInterrupt(intPin2_head, irs2Func_head);
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -208,10 +204,6 @@ next:
     if (Debug) Serial.println("AK8963  (2): Mag calibration using pre-recorded values");
     headImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
-
-    // Attach interrupt pin and irs function
-    pinMode(intPin2_head, INPUT);
-    attachInterrupt(intPin2_head, irs2Func_head, RISING);
 
 end:
     // Enable interrupts
@@ -240,9 +232,8 @@ void loop()
     noInterrupts();
 
     // Read the DMA buffer after the request flag has been set and once i2c is done
-    if (flag && i2c_t3(0).done()) {
+    if (headImu.RequestedAvailable()) {
         headImu.GetAllData(imuData2, HS_FALSE);
-        flag = 0;
     }
 
     now = micros();

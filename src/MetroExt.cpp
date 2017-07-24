@@ -13,7 +13,7 @@
 
 #include "MetroExt.h"
 
-MetroExt::MetroExt(unsigned long interval_micros)
+MetroExt::MetroExt(unsigned int interval_micros)
 {
     this->autoreset = 0;
     interval(interval_micros);
@@ -25,14 +25,14 @@ MetroExt::MetroExt(unsigned long interval_micros)
 // autoreset = 0 is benjamin.soelberg's check behavior
 // autoreset != 0 is the original behavior
 
-MetroExt::MetroExt(unsigned long interval_micros, uint8_t autoreset)
+MetroExt::MetroExt(unsigned int interval_micros, uint8_t autoreset)
 {
     this->autoreset = autoreset; // Fix by Paul Bouchier
     interval(interval_micros);
     reset();
 }
 
-void MetroExt::interval(unsigned long interval_micros)
+void MetroExt::interval(unsigned int interval_micros)
 {
     this->interval_micros = interval_micros;
 }

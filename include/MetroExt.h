@@ -16,15 +16,15 @@
 class MetroExt {
 
 public:
-    MetroExt(unsigned long interval_micros);
-    MetroExt(unsigned long interval_micros, uint8_t autoreset);
-    void interval(unsigned long interval_micros);
+    MetroExt(unsigned int interval_micros);
+    MetroExt(unsigned int interval_micros, uint8_t autoreset);
+    void interval(unsigned int interval_micros);
     char check();
     void reset();
 
 private:
     uint8_t autoreset;
-    unsigned long  previous_micros, interval_micros, delta_t;
+    unsigned int  previous_micros, interval_micros;
 
 };
 

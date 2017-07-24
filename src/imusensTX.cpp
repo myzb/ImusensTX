@@ -5,10 +5,9 @@
  *      Author: may
  */
 
+#include <Arduino.h>
 #include <i2c_t3.h>
 #include <SPI.h>
-
-#include "Arduino.h"
 
 #include "utils.h"
 #include "FusionFilter.h"

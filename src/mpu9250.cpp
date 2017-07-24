@@ -5,9 +5,9 @@
  *      Author: may
  */
 
-#include "Arduino.h"
-#include "i2c_t3.h"  // I2C library
-#include "SPI.h"     // SPI Library
+#include <Arduino.h>
+#include <i2c_t3.h>
+#include <SPI.h>
 
 #include "mpu9250.h"
 

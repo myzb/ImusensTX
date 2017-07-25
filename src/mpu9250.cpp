@@ -778,6 +778,18 @@ uint8_t mpu9250::ClearInterrupt()
     return ReadRegister(_address, INT_STATUS);
 }
 
+uint8_t mpu9250::EnableDMA()
+{
+    if (_useSPI) {
+        // TODO:
+        return 0;
+    } else {
+        // FIXME: using DMA requires call to instantiated i2c_t3 functions
+        // i.e Wire for i2c_t3(0) else system will hang
+        return Wire.setOpMode(I2C_OP_MODE_DMA);
+    }
+}
+
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
 void mpu9250::AcelGyroCal()
@@ -1257,6 +1269,18 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
         return true;
     } else {
         return false;
+    }
+}
+
+void mpu9250::SendRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
+{
+    if (_useSPI) {
+        // TODO
+    } else {
+        i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
+        i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
+        i2c_t3(_bus).write(data_in);              // Put data in Tx buffer
+        i2c_t3(_bus).sendTransmission();          // Send the Tx buffer
     }
 }
 

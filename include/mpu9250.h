@@ -384,8 +384,10 @@ public:
     // DMA
     void RequestAllData();
     void RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count);
+    void SendRegister(uint8_t address, uint8_t subAddress, uint8_t data);
     void ReadRequested(uint8_t *rawData_out);
     uint8_t RequestedAvailable();
+    uint8_t EnableDMA();
 
     uint8_t whoAmI();
     uint8_t whoAmIAK8963();

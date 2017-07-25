@@ -51,8 +51,6 @@ MetroExt task_dbgIRS = MetroExt(2000000);   //   2 sec
 
 static float imuData1[10], imuData2[10];
 
-volatile int flag = 0;
-
 void irs1Func_vhcl()
 {
     vhclImu.GetAllData(imuData1, HS_TRUE);
@@ -100,6 +98,7 @@ void setup()
     digitalWrite(ledPin, HIGH);
 
     if (Debug) Serial.printf("Starting ... \n");
+    noInterrupts();
 
     /* IMU 1 (Vehicle) Setup */
     // Setup bus specifics for this device
@@ -203,9 +202,12 @@ next:
 #endif /* RESET_MAGCAL */
 
 end:
+    interrupts();
+
     // Enable interrupts
     vhclImu.EnableInterrupt();
     headImu.EnableInterrupt();
+
 
     // Wait for the host application to be ready
     if (Debug) Serial.printf("Setup done!\n");
@@ -225,7 +227,7 @@ void loop()
 
     noInterrupts();
 
-    // Read the DMA buffer after the request flag has been set and once i2c is done
+    // Read the i2c rx buffer when done
     if (headImu.RequestedAvailable()) {
         headImu.GetAllData(imuData2, HS_FALSE);
     }

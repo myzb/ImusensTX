@@ -223,12 +223,11 @@ end:
 
 void loop()
 {
-    static uint32_t filterCnt = 0;                      // loop counter
-
-    static data_t rx_buffer, tx_buffer = { 0 };         // usb rx/tx buffer zero initialized
-    static uint8_t num;                                 // usb return code
-    static uint32_t lastTx = 0, lastRx;                 // last rx/tx time of usb data
-    static uint32_t packetCount = 0;                    // usb packet number
+    static uint32_t filterCnt = 0;              // loop counter
+    static data_t rx_buffer, tx_buffer = { 0 }; // usb rx/tx buffer zero initialized
+    static uint8_t num;                         // usb return code
+    static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
+    static uint32_t pktCnt = 0;                 // usb packet number
 
     noInterrupts();
 
@@ -248,10 +247,8 @@ void loop()
                                  imuData2[4], imuData2[5], imuData2[6],
                                  imuData2[7], imuData2[8], imuData2[9], chrono_2.Split());
 
-
         // Get quat rotation difference, store result in tx_buffer[0:3]
         quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
-
         filterCnt++;
     }
 #endif /* AHRS */
@@ -268,7 +265,7 @@ void loop()
     if (task_usbTx.check()) {
 
         // Place packetCount into last 4 bytes
-        tx_buffer.num_d[15] = packetCount;
+        tx_buffer.num_d[15] = pktCnt;
 
         // Send the packet
         noInterrupts();
@@ -278,7 +275,7 @@ void loop()
         if (num <= 0) task_usbTx.requeue();
         interrupts();
         if (num > 0) {
-            packetCount++;
+            pktCnt++;
             lastTx = micros();
         } else if (Debug == 2) {
             Serial.printf("TX: Fail\t%d\n", num);

@@ -3,14 +3,16 @@
  *
  *  Created on: Jun 12, 2017
  *      Author: may
+ *
+ *  Notice:
+ *    Implementation of Sebastian Madgwick's "...efficient orientation filter for ... inertial/magnetic
+ *    sensor arrays" (see http://www.x-io.co.uk/category/open-source/ for examples & more details)
+ *    The respective functions were take from Kris Winer's Arduino sketch for the MPU9250 and converted
+ *    into an cpp class.
  */
 
 #include "FusionFilter.h"
 
-/* Implementation of Sebastian Madgwick's "...efficient orientation filter
- * for... inertial/magnetic sensor arrays"
- * (see http://www.x-io.co.uk/category/open-source/ for examples & more details)
- */
 void FusionFilter::MadgwickUpdate(float ax, float ay, float az, float gx, float gy, float gz,
     float mx, float my, float mz, float dt)
 {

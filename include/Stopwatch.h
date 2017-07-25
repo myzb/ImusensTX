@@ -2,7 +2,7 @@
  * Stopwatch.h
  *
  *  Created on: 22 Jul 2017
- *      Author: matt
+ *      Author: may
  */
 
 #ifndef _STOPWATCH_H_

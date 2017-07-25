@@ -1,3 +1,10 @@
+/*
+ * FusionFilter.cpp
+ *
+ *  Created on: Jun 12, 2017
+ *      Author: may
+ */
+
 #ifndef _FUSIONFILTER_H_
 #define _FUSIONFILTER_H_
 

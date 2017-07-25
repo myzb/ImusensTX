@@ -2,7 +2,7 @@
  * utils.cpp
  *
  *  Created on: 13 Jun 2017
- *      Author: matt
+ *      Author: may
  */
 
 #include <i2c_t3.h>

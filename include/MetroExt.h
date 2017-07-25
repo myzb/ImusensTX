@@ -3,9 +3,6 @@
  *
  *  Created on: 22 Jul 2017
  *      Author: may
- *
- * Based on the original Metro library by Thomas Ouellet Fredericks, with additional support
- * for high resolution clock.
  */
 
 #ifndef _METROEXT_H_

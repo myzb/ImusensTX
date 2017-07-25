@@ -30,8 +30,8 @@ static const int ledPin = 13;
 
 #ifdef I2C_SPI_TIME
 // Times the avg sensor readout time
-volatile static int i = 0;
-volatile static float dt = 0, ts = 0, ts2 = 0;
+volatile static int irsCnt = 0;
+volatile static float dt = 0, ts = 0;
 #endif
 
 // Globals
@@ -41,14 +41,13 @@ mpu9250 headImu(0x69, 0, I2C_PINS_18_19);   // MPU9250 2 On I2C bus 0 at addr 0x
 mpu9250 vhclImu(35, MOSI_PIN_28, IRS_TRUE);   // MPU9250 1 On SPI bus 0, read called from IRS
 //mpu9250 headImu(3,  MOSI_PIN_21, IRS_TRUE);   // MPU9250 2 On SPI bus 0, read called from IRS
 
-FusionFilter vhclFilter;
-FusionFilter headFilter;
+FusionFilter vhclFilter, headFilter;
+Stopwatch chrono_1, chrono_2;
 
 MetroExt task_filter = MetroExt(100);       // 100 usec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
-
-Stopwatch chrono_1, chrono_2;
+MetroExt task_dbgIRS = MetroExt(2000000);   //   2 sec
 
 static float imuData1[10], imuData2[10];
 
@@ -62,27 +61,23 @@ void irs1Func_vhcl()
 void irs2Func_head()
 {
 #ifdef I2C_SPI_TIME
-    ts2 = micros();
+    ts = micros();
 #endif /* I2C_SPI_TIME */
 
-    //headImu.GetAllData(imuData2, HS_FALSE);
     headImu.RequestAllData();
+
 #ifdef I2C_SPI_TIME
-    dt = dt + micros() - ts2;
-    i++;
-    if (i > 1000) {
-        ts = micros() - ts;
-        Serial.printf("IMU: fs = %.2f Hz\n", (float)i/ts *1000000.f);
-        ts = micros();
-        dt = dt/i;
-        Serial.printf("IMU: I2C/SPI rate = %.2f us\n\n", dt);
+    dt = dt + micros() - ts;
+    irsCnt++;
+    if (task_dbgIRS.check()) {
+        Serial.printf("IMU: fs = %.2f Hz\n", (float)irsCnt/2.0f);
+        Serial.printf("IMU: I2C/SPI rate = %.2f us\n\n", dt /irsCnt);
         dt = 0;
-        i = 0;
+        irsCnt = 0;
         // Toggle the LED (signal sensor rx is active)
         digitalWrite(ledPin, !digitalRead(ledPin));
     }
 #endif /* I2C_SPI_TIME */
-    flag = 1;
 }
 
 void setup()

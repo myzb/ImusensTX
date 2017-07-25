@@ -21,10 +21,11 @@ public:
     void interval(unsigned int interval_micros);
     char check();
     void reset();
+    void requeue();
 
 private:
     uint8_t autoreset;
-    unsigned int  previous_micros, interval_micros;
+    unsigned int  previous_micros, previous_micros_old, interval_micros;
 
 };
 

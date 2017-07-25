@@ -48,6 +48,8 @@ void MetroExt::interval(unsigned int interval_micros)
 char MetroExt::check()
 {
     if (micros() - this->previous_micros >= this->interval_micros) {
+        // Backup prevouis micros for requeue
+        this->previous_micros_old = this->previous_micros;
         // As suggested by benjamin.soelberg@gmail.com, the following line
         // this->previous_micros = micros();
         // was changed to
@@ -67,4 +69,12 @@ char MetroExt::check()
 void MetroExt::reset()
 {
     this->previous_micros = micros();
+}
+
+// Should be called after a check to assert the next check as true
+void MetroExt::requeue()
+{
+    // Set the updated previous_micros to the old previous_micros
+    // This allows the next check() to instantly return true
+    this->previous_micros = this->previous_micros_old;
 }

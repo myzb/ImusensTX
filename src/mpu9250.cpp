@@ -532,7 +532,7 @@ float mpu9250::GetTempData(bus_hs mode)
     return (((float)GetTempCounts() - _tempOffset) / _tempScale + _tempOffset);
 }
 
-void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out)
+void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
 {
     // Set mag axis scale factor
     switch (magRange) {
@@ -564,9 +564,9 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, flo
     // Read the x-, y-, and z-axis factory calibration values and calculate magScale as per datasheet
     uint8_t rawData[8];
     ReadAK8963Registers( AK8963_ASAX, 3, &rawData[0]);
-    _magScale_factory[0] = magScale_f_out[0] =  (float)(rawData[0] - 128) / 256.0f + 1.0f;
-    _magScale_factory[1] = magScale_f_out[1] =  (float)(rawData[1] - 128) / 256.0f + 1.0f;
-    _magScale_factory[2] = magScale_f_out[2] =  (float)(rawData[2] - 128) / 256.0f + 1.0f;
+    _magScale_factory[0] = (float)(rawData[0] - 128) / 256.0f + 1.0f;
+    _magScale_factory[1] = (float)(rawData[1] - 128) / 256.0f + 1.0f;
+    _magScale_factory[2] = (float)(rawData[2] - 128) / 256.0f + 1.0f;
 
     // Power down magnetometer
     WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
@@ -776,11 +776,12 @@ uint8_t mpu9250::ClearInterrupt()
 
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
-void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
+void mpu9250::AcelGyroCal()
 {
     uint8_t data[12];
     uint16_t packet_count, fifo_count;
     int32_t gyro_bias[3]  = { 0, 0, 0 }, accel_bias[3] = { 0, 0, 0 };
+    float gyroBias[3], accelBias[3];
 
     // reset device
     WriteRegister(_address, PWR_MGMT_1, H_RESET);
@@ -874,14 +875,14 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     WriteRegister(_address, ZG_OFFSET_L, data[5]);
 
     // Output scaled gyro biases for display in the main program
-    gyroBias_out[0] = (float)gyro_bias[0] / (float)gyro_res;
-    gyroBias_out[1] = (float)gyro_bias[1] / (float)gyro_res;
-    gyroBias_out[2] = (float)gyro_bias[2] / (float)gyro_res;
+    gyroBias[0] = (float)gyro_bias[0] / (float)gyro_res;
+    gyroBias[1] = (float)gyro_bias[1] / (float)gyro_res;
+    gyroBias[2] = (float)gyro_bias[2] / (float)gyro_res;
 
     // Output scaled accelerometer biases for display in the main program
-    accelBias_out[0] = (float)accel_bias[0] / (float)accel_res;
-    accelBias_out[1] = (float)accel_bias[1] / (float)accel_res;
-    accelBias_out[2] = (float)accel_bias[2] / (float)accel_res;
+    accelBias[0] = (float)accel_bias[0] / (float)accel_res;
+    accelBias[1] = (float)accel_bias[1] / (float)accel_res;
+    accelBias[2] = (float)accel_bias[2] / (float)accel_res;
 
 #if 0
     Serial.printf("accel biases (mg)\n%f\n%f\n%f\n",
@@ -988,7 +989,7 @@ void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
 #endif
 }
 
-void mpu9250::MagCal(float *magBias_out, float *magScale_out)
+void mpu9250::MagCal()
 {
     int sample_count = 0;
     int32_t mag_bias[3] = { 0, 0, 0 }, mag_scale[3] = { 0, 0, 0 };
@@ -1061,12 +1062,12 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
 #endif
 }
 
-void mpu9250::SelfTest(float *deviation_out)
+void mpu9250::SelfTest()
 {
     uint8_t rawData[6] = { 0, 0, 0, 0, 0, 0 };
     uint8_t selfTest[6];
     int32_t gAvg[3] = { 0 }, aAvg[3] = { 0 }, aSTAvg[3] = { 0 }, gSTAvg[3] = { 0 };
-    float factoryTrim[6];
+    float factoryTrim[6], deviation[6];
 
     WriteRegister(_address, SMPLRT_DIV, 0x00);                      // fs divider = 0x00 + 1
     WriteRegister(_address, CONFIG, DLPF_BANDWIDTH_41HZ);           // Gyro fs = 1 kHz, filter bw = 41 Hz
@@ -1143,19 +1144,19 @@ void mpu9250::SelfTest(float *deviation_out)
     // Report results as a ratio of (STR - FT)/FT in percent
     // TODO: Do something with this information
     for (int i = 0; i < 3; i++) {
-        deviation_out[i]   = 100.0f * ((float)(aSTAvg[i] - aAvg[i])) / factoryTrim[i] - 100.0f;
-        deviation_out[i+3] = 100.0f * ((float)(gSTAvg[i] - gAvg[i])) / factoryTrim[i+3] - 100.0f;
+        deviation[i]   = 100.0f * ((float)(aSTAvg[i] - aAvg[i])) / factoryTrim[i] - 100.0f;
+        deviation[i+3] = 100.0f * ((float)(gSTAvg[i] - gAvg[i])) / factoryTrim[i+3] - 100.0f;
     }
 
 #if 0
     // Print the values
-    Serial.printf("x-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[0]);
-    Serial.printf("y-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[1]);
-    Serial.printf("z-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[2]);
+    Serial.printf("x-axis self test: accel trim within: %.1f \% of factory value\n", deviation[0]);
+    Serial.printf("y-axis self test: accel trim within: %.1f \% of factory value\n", deviation[1]);
+    Serial.printf("z-axis self test: accel trim within: %.1f \% of factory value\n", deviation[2]);
 
-    Serial.printf("x-axis self test: gyro trim within: %.1f \% of factory value\n", deviation_out[3]);
-    Serial.printf("y-axis self test: gyro trim within: %.1f \% of factory value\n", deviation_out[4]);
-    Serial.printf("z-axis self test: gyro trim within: %.1f \% of factory value\n\n", deviation_out[5]);
+    Serial.printf("x-axis self test: gyro trim within: %.1f \% of factory value\n", deviation[3]);
+    Serial.printf("y-axis self test: gyro trim within: %.1f \% of factory value\n", deviation[4]);
+    Serial.printf("z-axis self test: gyro trim within: %.1f \% of factory value\n\n", deviation[5]);
 #endif
 }
 

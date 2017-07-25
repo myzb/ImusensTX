@@ -88,10 +88,6 @@ void irs2Func_head()
 
 void setup()
 {
-    float gyroBias[3], accelBias[3];
-    float stPercent[6];
-    float magCalFactory[3];
-
 #if 1
     // Pre-calibrated values (office)
     float magHardIron[3] = {6.21309566f, 48.00038147f, -26.88592911};
@@ -126,13 +122,13 @@ void setup()
     }
 
     // Start by performing self test and reporting values
-    vhclImu.SelfTest(stPercent);
+    vhclImu.SelfTest();
     delay(1000);
 
     if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases in bias registers
-    vhclImu.AcelGyroCal(gyroBias, accelBias);
+    vhclImu.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
@@ -149,14 +145,14 @@ void setup()
     }
 
     // Get magnetometer calibration from AK8963 ROM
-    vhclImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
+    vhclImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
 
 #ifdef RESET_MAGCAL
     // TODO: Add RawHid msg to wave device and also notice on done
     Serial.printf("AK8963  (1) initialized for active data mode ...\n");
     Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
-    vhclImu.MagCal(magHardIron, magSoftIron);
+    vhclImu.MagCal();
 #else
     if (Debug) Serial.printf("AK8963  (1): Mag calibration using pre-recorded values\n");
     vhclImu.SetMagCal(magHardIron, magSoftIron);
@@ -176,13 +172,13 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): 9-axis motion sensor is online\n");
 
     // Start by performing self test and reporting values
-    headImu.SelfTest(stPercent);
+    headImu.SelfTest();
     delay(1000);
 
     if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases in bias registers
-    headImu.AcelGyroCal(gyroBias, accelBias);
+    headImu.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
@@ -199,14 +195,14 @@ next:
     }
 
     // Get magnetometer calibration from AK8963 ROM
-    headImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ, magCalFactory);
+    headImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
 
 #ifdef RESET_MAGCAL
     // TODO: Add RawHid msg to wave device and also notice on done
     Serial.printf("AK8963  (2) initialized for active data mode...\n");
     Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
-    headImu.MagCal(magHardIron, magSoftIron);
+    headImu.MagCal();
 #else
     if (Debug) Serial.printf("AK8963  (2): Mag calibration using pre-recorded values\n");
     headImu.SetMagCal(magHardIron, magSoftIron);

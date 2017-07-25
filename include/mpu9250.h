@@ -344,15 +344,15 @@ public:
     void WireSetup();
     void WireBegin();
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
-    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate, float *magScale_f_out);
+    void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate);
     void SetupInterrupt(int intPin, void(*irsFunc)());
     void EnableInterrupt();
     uint8_t ClearInterrupt();
 
     // Functions to fine tune the sensors
-    void SelfTest(float *deviation_out);
-    void MagCal(float *magBias_out, float *magScale_out);
-    void AcelGyroCal(float *accelBias_out, float *gyroBias_out);
+    void SelfTest();
+    void MagCal();
+    void AcelGyroCal();
     void SetMagCal(float *magBias_in, float *magScale_in);
 
     // Functions that return the raw sensor ADC values

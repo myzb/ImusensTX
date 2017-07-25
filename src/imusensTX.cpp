@@ -73,10 +73,10 @@ void irs2Func_head()
     i++;
     if (i > 1000) {
         ts = micros() - ts;
-        Serial.print("IMU: fs = "); Serial.print((float)i/ts *1000000.f); Serial.println(" Hz");
+        Serial.printf("IMU: fs = %.2f Hz\n", (float)i/ts *1000000.f);
         ts = micros();
         dt = dt/i;
-        Serial.print("IMU: I2C/SPI rate = "); Serial.print(dt, 2); Serial.println(" us");
+        Serial.printf("IMU: I2C/SPI rate = %.2f us\n\n", dt);
         dt = 0;
         i = 0;
         // Toggle the LED (signal sensor rx is active)
@@ -109,7 +109,7 @@ void setup()
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, HIGH);
 
-    if (Debug) Serial.println("Starting ...");
+    if (Debug) Serial.printf("Starting ... \n");
 
     /* IMU 1 (Vehicle) Setup */
     // Setup bus specifics for this device
@@ -122,19 +122,19 @@ void setup()
     if (vhclImu.whoAmI() != 0x71) goto next;
 
     if (Debug) {
-        Serial.println("MPU9250 (1): 9-axis motion sensor is online");
+        Serial.printf("MPU9250 (1): 9-axis motion sensor is online\n");
     }
 
     // Start by performing self test and reporting values
     vhclImu.SelfTest(stPercent);
     delay(1000);
 
-    if (Debug) Serial.println("MPU9250 (1): Calibrating gyro and accel");
+    if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases in bias registers
     vhclImu.AcelGyroCal(gyroBias, accelBias);
 
-    if (Debug) Serial.println("MPU9250 (1): Initialising for active data mode....");
+    if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
     // Config for normal operation
     vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
@@ -144,7 +144,7 @@ void setup()
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        Serial.print("AK8963  (1): I'm "); Serial.println(vhclImu.whoAmIAK8963());
+        Serial.printf("AK8963  (1): I'm 0x%02x\n", vhclImu.whoAmIAK8963());
         delay(100);
     }
 
@@ -153,12 +153,12 @@ void setup()
 
 #ifdef RESET_MAGCAL
     // TODO: Add RawHid msg to wave device and also notice on done
-    Serial.println("AK8963  (1) initialized for active data mode....");
-    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+    Serial.printf("AK8963  (1) initialized for active data mode ...\n");
+    Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
     vhclImu.MagCal(magHardIron, magSoftIron);
 #else
-    if (Debug) Serial.println("AK8963  (1): Mag calibration using pre-recorded values");
+    if (Debug) Serial.printf("AK8963  (1): Mag calibration using pre-recorded values\n");
     vhclImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
@@ -173,18 +173,18 @@ next:
     // Loop forever if MPU9250 is not online
     if (headImu.whoAmI() != 0x71) goto end;
 
-    if (Debug) Serial.println("MPU9250 (2): 9-axis motion sensor is online");
+    if (Debug) Serial.printf("MPU9250 (2): 9-axis motion sensor is online\n");
 
     // Start by performing self test and reporting values
     headImu.SelfTest(stPercent);
     delay(1000);
 
-    if (Debug) Serial.println("MPU9250 (2): Calibrating gyro and accel");
+    if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases in bias registers
     headImu.AcelGyroCal(gyroBias, accelBias);
 
-    if (Debug) Serial.println("MPU9250 (2): Initialising for active data mode....");
+    if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
     // Config for normal operation
     headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
@@ -194,7 +194,7 @@ next:
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        Serial.print("AK8963  (2): I'm "); Serial.println(headImu.whoAmIAK8963());
+        Serial.printf("AK8963  (1): I'm 0x%02x\n", headImu.whoAmIAK8963());
         delay(100);
     }
 
@@ -203,12 +203,12 @@ next:
 
 #ifdef RESET_MAGCAL
     // TODO: Add RawHid msg to wave device and also notice on done
-    Serial.println("AK8963  (2) initialized for active data mode....");
-    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+    Serial.printf("AK8963  (2) initialized for active data mode...\n");
+    Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
     headImu.MagCal(magHardIron, magSoftIron);
 #else
-    if (Debug) Serial.println("AK8963  (2): Mag calibration using pre-recorded values");
+    if (Debug) Serial.printf("AK8963  (2): Mag calibration using pre-recorded values\n");
     headImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
@@ -218,7 +218,7 @@ end:
     headImu.EnableInterrupt();
 
     // Wait for the host application to be ready
-    if (Debug) Serial.println("Setup done!");
+    if (Debug) Serial.printf("Setup done!\n");
     while (!RawHID.available());
 
     chrono_1.Reset();
@@ -261,14 +261,10 @@ void loop()
 #endif /* AHRS */
 
 #if 0
-    Serial.print(q1[0],2); Serial.print(" ");   Serial.print(q1[1],2); Serial.print(" ");
-    Serial.print(q1[2],2); Serial.print(" "); Serial.println(q1[3],2);
+    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n", q1[0], q1[1], q1[2] ,q1[3]);
+    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n", q2[0], q2[1], q2[2] ,q2[3]);
 
-    Serial.print(q2[0],2); Serial.print(" ");   Serial.print(q2[1],2); Serial.print(" ");
-    Serial.print(q2[2],2); Serial.print(" "); Serial.println(q2[3],2);
-
-    Serial.print(q[0],2); Serial.print(" ");   Serial.print(q[1],2); Serial.print(" ");
-    Serial.print(q[2],2); Serial.print(" "); Serial.println(q[3],2); Serial.print("\n");
+    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0], q[1], q[2] ,q[3]);
 #endif
 
     interrupts();
@@ -289,7 +285,7 @@ void loop()
             packetCount++;
             lastTx = micros();
         } else if (Debug == 2) {
-            Serial.print(F("TX: Fail \t")); Serial.println(num);
+            Serial.printf("TX: Fail\t%d\n", num);
         }
     }
 
@@ -301,13 +297,12 @@ void loop()
             lastRx = micros();
 
             if (Debug == 2) {
-                Serial.print("TX: \t"); Serial.print(tx_buffer.num_d[15]);
-                Serial.print("\tRX: \t"); Serial.println(rx_buffer.num_d[15]);
-                Serial.print(lastTx / 1000 % 1000, 8);Serial.print("\t\t"); Serial.println(lastRx / 1000 % 1000, 8);
+                Serial.printf("TX:\t%d\tRX:\t%d\n", tx_buffer.num_d[15], rx_buffer.num_d[15]);
+                Serial.printf("%d\t\t%d\n",lastTx / 1000 % 1000, lastRx / 1000 % 1000);
             }
 
         } else if (Debug == 2) {
-            Serial.print(F("\tRX: Fail \t")); Serial.println(num);
+            Serial.printf("\tRX: Fail\t%d\n", num);
         }
     }
 
@@ -320,27 +315,18 @@ void loop()
 
         if (Debug) {
             // Print the avg loop rate
-            Serial.print("filter: rate = "); Serial.print((float)filterCnt/2.0f, 2);
-            Serial.println(" Hz");
+            Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt/2.0f, 2);
         }
         if (1) {
-            Serial.print(imuData1[0], 4); Serial.print(" ");
-            Serial.print(imuData1[1], 4); Serial.print(" "); Serial.println(imuData1[2], 4);
-            Serial.println(imuData1[3],4);
-            Serial.print(imuData1[4], 4); Serial.print(" ");
-            Serial.print(imuData1[5], 4); Serial.print(" "); Serial.println(imuData1[6], 4);
-            Serial.print(imuData1[7], 4); Serial.print(" ");
-            Serial.print(imuData1[8], 4); Serial.print(" "); Serial.println(imuData1[9], 4);
-            Serial.print("\n");
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[0], imuData1[1], imuData1[2]);
+            Serial.printf("%6.2f\n",                 imuData1[3]);
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[4], imuData1[5], imuData1[6]);
+            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", imuData1[7], imuData1[8], imuData1[9]);
 
-            Serial.print(imuData2[0], 4); Serial.print(" ");
-            Serial.print(imuData2[1], 4); Serial.print(" "); Serial.println(imuData2[2], 4);
-            Serial.println(imuData2[3],4);
-            Serial.print(imuData2[4], 4); Serial.print(" ");
-            Serial.print(imuData2[5], 4); Serial.print(" "); Serial.println(imuData2[6], 4);
-            Serial.print(imuData2[7], 4); Serial.print(" ");
-            Serial.print(imuData2[8], 4); Serial.print(" "); Serial.println(imuData2[9], 4);
-            Serial.print("\n");
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData2[0], imuData2[1], imuData2[2]);
+            Serial.printf("%6.2f\n",                 imuData2[3]);
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData2[4], imuData2[5], imuData2[6]);
+            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", imuData2[7], imuData2[8], imuData2[9]);
         }
 
         // Toggle the LED (signal mainloop is running)

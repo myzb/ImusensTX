@@ -364,12 +364,13 @@ void mpu9250::GetAllData(float *all_out, bus_hs mode)
     all_out[9] = tZ[0]*mag[0] + tZ[1]*mag[1] + tZ[2]*mag[2];
 
 #ifdef MAG_EXPORT
-    Serial.print((int)((float)counts[7] * _magScale) ); Serial.print("\t");
-    Serial.print((int)((float)counts[8] * _magScale) ); Serial.print("\t");
-    Serial.print((int)((float)counts[9] * _magScale) ); Serial.print("\t");
-    Serial.print((int) all_out[7] ); Serial.print("\t");
-    Serial.print((int) all_out[8] ); Serial.print("\t");
-    Serial.print((int) all_out[9] ); Serial.print("\n");
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int)((float)counts[i] * _magScale));
+    }
+    Serial.printf("\n");
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int) all_out[i] );
+    }
 #endif /* MAG_EXPORT */
 }
 
@@ -506,12 +507,13 @@ void mpu9250::GetMagData(float *mag_out, bus_hs mode)
     mag_out[2] *= _magSoftIron[2];
 
 #ifdef MAG_EXPORT
-    Serial.print( (int)((float)magCounts[0] * _magScale) ); Serial.print("\t");
-    Serial.print( (int)((float)magCounts[1] * _magScale) ); Serial.print("\t");
-    Serial.print( (int)((float)magCounts[2] * _magScale) ); Serial.print("\t");
-    Serial.print( (int) mag_out[0] ); Serial.print("\t");
-    Serial.print( (int) mag_out[1] ); Serial.print("\t");
-    Serial.print( (int) mag_out[2] ); Serial.print("\n");
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int)((float)counts[i] * _magScale));
+    }
+    Serial.printf("\n");
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int) all_out[i] );
+    }
 #endif /* MAG_EXPORT */
 
 }
@@ -882,14 +884,9 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     accelBias_out[2] = (float)accel_bias[2] / (float)accel_res;
 
 #if 0
-    Serial.println("accel biases (mg)");
-    Serial.println(1000.0f * accelBias_out[0]);
-    Serial.println(1000.0f * accelBias_out[1]);
-    Serial.println(1000.0f * accelBias_out[2]);
-    Serial.println("gyro biases (dps)");
-    Serial.println(gyroBias_out[0]);
-    Serial.println(gyroBias_out[1]);
-    Serial.println(gyroBias_out[2]);
+    Serial.printf("accel biases (mg)\n%f\n%f\n%f\n",
+                    1000.0f * accelBias_out[0], 1000.0f * accelBias_out[1], 1000.0f * accelBias_out[2]);
+    Serial.printf("gyro biases (dps)\n%f\n%f\n%f\n", gyroBias_out[0], gyroBias_out[1], gyroBias_out[2]);
 #endif
 
     // The MPU9250 ships with accelermometer factory trim values, the respective register values
@@ -916,9 +913,9 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     accel_bias_reg[2] /= 2;
 
 #if 0
-    Serial.println("accel factory trim (g)");
+    Serial.printf("accel factory trim (g)\n");
     for (int i = 0; i < 3; i++) {
-        Serial.println(accel_bias_reg[i] * 16.0f / 16384.0f, 8);
+        Serial.printf("%d", accel_bias_reg[i] * 16.0f / 16384.0f);
     }
 #endif
 
@@ -964,9 +961,9 @@ void mpu9250::AcelGyroCal(float *accelBias_out, float *gyroBias_out)
     accel_bias_reg[1] /= 2;
     accel_bias_reg[2] /= 2;
 
-    Serial.println("accel total bias (g)");
+    Serial.printf("accel total bias (g)\n");
     for (int i = 0; i < 3; i++) {
-        Serial.println(accel_bias_reg[i] * 16.0f / 16384.0f, 8);
+        Serial.printf("%d", accel_bias_reg[i] * 16.0f / 16384.0f, 8);
     }
 #endif
 }
@@ -981,16 +978,13 @@ void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
     _magSoftIron[2] = magScale_in[2];
 
 #if 0
-    Serial.println("Preset calibration: ");
-    Serial.println("AK8963 mag biases (mG)"); Serial.println(_magHardIron[0], 8);
-    Serial.println(_magHardIron[1], 8); Serial.println(_magHardIron[2], 8);
-    Serial.println("AK8963 mag scale (mG)"); Serial.println(_magSoftIron[0], 8);
-    Serial.println(_magSoftIron[1], 8); Serial.println(_magSoftIron[2], 8);
-    Serial.print("\n");
-    Serial.println("Factory calibration: ");
-    Serial.print("X-Axis sensitivity scale "); Serial.println(_magScale_factory[0], 2);
-    Serial.print("Y-Axis sensitivity scale "); Serial.println(_magScale_factory[1], 2);
-    Serial.print("Z-Axis sensitivity scale "); Serial.println(_magScale_factory[2], 2);
+    Serial.printf("Preset calibration:\n");
+    Serial.printf("AK8963 mag biases (mG)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
+    Serial.printf("AK8963 mag scale (mG)\n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);
+
+    Serial.printf("Factory calibration:\n");
+    Serial.printf("Sensitivity scale (counts)\n%.2f\n%.2f\n%.2f\n\n",
+                    _magScale_factory[0], _magScale_factory[1], _magScale_factory[2]);
 #endif
 }
 
@@ -1003,8 +997,8 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
 
     // TODO: Notify the user in some way that mag cal is about to start
 #if 0
-    Serial.println("AK8963 initialized for active data mode....");
-    Serial.println("Mag Calibration: Wave device in a figure eight until done!");
+    Serial.printf("AK8963 initialized for active data mode...\n");
+    Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
 #endif
 
@@ -1026,9 +1020,9 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     }
 
 #if 0
-    Serial.println("mag x min/max:"); Serial.println(mag_max[0]); Serial.println(mag_min[0]);
-    Serial.println("mag y min/max:"); Serial.println(mag_max[1]); Serial.println(mag_min[1]);
-    Serial.println("mag z min/max:"); Serial.println(mag_max[2]); Serial.println(mag_min[2]);
+    Serial.printf("mag x min/max:%d / %d\n", mag_max[0], mag_min[0]);
+    Serial.printf("mag y min/max:%d / %d\n", mag_max[1], mag_min[1]);
+    Serial.printf("mag z min/max:%d / %d\n", mag_max[2], mag_min[2]);
 #endif
 
     // Get hard iron correction for xyz axes in counts
@@ -1057,16 +1051,13 @@ void mpu9250::MagCal(float *magBias_out, float *magScale_out)
     _magSoftIron[2] = avg_rad / ((float)mag_scale[2]);
 
 #if 0
-    Serial.println("Mag calibration done!");
-    Serial.println("AK8963 mag biases (mG)"); Serial.println(_magHardIron[0], 8);
-    Serial.println(_magHardIron[1], 8); Serial.println(_magHardIron[2], 8);
-    Serial.println("AK8963 mag scale (mG)"); Serial.println(_magSoftIron[0], 8);
-    Serial.println(_magSoftIron[1], 8); Serial.println(_magSoftIron[2], 8);
-    Serial.print("\n");
-    Serial.println("Calibration values: ");
-    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[0], 2);
-    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[1], 2);
-    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(_magScale_factory[2], 2);
+    Serial.printf("Mag calibration done!\n");
+    Serial.printf("AK8963 mag biases (mG)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
+    Serial.printf("AK8963 mag scale (mG)\n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);
+
+    Serial.printf("Factory calibration:\n");
+    Serial.printf("Sensitivity scale (counts)\n%.2f\n%.2f\n%.2f\n\n",
+                    _magScale_factory[0], _magScale_factory[1], _magScale_factory[2]);
 #endif
 }
 
@@ -1158,18 +1149,13 @@ void mpu9250::SelfTest(float *deviation_out)
 
 #if 0
     // Print the values
-    Serial.print("x-axis self test: acceleration trim within : ");
-    Serial.print(deviation_out[0],1); Serial.println("% of factory value");
-    Serial.print("y-axis self test: acceleration trim within : ");
-    Serial.print(deviation_out[1],1); Serial.println("% of factory value");
-    Serial.print("z-axis self test: acceleration trim within : ");
-    Serial.print(deviation_out[2],1); Serial.println("% of factory value");
-    Serial.print("x-axis self test: gyration trim within : ");
-    Serial.print(deviation_out[3],1); Serial.println("% of factory value");
-    Serial.print("y-axis self test: gyration trim within : ");
-    Serial.print(deviation_out[4],1); Serial.println("% of factory value");
-    Serial.print("z-axis self test: gyration trim within : ");
-    Serial.print(deviation_out[5],1); Serial.println("% of factory value");
+    Serial.printf("x-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[0]);
+    Serial.printf("y-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[1]);
+    Serial.printf("z-axis self test: accel trim within: %.1f \% of factory value\n", deviation_out[2]);
+
+    Serial.printf("x-axis self test: gyro trim within: %.1f \% of factory value\n", deviation_out[3]);
+    Serial.printf("y-axis self test: gyro trim within: %.1f \% of factory value\n", deviation_out[4]);
+    Serial.printf("z-axis self test: gyro trim within: %.1f \% of factory value\n\n", deviation_out[5]);
 #endif
 }
 
@@ -1463,13 +1449,13 @@ void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t coun
     i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
     i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
 
-    //Serial.println("Regested Registers!");
+    //Serial.printf("Requested Registers!\n");
 }
 
 void mpu9250::ReadRequested(uint8_t *rawData_out)
 {
     uint8_t i = 0;
-    //Serial.println("Reading Requested!");
+    //Serial.printf("Reading Requested!\n");
 
     // Read (and empty) the rx buffer as long as there is data
     while (i2c_t3(_bus).available()) {
@@ -1479,7 +1465,7 @@ void mpu9250::ReadRequested(uint8_t *rawData_out)
 
 uint8_t mpu9250::RequestedAvailable()
 {
-    //Serial.println("New Available!");
+    //Serial.printf("New Available!\n");
     if (i2c_t3(_bus).done() && _requestedData) {
         _requestedData = false;
         return true;

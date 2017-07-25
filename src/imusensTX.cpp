@@ -190,7 +190,7 @@ next:
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        Serial.printf("AK8963  (1): I'm 0x%02x\n", headImu.whoAmIAK8963());
+        Serial.printf("AK8963  (2): I'm 0x%02x\n", headImu.whoAmIAK8963());
         delay(100);
     }
 

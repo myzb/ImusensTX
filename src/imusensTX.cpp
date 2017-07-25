@@ -17,7 +17,6 @@
 
 #define AHRS
 #define I2C_SPI_TIME
-//#define I2C
 //#define RESET_MAGCAL
 
 // Debug flag
@@ -237,15 +236,16 @@ void loop()
     }
 
 #ifdef AHRS
+    /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */
     if (task_filter.check()) {
 
         vhclFilter.MadgwickUpdate(imuData1[0], imuData1[1], imuData1[2],
-                                 imuData1[4], imuData1[5], imuData1[6],
-                                 imuData1[7], imuData1[8], imuData1[9], chrono_1.Split());
+                                  imuData1[4], imuData1[5], imuData1[6],
+                                  imuData1[7], imuData1[8], imuData1[9], chrono_1.Split());
 
         headFilter.MadgwickUpdate(imuData2[0], imuData2[1], imuData2[2],
-                                 imuData2[4], imuData2[5], imuData2[6],
-                                 imuData2[7], imuData2[8], imuData2[9], chrono_2.Split());
+                                  imuData2[4], imuData2[5], imuData2[6],
+                                  imuData2[7], imuData2[8], imuData2[9], chrono_2.Split());
 
         // Get quat rotation difference, store result in tx_buffer[0:3]
         quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
@@ -262,55 +262,49 @@ void loop()
 
     interrupts();
 
+    /* Task 2 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {
 
-        // Place packetCount into last 4 bytes
-        tx_buffer.num_d[15] = pktCnt;
+        tx_buffer.num_d[15] = pktCnt;           // Place pktCnt into last 4 bytes
 
-        // Send the packet
         noInterrupts();
-        //int ts = micros();
-        num = RawHID.send(tx_buffer.raw, 0);
-        //Serial.printf("RawHID.send() blocking delay: %d us\n", micros() - ts);
-        if (num <= 0) task_usbTx.requeue();
+        num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
+        if (num <= 0) task_usbTx.requeue();     // sending failed, re-run the task on next loop
         interrupts();
+
         if (num > 0) {
             pktCnt++;
             lastTx = micros();
-        } else if (Debug == 2) {
+        } else if (Debug == 3) {
             Serial.printf("TX: Fail\t%d\n", num);
         }
     }
 
     // TODO: Use a timer to query each X millis
+    // Only send data to device if really necessary as it slows down usb tx
     if (RawHID.available()) {
-        // Only send data to device if really necessary as it slows down usb tx
         num = RawHID.recv(rx_buffer.raw, 10);
         if (num > 0) {
             lastRx = micros();
 
-            if (Debug == 2) {
+            if (Debug == 3) {
                 Serial.printf("TX:\t%d\tRX:\t%d\n", tx_buffer.num_d[15], rx_buffer.num_d[15]);
-                Serial.printf("%d\t\t%d\n",lastTx / 1000 % 1000, lastRx / 1000 % 1000);
+                Serial.printf("%d\t\t%d\n", lastTx / 1000 % 1000, lastRx / 1000 % 1000);
             }
 
-        } else if (Debug == 2) {
+        } else if (Debug == 3) {
             Serial.printf("\tRX: Fail\t%d\n", num);
         }
     }
 
 #if 1
-    /* Major debug print routines */
-    // time for 1 loop = loopCountTime/filterCnt. this is the filter update rate
-
-    // Print current vals each 5sec
+    /* Task 3 - Debug Output @ 2 sec */
     if (task_dbgOut.check()) {
 
         if (Debug) {
-            // Print the avg loop rate
-            Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt/2.0f, 2);
+            Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
         }
-        if (1) {
+        if (Debug == 2) {
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[0], imuData1[1], imuData1[2]);
             Serial.printf("%6.2f\n",                 imuData1[3]);
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[4], imuData1[5], imuData1[6]);

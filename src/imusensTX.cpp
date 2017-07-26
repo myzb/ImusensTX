@@ -65,11 +65,11 @@ void irs2Func_head()
     headImu.RequestAllData();
 
 #ifdef I2C_SPI_TIME
-    dt = dt + micros() - ts;
+    dt += micros() - ts;
     irsCnt++;
     if (task_dbgIRS.check()) {
         Serial.printf("IMU: fs = %.2f Hz\n", (float)irsCnt/2.0f);
-        Serial.printf("IMU: I2C/SPI rate = %.2f us\n\n", dt /irsCnt);
+        Serial.printf("IMU: I2C/SPI rx speed = %.2f us\n\n", dt /irsCnt);
         dt = 0;
         irsCnt = 0;
         // Toggle the LED (signal sensor rx is active)
@@ -207,7 +207,6 @@ end:
     // Enable interrupts
     vhclImu.EnableInterrupt();
     headImu.EnableInterrupt();
-
 
     // Wait for the host application to be ready
     if (Debug) Serial.printf("Setup done!\n");

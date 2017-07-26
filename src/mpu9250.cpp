@@ -290,8 +290,10 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
     uint8_t rawData[22];
 
     if (_useSPI) {
+        // Blocking call that requests and reads registers via SPI
         ReadRegisters(_address, ACCEL_XOUT_H, sizeof(rawData), &rawData[0]);
     } else {
+        // I2C is non-blocking, data already was requested and is now available for read
         ReadRequested(rawData);
     }
 
@@ -781,7 +783,7 @@ uint8_t mpu9250::ClearInterrupt()
 uint8_t mpu9250::EnableDMA()
 {
     if (_useSPI) {
-        // TODO:
+        // TODO: non-blocking SPI not implemented
         return 0;
     } else {
         // FIXME: using DMA requires call to instantiated i2c_t3 functions
@@ -797,7 +799,6 @@ void mpu9250::AcelGyroCal()
     uint8_t data[12];
     uint16_t packet_count, fifo_count;
     int32_t gyro_bias[3]  = { 0, 0, 0 }, accel_bias[3] = { 0, 0, 0 };
-    float gyroBias[3], accelBias[3];
 
     // reset device
     WriteRegister(_address, PWR_MGMT_1, H_RESET);
@@ -890,6 +891,9 @@ void mpu9250::AcelGyroCal()
     WriteRegister(_address, ZG_OFFSET_H, data[4]);
     WriteRegister(_address, ZG_OFFSET_L, data[5]);
 
+#if 0
+    float gyroBias[3], accelBias[3];
+
     // Output scaled gyro biases for display in the main program
     gyroBias[0] = (float)gyro_bias[0] / (float)gyro_res;
     gyroBias[1] = (float)gyro_bias[1] / (float)gyro_res;
@@ -900,7 +904,6 @@ void mpu9250::AcelGyroCal()
     accelBias[1] = (float)accel_bias[1] / (float)accel_res;
     accelBias[2] = (float)accel_bias[2] / (float)accel_res;
 
-#if 0
     Serial.printf("accel biases (mg)\n%f\n%f\n%f\n",
                     1000.0f * accelBias_out[0], 1000.0f * accelBias_out[1], 1000.0f * accelBias_out[2]);
     Serial.printf("gyro biases (dps)\n%f\n%f\n%f\n", gyroBias_out[0], gyroBias_out[1], gyroBias_out[2]);
@@ -1083,7 +1086,6 @@ void mpu9250::SelfTest()
     uint8_t rawData[6] = { 0, 0, 0, 0, 0, 0 };
     uint8_t selfTest[6];
     int32_t gAvg[3] = { 0 }, aAvg[3] = { 0 }, aSTAvg[3] = { 0 }, gSTAvg[3] = { 0 };
-    float factoryTrim[6], deviation[6];
 
     WriteRegister(_address, SMPLRT_DIV, 0x00);                      // fs divider = 0x00 + 1
     WriteRegister(_address, CONFIG, DLPF_BANDWIDTH_41HZ);           // Gyro fs = 1 kHz, filter bw = 41 Hz
@@ -1149,6 +1151,9 @@ void mpu9250::SelfTest()
     ReadRegisters(_address, SELF_TEST_X_ACCEL, 3, &selfTest[0]);
     ReadRegisters(_address, SELF_TEST_X_GYRO,  3, &selfTest[3]);
 
+#if 0
+    float factoryTrim[6], deviation[6];
+
     // Retrieve factory self-test value from self-test code reads
     factoryTrim[0] = (float)(2620 / 1 << ACCEL_RANGE_2G) * (pow(1.01, ((float)selfTest[0] - 1.0)));
     factoryTrim[1] = (float)(2620 / 1 << ACCEL_RANGE_2G) * (pow(1.01, ((float)selfTest[1] - 1.0)));
@@ -1164,7 +1169,6 @@ void mpu9250::SelfTest()
         deviation[i+3] = 100.0f * ((float)(gSTAvg[i] - gAvg[i])) / factoryTrim[i+3] - 100.0f;
     }
 
-#if 0
     // Print the values
     Serial.printf("x-axis self test: accel trim within: %.1f \% of factory value\n", deviation[0]);
     Serial.printf("y-axis self test: accel trim within: %.1f \% of factory value\n", deviation[1]);
@@ -1265,17 +1269,13 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
     ReadRegisters(_address, subAddress, sizeof(buff), &buff[0]);
 
     /* check the read back register against the written register */
-    if (buff[0] == data_in) {
-        return true;
-    } else {
-        return false;
-    }
+    return (buff[0] == data_in);
 }
 
 void mpu9250::SendRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
 {
     if (_useSPI) {
-        // TODO
+        // TODO: non-blocking SPI not implemented
     } else {
         i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
         i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
@@ -1454,12 +1454,10 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
         i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
         i2c_t3(_bus).requestFrom(address, (size_t) count, I2C_STOP);  // Blocking request of 'count' data at subaddr
 
+        // Get the received data
         uint8_t i = 0;
-
-        // Read (and empty) the rx buffer as long as there is data
-        while (i2c_t3(_bus).available()) {
-            data_out[i++] = i2c_t3(_bus).readByte();        // Copy i2c rx buffer to our buffer
-        }
+        while (i2c_t3(_bus).available())
+            data_out[i++] = i2c_t3(_bus).readByte();
     }
 }
 
@@ -1473,34 +1471,39 @@ uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
 
 void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count)
 {
-    i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
-    i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
-    i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
-    i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
-
-    //Serial.printf("Requested Registers!\n");
+    if (_useSPI) {
+        // TODO: non-blocking SPI not implemented
+    } else {
+        i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
+        i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
+        i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
+        i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
+    }
 }
 
-void mpu9250::ReadRequested(uint8_t *rawData_out)
+void mpu9250::ReadRequested(uint8_t *data_out)
 {
-    uint8_t i = 0;
-    //Serial.printf("Reading Requested!\n");
-
-    // Read (and empty) the rx buffer as long as there is data
-    while (i2c_t3(_bus).available()) {
-        rawData_out[i++] = i2c_t3(_bus).readByte();        // Copy i2c rx buffer to our buffer
+    if (_useSPI) {
+        // TODO: non-blocking SPI not implemented
+    } else {
+        // Get the received data
+        uint8_t i = 0;
+        while (i2c_t3(_bus).available())
+            data_out[i++] = i2c_t3(_bus).readByte();
     }
 }
 
 uint8_t mpu9250::RequestedAvailable()
 {
-    //Serial.printf("New Available!\n");
-    if (i2c_t3(_bus).done() && _requestedData) {
-        _requestedData = false;
-        return true;
-    } else {
-        return false;
+    if (_useSPI) {
+        // TODO: non-blocking SPI not implemented
     }
+
+    if (!_useSPI && i2c_t3(_bus).done() && _requestedData) {
+        return !(_requestedData = false);
+    }
+
+    return false;
 }
 
 /* Writes a register on the AK8963 given a register address and data */
@@ -1517,11 +1520,7 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
     // read the register and confirm
     ReadAK8963Registers(subAddress, sizeof(buff), &buff[0]);
 
-    if (buff[0] == data) {
-        return true;
-    } else {
-        return false;
-    }
+    return (buff[0] == data);
 }
 
 /* Reads registers from the AK8963 */
@@ -1544,7 +1543,7 @@ uint8_t mpu9250::whoAmI()
     uint8_t buff[1];
 
     // read the WHO AM I register
-    ReadRegisters(_address, WHO_AM_I_MPU9250, sizeof(buff),&buff[0]);
+    ReadRegisters(_address, WHO_AM_I_MPU9250, sizeof(buff), &buff[0]);
 
     // return the register value
     return buff[0];
@@ -1556,7 +1555,7 @@ uint8_t mpu9250::whoAmIAK8963()
     uint8_t buff[1];
 
     // read the WHO AM I register
-    ReadAK8963Registers(AK8963_WHO_AM_I, sizeof(buff),&buff[0]);
+    ReadAK8963Registers(AK8963_WHO_AM_I, sizeof(buff), &buff[0]);
 
     // return the register value
     return buff[0];

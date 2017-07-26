@@ -688,12 +688,9 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     return 0;
 }
 
-void mpu9250::SetupInterrupt(int intPin, void(*irsFunc)())
+void mpu9250::EnableInterrupt(int intPin, void(*irsFunc)())
 {
     if (_useSPI) {
-        // Config interrupt: Auto-clear on reg read
-        WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
-
         // If SPI transactions are to be called from an interrupt the corresponding intPin
         // has to be registered
 
@@ -756,20 +753,21 @@ void mpu9250::SetupInterrupt(int intPin, void(*irsFunc)())
 
     #endif
 
+        // Config MPU9250 - SPI mode interrupt: Auto-clear on reg read
+        WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
     } else {
+        // Config MPU9250 - I2C mode interrupt: Manual-clear
+
         // NOTE: In I2C master mode and INT_ANYRD_2CLEAR there is an issue with clears triggering
         // randomly before slave 0 register readout. This causes the I2C bus to stall. Use LATCH
         // mode and clear the interrupt manually to circumvent. This sadly adds about 125us to IRS.
         WriteRegister(_address, INT_PIN_CFG, INT_LATCH_EN);
     }
-    // Attach interrupt pin and irs function
+    // Enable/Attach uC interrupt pin and irs function
     pinMode(intPin, INPUT);
     attachInterrupt(intPin, irsFunc, RISING);
-}
 
-void mpu9250::EnableInterrupt()
-{
-    // Trigger interrupt on new raw data
+    // Enable MPU 9250 interrupt on new raw data
     WriteRegister(_address, INT_ENABLE, INT_RAW_RDY_EN);
     delay(100);
 }

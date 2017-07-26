@@ -97,8 +97,8 @@ void setup()
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, HIGH);
 
-    if (Debug) Serial.printf("Starting ... \n");
     noInterrupts();
+    if (Debug) Serial.printf("Starting ... \n");
 
     /* IMU 1 (Vehicle) Setup */
     // Setup bus specifics for this device
@@ -127,9 +127,6 @@ void setup()
 
     // Config for normal operation
     vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
-
-    // Setup interrupts
-    vhclImu.SetupInterrupt(intPin1_vhcl, irs1Func_vhcl);
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -178,9 +175,6 @@ next:
     // Config for normal operation
     headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
 
-    // Setup interrupts
-    headImu.SetupInterrupt(intPin2_head, irs2Func_head);
-
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
         Serial.printf("AK8963  (2): I'm 0x%02x\n", headImu.whoAmIAK8963());
@@ -202,14 +196,14 @@ next:
 #endif /* RESET_MAGCAL */
 
 end:
-    interrupts();
-
-    // Enable interrupts
-    vhclImu.EnableInterrupt();
-    headImu.EnableInterrupt();
-
     // Wait for the host application to be ready
     if (Debug) Serial.printf("Setup done!\n");
+
+    // Enable interrupts
+    vhclImu.EnableInterrupt(intPin1_vhcl, irs1Func_vhcl);
+    headImu.EnableInterrupt(intPin2_head, irs2Func_head);
+    interrupts();
+
     while (!RawHID.available());
 
     chrono_1.Reset();

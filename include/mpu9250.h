@@ -345,8 +345,7 @@ public:
     void WireBegin();
     int Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD);
     void InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate);
-    void SetupInterrupt(int intPin, void(*irsFunc)());
-    void EnableInterrupt();
+    void EnableInterrupt(int intPin, void(*irsFunc)());
     uint8_t ClearInterrupt();
 
     // Functions to fine tune the sensors

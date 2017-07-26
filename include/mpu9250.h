@@ -384,7 +384,7 @@ public:
     void RequestAllData();
     void RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count);
     void SendRegister(uint8_t address, uint8_t subAddress, uint8_t data);
-    void ReadRequested(uint8_t *rawData_out);
+    void ReadRequested(uint8_t *data_out);
     uint8_t RequestedAvailable();
     uint8_t EnableDMA();
 

@@ -199,6 +199,8 @@ end:
     // Wait for the host application to be ready
     if (Debug) Serial.printf("Setup done!\n");
 
+    headImu.EnableDMA();
+
     // Enable interrupts
     vhclImu.EnableInterrupt(intPin1_vhcl, irs1Func_vhcl);
     headImu.EnableInterrupt(intPin2_head, irs2Func_head);

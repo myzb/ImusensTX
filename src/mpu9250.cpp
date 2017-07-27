@@ -76,124 +76,104 @@ void mpu9250::WireBegin()
     // using SPI for communication
     if (_useSPI) {
 
-        // Teensy 3.0 || Teensy 3.1/3.2
-#if defined(__MK20DX128__) || defined(__MK20DX256__)
+// Teensy 3.x
+#if defined(KINETISK)
 
-        // configure and begin the SPI
-        switch( _mosiPin ) {
-
-        case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            SPI.setMOSI(7);
-            SPI.setMISO(8);
-            SPI.setSCK(14);
-            SPI.begin();
-            break;
-
-        case MOSI_PIN_11:// SPI bus 0 default
-            SPI.setMOSI(11);
-            SPI.setMISO(12);
-            SPI.setSCK(13);
-            SPI.begin();
-            break;
-        }
-
-#endif
-
-        // Teensy 3.5 || Teensy 3.6
-#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-
-        // configure and begin the SPI
+        // configure SPI
         switch (_mosiPin) {
 
         case MOSI_PIN_0:    // SPI bus 1 default
-            SPI1.setMOSI(0);
-            SPI1.setMISO(1);
-            SPI1.setSCK(32);
-            SPI1.begin();
+            _spiBus = &SPI1;
+            _spiBus->setMOSI(0);
+            _spiBus->setMISO(1);
+            _spiBus->setSCK(32);
             break;
 
         case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            SPI.setMOSI(7);
-            SPI.setMISO(8);
-            SPI.setSCK(14);
-            SPI.begin();
+            _spiBus = &SPI;
+            _spiBus->setMOSI(7);
+            _spiBus->setMISO(8);
+            _spiBus->setSCK(14);
             break;
 
         case MOSI_PIN_11:   // SPI bus 0 default
-            SPI.setMOSI(11);
-            SPI.setMISO(12);
-            SPI.setSCK(13);
-            SPI.begin();
+            _spiBus = &SPI;
+            _spiBus->setMOSI(11);
+            _spiBus->setMISO(12);
+            _spiBus->setSCK(13);
             break;
 
+// Teensy 3.5 || Teensy 3.6
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
         case MOSI_PIN_21:   // SPI bus 1 alternate
-            SPI1.setMOSI(21);
-            SPI1.setMISO(5);
-            SPI1.setSCK(20);
-            SPI1.begin();
+            _spiBus = &SPI1;
+            _spiBus->setMOSI(21);
+            _spiBus->setMISO(5);
+            _spiBus->setSCK(20);
             break;
 
         case MOSI_PIN_28:   // SPI bus 0 alternate 2
-            SPI.setMOSI(28);
-            SPI.setMISO(39);
-            SPI.setSCK(27);
-            SPI.begin();
+            _spiBus = &SPI;
+            _spiBus->setMOSI(28);
+            _spiBus->setMISO(39);
+            _spiBus->setSCK(27);
             break;
 
         case MOSI_PIN_44:   // SPI bus 2 default
-            SPI2.setMOSI(44);
-            SPI2.setMISO(45);
-            SPI2.setSCK(46);
-            SPI2.begin();
+            _spiBus = &SPI2;
+            _spiBus->setMOSI(44);
+            _spiBus->setMISO(45);
+            _spiBus->setSCK(46);
             break;
 
         case MOSI_PIN_52:   // SPI bus 2 alternate
-            SPI2.setMOSI(52);
-            SPI2.setMISO(51);
-            SPI2.setSCK(53);
-            SPI2.begin();
+            _spiBus = &SPI2;
+            _spiBus->setMOSI(52);
+            _spiBus->setMISO(51);
+            _spiBus->setSCK(53);
             break;
+#endif /* Teensy 3.5 || Teensy 3.6 */
         }
+#endif /* Teensy 3.x */
 
-#endif
-
-        // Teensy LC
+// Teensy LC
 #if defined(__MKL26Z64__)
 
         // configure and begin the SPI
         switch( _mosiPin ) {
 
             case MOSI_PIN_0:    // SPI bus 1 default
-            SPI1.setMOSI(0);
-            SPI1.setMISO(1);
-            SPI1.setSCK(20);
-            SPI1.begin();
+            _spiBus = &SPI1;
+            _spiBus->setMOSI(0);
+            _spiBus->setMISO(1);
+            _spiBus->setSCK(20);
             break;
 
             case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            SPI.setMOSI(7);
-            SPI.setMISO(8);
-            SPI.setSCK(14);
-            SPI.begin();
+            _spiBus = &SPI;
+            _spiBus->setMOSI(7);
+            _spiBus->setMISO(8);
+            _spiBus->setSCK(14);
             break;
 
             case MOSI_PIN_11:   // SPI bus 0 default
-            SPI.setMOSI(11);
-            SPI.setMISO(12);
-            SPI.setSCK(13);
-            SPI.begin();
+            _spiBus = &SPI;
+            _spiBus->setMOSI(11);
+            _spiBus->setMISO(12);
+            _spiBus->setSCK(13);
             break;
 
             case MOSI_PIN_21:   // SPI bus 1 alternate
-            SPI1.setMOSI(21);
-            SPI1.setMISO(5);
-            SPI1.setSCK(20);
-            SPI1.begin();
+            _spiBus = &SPI1;
+            _spiBus->setMOSI(21);
+            _spiBus->setMISO(5);
+            _spiBus->setSCK(20);
             break;
         }
+#endif /* Teensy LC */
 
-#endif
-
+        // Start the SPI bus
+        _spiBus->begin();
     } else {
         // using I2C for communication
         if (!_userDefI2C) {
@@ -515,65 +495,7 @@ void mpu9250::EnableInterrupt(int intPin, void(*irsFunc)())
     if (_useSPI) {
         // If SPI transactions are to be called from an interrupt the corresponding intPin
         // has to be registered
-
-    #if defined(__MK20DX128__) || defined(__MK20DX256__)
-
-            // configure and begin the SPI
-            switch( _mosiPin ) {
-
-            case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            case MOSI_PIN_11:// SPI bus 0 default
-                SPI.usingInterrupt(intPin);
-                break;
-
-            }
-
-    #endif
-
-        // Teensy 3.5 || Teensy 3.6
-    #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-
-            // configure and begin the SPI
-            switch (_mosiPin) {
-
-            case MOSI_PIN_0:    // SPI bus 1 default
-            case MOSI_PIN_21:   // SPI bus 1 alternate
-                SPI1.usingInterrupt(intPin);
-                break;
-
-            case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            case MOSI_PIN_11:   // SPI bus 0 default
-            case MOSI_PIN_28:   // SPI bus 0 alternate 2
-                SPI.usingInterrupt(intPin);
-                break;
-
-            case MOSI_PIN_44:   // SPI bus 2 default
-            case MOSI_PIN_52:   // SPI bus 2 alternate
-                SPI2.usingInterrupt(intPin);
-                break;
-            }
-
-    #endif
-
-        // Teensy LC
-    #if defined(__MKL26Z64__)
-
-            // configure and begin the SPI
-            switch( _mosiPin ) {
-
-            case MOSI_PIN_0:    // SPI bus 1 default
-            case MOSI_PIN_21:   // SPI bus 1 alternate
-                SPI1.usingInterrupt(intPin);
-                break;
-
-            case MOSI_PIN_7:    // SPI bus 0 alternate 1
-            case MOSI_PIN_11:   // SPI bus 0 default
-                SPI.usingInterrupt(intPin);
-                break;
-
-            }
-
-    #endif
+        _spiBus->usingInterrupt(intPin);
 
         // Config MPU9250 - SPI mode interrupt: Auto-clear on reg read
         WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
@@ -1014,76 +936,12 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
     uint8_t buff[1];
 
     if (_useSPI) {
-
-// Teensy 3.0 || Teensy 3.1/3.2
-#if defined(__MK20DX128__) || defined(__MK20DX256__)
-
-        if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)) {
-            // begin the transaction
-            SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin,LOW);   // select the MPU9250 chip
-            SPI.transfer(subAddress);       // write the register address
-            SPI.transfer(data_in);          // write the data
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI.endTransaction();           // end the transaction
-        }
-
-#endif
-
-// Teensy 3.5 || Teensy 3.6
-#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-
-        if ((_mosiPin == MOSI_PIN_11) || (_mosiPin == MOSI_PIN_7) || (_mosiPin == MOSI_PIN_28)) {
-            // begin the transaction
-            SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin, LOW);  // select the MPU9250 chip
-            SPI.transfer(subAddress);       // write the register address
-            SPI.transfer(data_in);          // write the data
-            digitalWriteFast(_csPin, HIGH); // deselect the MPU9250 chip
-            SPI.endTransaction();           // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_0) || (_mosiPin == MOSI_PIN_21)) {
-            // begin the transaction
-            SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin, LOW);  // select the MPU9250 chip
-            SPI1.transfer(subAddress);      // write the register address
-            SPI1.transfer(data_in);         // write the data
-            digitalWriteFast(_csPin, HIGH); // deselect the MPU9250 chip
-            SPI1.endTransaction();          // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_44) || (_mosiPin == MOSI_PIN_52)) {
-            // begin the transaction
-            SPI2.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin, LOW);  // select the MPU9250 chip
-            SPI2.transfer(subAddress);      // write the register address
-            SPI2.transfer(data_in);         // write the data
-            digitalWriteFast(_csPin, HIGH); // deselect the MPU9250 chip
-            SPI2.endTransaction();          // end the transaction
-        }
-#endif
-
-// Teensy LC
-#if defined(__MKL26Z64__)
-
-        if ((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)) {
-            // begin the transaction
-            SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin,LOW);   // select the MPU9250 chip
-            SPI.transfer(subAddress);       // write the register address
-            SPI.transfer(data_in);          // write the data
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI.endTransaction();           // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_0)||(_mosiPin == MOSI_PIN_21)) {
-            // begin the transaction
-            SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            digitalWriteFast(_csPin,LOW);   // select the MPU9250 chip
-            SPI1.transfer(subAddress);      // write the register address
-            SPI1.transfer(data_in);         // write the data
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI1.endTransaction();          // end the transaction
-        }
-#endif
+        _spiBus->beginTransaction(SPISettings(SPILS_CLK, MSBFIRST, SPI_MODE3));
+        digitalWriteFast(_csPin, LOW);      // select the MPU9250 chip
+        _spiBus->transfer(subAddress);      // write the register address
+        _spiBus->transfer(data_in);         // write the data
+        digitalWriteFast(_csPin, HIGH);     // deselect the MPU9250 chip
+        _spiBus->endTransaction();          // end the transaction
 
     } else {
         i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
@@ -1116,165 +974,21 @@ void mpu9250::SendRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
 void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out)
 {
     if (_useSPI) {
+        _spiBus->beginTransaction(SPISettings(_useSPIHS ? SPIHS_CLK : SPILS_CLK, MSBFIRST, SPI_MODE3));
+        digitalWriteFast(_csPin, LOW);              // select the MPU9250 chip
+        _spiBus->transfer(subAddress | SPI_READ);   // specify the starting register address
 
-// Teensy 3.0 || Teensy 3.1/3.2
-#if defined(__MK20DX128__) || defined(__MK20DX256__)
-        if ((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
+        digitalWriteFast(_csPin, HIGH);             // deselect the MPU9250 chip
+        delayMicroseconds(1);
+        digitalWriteFast(_csPin, LOW);              // select the MPU9250 chip
 
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
+        _spiBus->transfer(subAddress | SPI_READ);   // specify the starting register address
 
-            digitalWriteFast(_csPin,HIGH);          // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
+        for (uint8_t i = 0; i < count; i++)
+            data_out[i] = _spiBus->transfer(0x00);  // read the data
 
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI.transfer(0x00);   // read the data
-            }
-
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI.endTransaction();           // end the transaction
-        }
-#endif
-
-// Teensy 3.5 || Teensy 3.6
-#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
-
-        if ((_mosiPin == MOSI_PIN_11) || (_mosiPin == MOSI_PIN_7) || (_mosiPin == MOSI_PIN_28)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
-
-            digitalWriteFast(_csPin, HIGH);         // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI.transfer(0x00);   // read the data
-            }
-
-            digitalWriteFast(_csPin, HIGH);         // deselect the MPU9250 chip
-            SPI.endTransaction();                   // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_0) || (_mosiPin == MOSI_PIN_21)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI1.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI1.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            digitalWriteFast(_csPin, HIGH);         // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI1.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI1.transfer(0x00);  // read the data
-            }
-
-            digitalWriteFast(_csPin, HIGH);         // deselect the MPU9250 chip
-            SPI1.endTransaction();                  // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_44) || (_mosiPin == MOSI_PIN_52)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI2.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI2.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI2.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            digitalWriteFast(_csPin, HIGH);         // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin, LOW);          // select the MPU9250 chip
-
-            SPI2.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI.transfer(0x00);   // read the data
-            }
-
-            digitalWriteFast(_csPin, HIGH);  // deselect the MPU9250 chip
-            SPI2.endTransaction();           // end the transaction
-        }
-#endif
-
-// Teensy LC
-#if defined(__MKL26Z64__)
-
-        if ((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
-
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
-
-            digitalWriteFast(_csPin,HIGH);          // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
-
-            SPI.transfer(subAddress | SPI_READ);    // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI.transfer(0x00);   // read the data
-            }
-
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI.endTransaction();           // end the transaction
-
-        } else if ((_mosiPin == MOSI_PIN_0)||(_mosiPin == MOSI_PIN_21)) {
-            // begin the transaction
-            if (_useSPIHS) {
-                SPI1.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-            } else {
-                SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-            }
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
-
-            SPI1.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            digitalWriteFast(_csPin,HIGH);          // deselect the MPU9250 chip
-            delayMicroseconds(1);
-            digitalWriteFast(_csPin,LOW);           // select the MPU9250 chip
-
-            SPI1.transfer(subAddress | SPI_READ);   // specify the starting register address
-
-            for (uint8_t i = 0; i < count; i++) {
-                data_out[i] = SPI1.transfer(0x00);  // read the data
-            }
-
-            digitalWriteFast(_csPin,HIGH);  // deselect the MPU9250 chip
-            SPI1.endTransaction();          // end the transaction
-        }
-#endif
-
+        digitalWriteFast(_csPin, HIGH);             // deselect the MPU9250 chip
+        _spiBus->endTransaction();                  // end the transaction
     } else {
 
         i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address

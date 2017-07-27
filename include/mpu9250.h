@@ -10,6 +10,7 @@
 
 #include <Arduino.h>
 #include <i2c_t3.h>
+#include <SPI.h>
 
 #ifndef SPI_MOSI_PIN
 #define SPI_MOSI_PIN
@@ -288,9 +289,9 @@ public:
 
     // SPI/I2C
     const uint8_t SPI_READ = 0x80;
-    const uint32_t SPI_LS_CLOCK = 400000;   // 100 - 1000 kHz (All registers r/w)
-    const uint32_t SPI_HS_CLOCK = 20000000; // 20 MHz (Sensor/Interrupt registers read only)
-    const uint32_t I2C_RATE = 400000;       // 400 kHz
+    const uint32_t SPILS_CLK = 400000;    // 100 - 1000 kHz (All registers r/w)
+    const uint32_t SPIHS_CLK = 20000000;  // 20 MHz (Sensor/Interrupt registers read only)
+    const uint32_t I2C_RATE = 400000;     // 400 kHz
 
     // Misc
     const float _G = 9.807f;
@@ -327,6 +328,7 @@ public:
     spi_irs _irsSPI;
     bool _useSPI;
     bool _useSPIHS;
+    SPIClass* _spiBus;
 
     // DMA
     bool _requestedData = false;

@@ -44,19 +44,17 @@ mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups
 }
 
 /* MPU9250 object, input the SPI CS Pin */
-mpu9250::mpu9250(uint8_t csPin, spi_irs mode){
+mpu9250::mpu9250(uint8_t csPin){
     _csPin = csPin;
-    _irsSPI = mode;
     _mosiPin = MOSI_PIN_11;
     _useSPI = true;
     _useSPIHS = false;
 }
 
 /* MPU9250 object, input the SPI CS Pin and MOSI Pin */
-mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode){
+mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
     _csPin = csPin;
     _mosiPin = pin;
-    _irsSPI = mode;
     _useSPI = true;
     _useSPIHS = false;
 }
@@ -73,10 +71,10 @@ void mpu9250::WireSetup()
 
 void mpu9250::WireBegin()
 {
-    // using SPI for communication
     if (_useSPI) {
+    // using SPI for communication
 
-// Teensy 3.x
+/* Teensy 3.x */
 #if defined(KINETISK)
 
         // configure SPI
@@ -103,7 +101,7 @@ void mpu9250::WireBegin()
             _spiBus->setSCK(13);
             break;
 
-// Teensy 3.5 || Teensy 3.6
+/* Teensy 3.5 || Teensy 3.6 */
 #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
         case MOSI_PIN_21:   // SPI bus 1 alternate
             _spiBus = &SPI1;
@@ -136,10 +134,10 @@ void mpu9250::WireBegin()
         }
 #endif /* Teensy 3.x */
 
-// Teensy LC
+/* Teensy LC */
 #if defined(__MKL26Z64__)
 
-        // configure and begin the SPI
+        // configure SPI and set _spiBus class pointer to active SPI bus instance
         switch( _mosiPin ) {
 
             case MOSI_PIN_0:    // SPI bus 1 default
@@ -233,7 +231,7 @@ void mpu9250::WireBegin()
         }
 
         // starting the I2C bus
-        _i2cBus->begin(I2C_MASTER, 0x00, _pins, _pullups, I2C_RATE);
+        _i2cBus->begin(I2C_MASTER, 0x00, _pins, _pullups, I2C_CLK);
     }
 }
 
@@ -243,7 +241,7 @@ void mpu9250::RequestAllData()
     _requestedData = true;
 }
 
-void mpu9250::GetAllCounts(int16_t *counts_out)
+void mpu9250::GetAllCounts(int16_t* counts_out)
 {
     uint8_t rawData[22];
 
@@ -281,7 +279,7 @@ void mpu9250::GetAllCounts(int16_t *counts_out)
     // FIXME: Shift of signed values is platform specific
 }
 
-void mpu9250::GetAllData(float *all_out, bus_hs mode)
+void mpu9250::GetAllData(float* all_out, bus_hs mode)
 {
     int16_t counts[10];
     float mag[3];
@@ -303,7 +301,7 @@ void mpu9250::GetAllData(float *all_out, bus_hs mode)
 #endif
 
     // Temp counts in degrees celcius
-    all_out[3] = ((float)counts[3] - _tempOffset)/_tempScale + _tempOffset;
+    all_out[3] = ((float)counts[3] - _tempOffset) / _tempScale + _tempOffset;
 
     // Gyro counts in rad/s
     all_out[4] = (float)counts[4] * _gyroScale;
@@ -322,7 +320,7 @@ void mpu9250::GetAllData(float *all_out, bus_hs mode)
     mag[1] *= _magSoftIron[1];
     mag[2] *= _magSoftIron[2];
 
-    // Transform magnetometer axes to match gyro/accel axes (less compute load than gyro/accel to mag)
+    // Transform magnetometer axes to match gyro/accel axes
     all_out[7] = tX[0]*mag[0] + tX[1]*mag[1] + tX[2]*mag[2];
     all_out[8] = tY[0]*mag[0] + tY[1]*mag[1] + tY[2]*mag[2];
     all_out[9] = tZ[0]*mag[0] + tZ[1]*mag[1] + tZ[2]*mag[2];
@@ -348,7 +346,7 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
         break;
 
     case MAG_RANGE_16BIT:
-        _magScale = 4912.0f / 32760.0f; // counts micro Tesla
+        _magScale = 4912.0f / 32760.0f; // counts to micro Tesla
         break;
     }
 
@@ -367,7 +365,7 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
     WriteAK8963Register(AK8963_CNTL1, AK8963_FUSE_ROM);
     delay(10);
 
-    // Read the x-, y-, and z-axis factory calibration values and calculate magScale as per datasheet
+    // Read the x-, y-, z-axis factory calibration values and calculate magScale as per datasheet
     uint8_t rawData[8];
     ReadAK8963Registers( AK8963_ASAX, 3, &rawData[0]);
     _magScale_factory[0] = (float)(rawData[0] - 128) / 256.0f + 1.0f;
@@ -526,14 +524,10 @@ uint8_t mpu9250::EnableDMA()
         // TODO: non-blocking SPI not implemented
         return 0;
     } else {
-        // FIXME: using DMA requires call to instantiated i2c_t3 functions
-        // i.e Wire for i2c_t3(0) else system will hang
         return _i2cBus->setOpMode(I2C_OP_MODE_DMA);
     }
 }
 
-// Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
-// of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
 void mpu9250::AcelGyroCal()
 {
     uint8_t data[12];
@@ -728,7 +722,7 @@ void mpu9250::AcelGyroCal()
 #endif
 }
 
-void mpu9250::SetMagCal(float *magBias_in, float *magScale_in)
+void mpu9250::SetMagCal(float* magBias_in, float* magScale_in)
 {
     _magHardIron[0] = magBias_in[0];
     _magHardIron[1] = magBias_in[1];
@@ -911,7 +905,6 @@ void mpu9250::SelfTest()
     factoryTrim[5] = (float)(2620 / 1 << GYRO_RANGE_250DPS) * (pow(1.01, ((float)selfTest[5] - 1.0)));
 
     // Report results as a ratio of (STR - FT)/FT in percent
-    // TODO: Do something with this information
     for (int i = 0; i < 3; i++) {
         deviation[i]   = 100.0f * ((float)(aSTAvg[i] - aAvg[i])) / factoryTrim[i] - 100.0f;
         deviation[i+3] = 100.0f * ((float)(gSTAvg[i] - gAvg[i])) / factoryTrim[i+3] - 100.0f;
@@ -928,7 +921,6 @@ void mpu9250::SelfTest()
 #endif
 }
 
-/* Writes a register on the MPU9250 given a register address and data via SPI/I2C */
 bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
 {
     uint8_t buff[1];
@@ -949,10 +941,8 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
     }
     delay(10); // need to slow down how fast we write to MPU9250
 
-    /* read back the register */
+    // read back the register
     ReadRegisters(_address, subAddress, sizeof(buff), &buff[0]);
-
-    /* check the read back register against the written register */
     return (buff[0] == data_in);
 }
 
@@ -968,8 +958,7 @@ void mpu9250::SendRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
     }
 }
 
-/* Reads registers from the MPU9250 via SPI/I2C */
-void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t *data_out)
+void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t* data_out)
 {
     if (_useSPI) {
         _spiBus->beginTransaction(SPISettings(_useSPIHS ? SPIHS_CLK : SPILS_CLK, MSBFIRST, SPI_MODE3));
@@ -1000,7 +989,6 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
     }
 }
 
-/* Reads 1 register(s) at subAddress from MPU9250 and return the data */
 uint8_t mpu9250::ReadRegister(uint8_t address, uint8_t subAddress)
 {
     uint8_t data;
@@ -1020,7 +1008,7 @@ void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t coun
     }
 }
 
-void mpu9250::ReadRequested(uint8_t *data_out)
+void mpu9250::ReadRequested(uint8_t* data_out)
 {
     if (_useSPI) {
         // TODO: non-blocking SPI not implemented
@@ -1045,7 +1033,6 @@ uint8_t mpu9250::RequestedAvailable()
     return false;
 }
 
-/* Writes a register on the AK8963 given a register address and data */
 bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 {
     uint8_t count = 1;
@@ -1058,12 +1045,10 @@ bool mpu9250::WriteAK8963Register(uint8_t subAddress, uint8_t data)
 
     // read the register and confirm
     ReadAK8963Registers(subAddress, sizeof(buff), &buff[0]);
-
     return (buff[0] == data);
 }
 
-/* Reads registers from the AK8963 */
-void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out)
+void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* data_out)
 {
     // Config SLV0 for normal operation
     WriteRegister(_address, I2C_SLV0_ADDR, I2C_READ_FLAG | AK8963_ADDRESS); // SLV0 to AK8963 & set for read
@@ -1076,26 +1061,20 @@ void mpu9250::ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *da
     ReadRegisters(_address, EXT_SENS_DATA_00, count, data_out);
 }
 
-/* Gets the MPU9250 WHO_AM_I register value, expected to be 0x71 */
 uint8_t mpu9250::whoAmI()
 {
     uint8_t buff[1];
 
     // read the WHO AM I register
     ReadRegisters(_address, WHO_AM_I_MPU9250, sizeof(buff), &buff[0]);
-
-    // return the register value
     return buff[0];
 }
 
-/* Gets the AK8963 WHO_AM_I register value, expected to be 0x48 */
 uint8_t mpu9250::whoAmIAK8963()
 {
     uint8_t buff[1];
 
     // read the WHO AM I register
     ReadAK8963Registers(AK8963_WHO_AM_I, sizeof(buff), &buff[0]);
-
-    // return the register value
     return buff[0];
 }

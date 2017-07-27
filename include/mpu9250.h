@@ -15,26 +15,21 @@
 #ifndef SPI_MOSI_PIN
 #define SPI_MOSI_PIN
 
-// Teensy 3.0 || Teensy 3.1/3.2
-#if defined(__MK20DX128__) || defined(__MK20DX256__)
-enum spi_mosi_pin {
-    MOSI_PIN_7,
-    MOSI_PIN_11
-};
-#endif
-// Teensy 3.5 || Teensy 3.6
-#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+/* Teensy 3.x */
+#if defined(KINETISK)
 enum spi_mosi_pin {
     MOSI_PIN_0,
     MOSI_PIN_7,
     MOSI_PIN_11,
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
     MOSI_PIN_21,
     MOSI_PIN_28,
     MOSI_PIN_44,
     MOSI_PIN_52
+#endif /* Teensy 3.5 || Teensy 3.6 */
 };
-#endif
-// Teensy LC
+#endif /* Teensy 3.x */
+/* Teensy LC */
 #if defined(__MKL26Z64__)
 enum spi_mosi_pin {
     MOSI_PIN_0,
@@ -42,11 +37,7 @@ enum spi_mosi_pin {
     MOSI_PIN_11,
     MOSI_PIN_21
 };
-#endif
-enum spi_irs {
-    IRS_FALSE,
-    IRS_TRUE
-};
+#endif /* Teensy LC */
 
 enum bus_hs {
     HS_FALSE,
@@ -78,7 +69,7 @@ enum mpu9250_dlpf_bandwidth {
 };
 
 enum ak8963_mag_range {
-    MAG_RANGE_14BIT, // 0.6 mG per LSB
+    MAG_RANGE_14BIT, // 0.6  mG per LSB
     MAG_RANGE_16BIT  // 0.15 mG per LSB
 };
 
@@ -291,7 +282,7 @@ public:
     const uint8_t SPI_READ = 0x80;
     const uint32_t SPILS_CLK = 400000;    // 100 - 1000 kHz (All registers r/w)
     const uint32_t SPIHS_CLK = 20000000;  // 20 MHz (Sensor/Interrupt registers read only)
-    const uint32_t I2C_RATE = 400000;     // 400 kHz
+    const uint32_t I2C_CLK = 400000;      // 400 kHz
 
     // Misc
     const float _G = 9.807f;
@@ -307,31 +298,27 @@ public:
 
     /* Member variables */
     // Sensors
-    float _magHardIron[3] = {0, 0, 0}, _magSoftIron[3]  = {0, 0, 0};    // Hard iron offset, soft iron axis re-scale
-    float _magScale_factory[3] = {0, 0, 0};                             // Factory axis scale factor
-    float _gyroBias[3] = {0, 0, 0}, _accelBias[3] = {0, 0, 0};          // Accel/Gyro bias
+    float _magHardIron[3] = {0, 0, 0}, _magSoftIron[3]  = {0, 0, 0};  // Hard iron offset, soft iron axis re-scale
+    float _magScale_factory[3] = {0, 0, 0};                           // Factory axis scale factor
+    float _gyroBias[3] = {0, 0, 0}, _accelBias[3] = {0, 0, 0};        // Accel/Gyro bias
 
-    float _accelScale = 0, _gyroScale = 0, _magScale = 0;               // Sensor resolutions per LSB
-    uint8_t _magRate = 0;                                               // Sensor sampling rate
-
-    int _newMagData = 0;                                            // new magData flag
-    int _newData = 0;                                               // new MPU9250Data flag
+    float _accelScale = 0, _gyroScale = 0, _magScale = 0;             // Sensor resolutions per LSB
+    uint8_t _magRate = 0;                                             // Sensor sampling rate
 
     // SPI/I2C
-    uint8_t _address;                   // MPU9250 Address
+    uint8_t _address;       // MPU9250 Address
     uint8_t _bus;
     i2c_pins _pins;
     i2c_pullup _pullups;
     bool _userDefI2C;
     uint8_t _csPin;
     spi_mosi_pin _mosiPin;
-    spi_irs _irsSPI;
     bool _useSPI;
     bool _useSPIHS;
     SPIClass* _spiBus;
     i2c_t3* _i2cBus;
 
-    // DMA
+    // DMA / non-blocking bus calls
     bool _requestedData = false;
     /* End */
 
@@ -340,8 +327,8 @@ public:
     mpu9250(uint8_t address, uint8_t bus);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins);
     mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
-    mpu9250(uint8_t csPin, spi_irs mode);
-    mpu9250(uint8_t csPin, spi_mosi_pin pin, spi_irs mode);
+    mpu9250(uint8_t csPin);
+    mpu9250(uint8_t csPin, spi_mosi_pin pin);
 
     // Functions that start the communication and sensors
     void WireSetup();
@@ -368,7 +355,7 @@ public:
     void ReadAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t *data_out);
     bool WriteAK8963Register(uint8_t subAddress, uint8_t data);
 
-    // DMA
+    // DMA / non-blocking bus calls
     void RequestAllData();
     void RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t count);
     void SendRegister(uint8_t address, uint8_t subAddress, uint8_t data);

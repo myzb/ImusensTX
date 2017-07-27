@@ -329,6 +329,7 @@ public:
     bool _useSPI;
     bool _useSPIHS;
     SPIClass* _spiBus;
+    i2c_t3* _i2cBus;
 
     // DMA
     bool _requestedData = false;

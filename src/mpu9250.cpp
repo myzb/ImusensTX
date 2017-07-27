@@ -5,8 +5,8 @@
  *      Author: may
  *
  *  Notice:
- *    Based on the MPU9250 Adruino sketch by Kris Winer and SPI routines from the MPU9250 class by
- *    Brian R Taylor from Bolder Flight Systems.
+ *    Adapted from the MPU9250 Adruino sketch by Kris Winer. Class and SPI routines were based
+ *    on the implementation by Brian R Taylor from Bolder Flight Systems.
  */
 
 #include <Arduino.h>
@@ -182,60 +182,58 @@ void mpu9250::WireBegin()
 
             _pullups = I2C_PULLUP_EXT; // default to external pullups
 
-#if defined(__MK20DX128__) // Teensy 3.0
-            _pins = I2C_PINS_18_19;
-            _bus = 0;
-#endif
-
-#if defined(__MK20DX256__) // Teensy 3.1/3.2
-            if (_bus == 1) {
-                _pins = I2C_PINS_29_30;
-            } else {
-                _pins = I2C_PINS_18_19;
-                _bus = 0;
-            }
-
-#endif
-
-#if defined(__MK64FX512__) // Teensy 3.5
-            if (_bus == 2) {
-                _pins = I2C_PINS_3_4;
-            }
-            else if (_bus == 1) {
+#if defined(KINETISK)
+            switch (_bus) {
+#if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+            case 1:
                 _pins = I2C_PINS_37_38;
-            } else {
-                _pins = I2C_PINS_18_19;
-                _bus = 0;
-            }
-
-#endif
-
-#if defined(__MK66FX1M0__) // Teensy 3.6
-            if (_bus == 3) {
+                break;
+#endif /* Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6*/
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+            case 2:
+                _pins = I2C_PINS_3_4;
+                break;
+#endif /* Teensy 3.5 || Teensy 3.6 */
+#if defined(__MK66FX1M0__)
+            case 3:
                 _pins = I2C_PINS_56_57;
-            } else if (_bus == 2) {
-                _pins = I2C_PINS_3_4;
-            } else if (_bus == 1) {
-                _pins = I2C_PINS_37_38;
-            } else {
+                break;
+#endif /* Teensy 3.6 */
+            default:
                 _pins = I2C_PINS_18_19;
                 _bus = 0;
             }
+#endif /* Teensy 3.x */
 
-#endif
-
-#if defined(__MKL26Z64__) // Teensy LC
-            if (_bus == 1) {
+#if defined(KINETISL)
+            switch (_bus) {
+            case 1:
                 _pins = I2C_PINS_22_23;
-            } else {
+                break;
+            default:
                 _pins = I2C_PINS_18_19;
                 _bus = 0;
             }
+#endif /* Teensy LC */
 
-#endif
         }
+        // Set the _i2cBus class pointer to the active i2c bus instance
+        switch (_bus) {
+        case 1:
+            _i2cBus = &Wire1;
+            break;
+        case 2:
+            _i2cBus = &Wire2;
+            break;
+        case 3:
+            _i2cBus = &Wire3;
+            break;
+        default:
+            _i2cBus = &Wire;
+        }
+
         // starting the I2C bus
-        i2c_t3(_bus).begin(I2C_MASTER, 0x00, _pins, _pullups, I2C_RATE);
+        _i2cBus->begin(I2C_MASTER, 0x00, _pins, _pullups, I2C_RATE);
     }
 }
 
@@ -530,7 +528,7 @@ uint8_t mpu9250::EnableDMA()
     } else {
         // FIXME: using DMA requires call to instantiated i2c_t3 functions
         // i.e Wire for i2c_t3(0) else system will hang
-        return Wire.setOpMode(I2C_OP_MODE_DMA);
+        return _i2cBus->setOpMode(I2C_OP_MODE_DMA);
     }
 }
 
@@ -944,10 +942,10 @@ bool mpu9250::WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data_in
         _spiBus->endTransaction();          // end the transaction
 
     } else {
-        i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
-        i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
-        i2c_t3(_bus).write(data_in);              // Put data in Tx buffer
-        i2c_t3(_bus).endTransmission();           // Send the Tx buffer
+        _i2cBus->beginTransmission(address);  // Initialize the Tx buffer
+        _i2cBus->write(subAddress);           // Put slave register address in Tx buffer
+        _i2cBus->write(data_in);              // Put data in Tx buffer
+        _i2cBus->endTransmission();           // Send the Tx buffer
     }
     delay(10); // need to slow down how fast we write to MPU9250
 
@@ -963,10 +961,10 @@ void mpu9250::SendRegister(uint8_t address, uint8_t subAddress, uint8_t data_in)
     if (_useSPI) {
         // TODO: non-blocking SPI not implemented
     } else {
-        i2c_t3(_bus).beginTransmission(address);  // Initialize the Tx buffer
-        i2c_t3(_bus).write(subAddress);           // Put slave register address in Tx buffer
-        i2c_t3(_bus).write(data_in);              // Put data in Tx buffer
-        i2c_t3(_bus).sendTransmission();          // Send the Tx buffer
+        _i2cBus->beginTransmission(address);  // Initialize the Tx buffer
+        _i2cBus->write(subAddress);           // Put slave register address in Tx buffer
+        _i2cBus->write(data_in);              // Put data in Tx buffer
+        _i2cBus->sendTransmission();          // Send the Tx buffer
     }
 }
 
@@ -981,7 +979,6 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
         digitalWriteFast(_csPin, HIGH);             // deselect the MPU9250 chip
         delayMicroseconds(1);
         digitalWriteFast(_csPin, LOW);              // select the MPU9250 chip
-
         _spiBus->transfer(subAddress | SPI_READ);   // specify the starting register address
 
         for (uint8_t i = 0; i < count; i++)
@@ -991,15 +988,15 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
         _spiBus->endTransaction();                  // end the transaction
     } else {
 
-        i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
-        i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
-        i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
-        i2c_t3(_bus).requestFrom(address, (size_t) count, I2C_STOP);  // Blocking request of 'count' data at subaddr
+        _i2cBus->beginTransmission(address);                      // Begin i2c with slave at address
+        _i2cBus->write(subAddress);                               // Put slave register addr in tx buffer
+        _i2cBus->endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
+        _i2cBus->requestFrom(address, (size_t) count, I2C_STOP);  // Blocking request of 'count' data at subaddr
 
         // Get the received data
         uint8_t i = 0;
-        while (i2c_t3(_bus).available())
-            data_out[i++] = i2c_t3(_bus).readByte();
+        while (_i2cBus->available())
+            data_out[i++] = _i2cBus->readByte();
     }
 }
 
@@ -1016,10 +1013,10 @@ void mpu9250::RequestRegisters(uint8_t address, uint8_t subAddress, uint8_t coun
     if (_useSPI) {
         // TODO: non-blocking SPI not implemented
     } else {
-        i2c_t3(_bus).beginTransmission(address);                      // Begin i2c with slave at address
-        i2c_t3(_bus).write(subAddress);                               // Put slave register addr in tx buffer
-        i2c_t3(_bus).endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
-        i2c_t3(_bus).sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
+        _i2cBus->beginTransmission(address);                      // Begin i2c with slave at address
+        _i2cBus->write(subAddress);                               // Put slave register addr in tx buffer
+        _i2cBus->endTransmission(I2C_NOSTOP);                     // Send the tx buffer, keep connection alive
+        _i2cBus->sendRequest(address, (size_t) count, I2C_STOP);  // Non-blocking request of 'count' data at subaddr
     }
 }
 
@@ -1030,8 +1027,8 @@ void mpu9250::ReadRequested(uint8_t *data_out)
     } else {
         // Get the received data
         uint8_t i = 0;
-        while (i2c_t3(_bus).available())
-            data_out[i++] = i2c_t3(_bus).readByte();
+        while (_i2cBus->available())
+            data_out[i++] = _i2cBus->readByte();
     }
 }
 
@@ -1041,7 +1038,7 @@ uint8_t mpu9250::RequestedAvailable()
         // TODO: non-blocking SPI not implemented
     }
 
-    if (!_useSPI && i2c_t3(_bus).done() && _requestedData) {
+    if (!_useSPI && _i2cBus->done() && _requestedData) {
         return !(_requestedData = false);
     }
 

@@ -354,24 +354,9 @@ public:
     void AcelGyroCal();
     void SetMagCal(float *magBias_in, float *magScale_in);
 
-    // Functions that return the raw sensor ADC values
-    int16_t GetTempCounts();
-    void GetMagCounts(int16_t *counts_out);
-    void GetAccelCounts(int16_t *counts_out);
-    void GetGyroCounts(int16_t *counts_out);
-    void GetMPU9250Counts(int16_t *counts_out);
-    void GetAllCounts(int16_t *counts_out);
-
-    int NewMagData();
-    int NewData();
-
-    // Functions that return the converted sensor values (m/s^2, rad/s, microTesla, DegCelcius)
-    float GetTempData(bus_hs mode);
-    void GetAccelData(float *accel_out, bus_hs mode);
-    void GetGyroData(float *gyro_out, bus_hs mode);
-    void GetMPU9250Data(float *data_out, bus_hs mode);
-    void GetMagData(float *mag_out, bus_hs mode);
-    void GetAllData(float *all_out, bus_hs mode);
+    // Functions that return the sensor data
+    void GetAllCounts(int16_t *counts_out);         // Raw ADC values
+    void GetAllData(float *all_out, bus_hs mode);   // Values in m/s^2, rad/s, microTesla, DegCelcius
 
     // Register R/W access
     bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);

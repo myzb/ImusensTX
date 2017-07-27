@@ -259,26 +259,6 @@ void mpu9250::WireBegin()
     }
 }
 
-int mpu9250::NewMagData()
-{
-    uint8_t rawData;
-    if (_useSPI) {
-        ReadRegisters(_address, EXT_SENS_DATA_00, 1, &rawData);
-        return _newMagData = (rawData & 0x01);
-    } else {
-        return _newMagData = (ReadRegister(AK8963_ADDRESS, AK8963_ST1) & 0x01);
-    }
-}
-
-int mpu9250::NewData()
-{
-    if (_newData) {
-        _newData = 0;
-        return 1;
-    }
-    return 0;
-}
-
 void mpu9250::RequestAllData()
 {
     RequestRegisters(_address, ACCEL_XOUT_H, 22);
@@ -378,164 +358,6 @@ void mpu9250::GetAllData(float *all_out, bus_hs mode)
         Serial.printf("%d\t", (int) all_out[i] );
     }
 #endif /* MAG_EXPORT */
-}
-
-void mpu9250::GetMPU9250Counts(int16_t *counts_out)
-{
-    uint8_t rawData[14];
-
-    ReadRegisters(_address, ACCEL_XOUT_H, 14, &rawData[0]);
-    // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
-    counts_out[3] = ((int16_t)rawData[6] << 8) | rawData[7];
-    counts_out[4] = ((int16_t)rawData[8] << 8) | rawData[9];
-    counts_out[5] = ((int16_t)rawData[10] << 8) | rawData[11];
-    counts_out[6] = ((int16_t)rawData[12] << 8) | rawData[13];
-
-    // FIXME: Shift outcome of signed values is platform specific
-}
-
-void mpu9250::GetMPU9250Data(float *data_out, bus_hs mode)
-{
-    int16_t mpu9250Counts[7];
-
-    _useSPIHS = mode;                   // Use high speed SPI for data readout
-    GetMPU9250Counts(mpu9250Counts);    // Get raw ADC counts
-
-    // Accel counts in g's
-#if 0
-    // There was a bug that prevented writing accel calibration values to the
-    // corresponding registers. Keep this here just incase.
-    data_out[0] = (float)mpu9250Counts[0] * _accelScale - _accelBias[0];
-    data_out[1] = (float)mpu9250Counts[1] * _accelScale - _accelBias[1];
-    data_out[2] = (float)mpu9250Counts[2] * _accelScale - _accelBias[2];
-#else
-    data_out[0] = (float)mpu9250Counts[0] * _accelScale;
-    data_out[1] = (float)mpu9250Counts[1] * _accelScale;
-    data_out[2] = (float)mpu9250Counts[2] * _accelScale;
-#endif
-
-    // Temp counts in degrees celcius
-    data_out[3] = ((float)mpu9250Counts[3] - _tempOffset)/_tempScale + _tempOffset;
-
-    // Gyro counts in deg/s
-    data_out[4] = (float)mpu9250Counts[4] * _gyroScale;
-    data_out[5] = (float)mpu9250Counts[5] * _gyroScale;
-    data_out[6] = (float)mpu9250Counts[6] * _gyroScale;
-}
-
-void mpu9250::GetAccelCounts(int16_t *counts_out)
-{
-    uint8_t rawData[6];
-
-    ReadRegisters(_address, ACCEL_XOUT_H, 6, &rawData[0]);
-    // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
-
-    // FIXME: Shift outcome of signed values is platform specific
-}
-
-void mpu9250::GetAccelData(float *accel_out, bus_hs mode)
-{
-    int16_t accelCounts[3];
-
-    _useSPIHS = mode;           // Use high speed SPI for data readout
-    GetGyroCounts(accelCounts); // Get raw ADC counts
-
-    // Convert counts to g
-    accel_out[0] = (float)accelCounts[0] * _accelScale;
-    accel_out[1] = (float)accelCounts[1] * _accelScale;
-    accel_out[2] = (float)accelCounts[2] * _accelScale;
-}
-
-void mpu9250::GetGyroCounts(int16_t *counts_out)
-{
-    uint8_t rawData[6];
-
-    ReadRegisters(_address, GYRO_XOUT_H, 6, &rawData[0]);
-    // Turn the MSB and LSB into a signed 16-bit value
-    counts_out[0] = ((int16_t)rawData[0] << 8) | rawData[1];
-    counts_out[1] = ((int16_t)rawData[2] << 8) | rawData[3];
-    counts_out[2] = ((int16_t)rawData[4] << 8) | rawData[5];
-
-    // FIXME: Shift outcome of signed values is platform specific
-}
-
-void mpu9250::GetGyroData(float *gyro_out, bus_hs mode)
-{
-    int16_t gyroCounts[3];
-
-    _useSPIHS = mode;           // Use high speed SPI for data readout
-    GetGyroCounts(gyroCounts);  // Get raw ADC counts
-
-    // Convert counts to deg/s
-    gyro_out[0] = (float)gyroCounts[0] * _gyroScale;
-    gyro_out[1] = (float)gyroCounts[1] * _gyroScale;
-    gyro_out[2] = (float)gyroCounts[2] * _gyroScale;
-}
-
-void mpu9250::GetMagCounts(int16_t *counts_out)
-{
-    uint8_t rawData[8];  // ST1 + x/y/z mag data + ST2 register
-
-    if (_useSPI) {
-        ReadRegisters(_address, EXT_SENS_DATA_00, sizeof(rawData), &rawData[0]);
-    } else {
-        ReadRegisters(AK8963_ADDRESS, AK8963_ST1, sizeof(rawData), &rawData[0]);
-    }
-
-    if ((rawData[0] & 0x01) && !(rawData[7] & 0x08)) {
-        // Mag data is ready && no mag overflow
-        counts_out[0] = ((int16_t)rawData[2] << 8) | rawData[1];
-        counts_out[1] = ((int16_t)rawData[4] << 8) | rawData[3];
-        counts_out[2] = ((int16_t)rawData[6] << 8) | rawData[5];
-    }
-}
-
-void mpu9250::GetMagData(float *mag_out, bus_hs mode)
-{
-    int16_t magCounts[3];
-
-    _useSPIHS = mode;           // Use high speed SPI for data readout
-    GetMagCounts(magCounts);    // Get raw ADC counts
-
-    // Convert counts to microTesla, also include factory calibration per data sheet
-    // and user environmental corrections (re-scaling)
-    mag_out[0] = (float)magCounts[0] * _magScale * _magScale_factory[0] - _magHardIron[0];
-    mag_out[1] = (float)magCounts[1] * _magScale * _magScale_factory[1] - _magHardIron[1];
-    mag_out[2] = (float)magCounts[2] * _magScale * _magScale_factory[2] - _magHardIron[2];
-    mag_out[0] *= _magSoftIron[0];
-    mag_out[1] *= _magSoftIron[1];
-    mag_out[2] *= _magSoftIron[2];
-
-#ifdef MAG_EXPORT
-    for (int i = 7; i < 10; i++) {
-        Serial.printf("%d\t", (int)((float)counts[i] * _magScale));
-    }
-    Serial.printf("\n");
-    for (int i = 7; i < 10; i++) {
-        Serial.printf("%d\t", (int) all_out[i] );
-    }
-#endif /* MAG_EXPORT */
-
-}
-
-int16_t mpu9250::GetTempCounts()
-{
-    uint8_t rawData[2];
-    ReadRegisters(_address, TEMP_OUT_H, 2, &rawData[0]);
-    return ((int16_t)rawData[0] << 8) | rawData[1] ;
-}
-
-float mpu9250::GetTempData(bus_hs mode)
-{
-    _useSPIHS = mode;   // Use high speed SPI for data readout
-
-    return (((float)GetTempCounts() - _tempOffset) / _tempScale + _tempOffset);
 }
 
 void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
@@ -1011,7 +833,7 @@ void mpu9250::MagCal()
     int sample_count = 0;
     int32_t mag_bias[3] = { 0, 0, 0 }, mag_scale[3] = { 0, 0, 0 };
     int16_t mag_max[3] = { -32767, -32767, -32767 }, mag_min[3] = { 32767, 32767, 32767 };
-    int16_t mag_temp[3] = { 0, 0, 0 };
+    int16_t mag_counts[3] = { 0, 0, 0 };
 
     // TODO: Notify the user in some way that mag cal is about to start
 #if 0
@@ -1025,12 +847,20 @@ void mpu9250::MagCal()
     if (_magRate == MAG_RATE_100HZ) sample_count = 30 * 100;  // at 100 Hz ODR, new mag data every 10 ms
 
     for (int i = 0; i < sample_count; i++) {
-        // Read the mag data
-        GetMagCounts(mag_temp);
+
+        // Read mag counts from mpu9250 EXT_SENS_DATA_00 register
+        uint8_t rawData[8];
+        ReadRegisters(_address, EXT_SENS_DATA_00, sizeof(rawData), &rawData[0]);
+       if ((rawData[0] & 0x01) && !(rawData[7] & 0x08)) {
+            // Mag data is ready && no mag overflow
+           mag_counts[0] = ((int16_t)rawData[2] << 8) | rawData[1];
+           mag_counts[1] = ((int16_t)rawData[4] << 8) | rawData[3];
+           mag_counts[2] = ((int16_t)rawData[6] << 8) | rawData[5];
+        }
 
         for (int j = 0; j < 3; j++) {
-            if (mag_temp[j] > mag_max[j]) mag_max[j] = mag_temp[j];
-            if (mag_temp[j] < mag_min[j]) mag_min[j] = mag_temp[j];
+            if (mag_counts[j] > mag_max[j]) mag_max[j] = mag_counts[j];
+            if (mag_counts[j] < mag_min[j]) mag_min[j] = mag_counts[j];
         }
 
     if (_magRate == MAG_RATE_8HZ) delay(135);   // at 8 Hz ODR, new mag data every 125 ms

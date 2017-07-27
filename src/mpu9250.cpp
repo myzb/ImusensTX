@@ -16,7 +16,8 @@
 #include "mpu9250.h"
 
 /* MPU9250 object, input the I2C address and I2C bus */
-mpu9250::mpu9250(uint8_t address, uint8_t bus){
+mpu9250::mpu9250(uint8_t address, uint8_t bus)
+{
     _address = address;
     _bus = bus;
     _userDefI2C = false;
@@ -24,7 +25,8 @@ mpu9250::mpu9250(uint8_t address, uint8_t bus){
 }
 
 /* MPU9250 object, input the I2C address, I2C bus, and I2C pins */
-mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins){
+mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins)
+{
     _address = address;
     _bus = bus;
     _pins = pins;
@@ -34,7 +36,8 @@ mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins){
 }
 
 /* MPU9250 object, input the I2C address, I2C bus, I2C pins, and I2C pullups */
-mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups){
+mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups)
+{
     _address = address;
     _bus = bus;
     _pins = pins;
@@ -44,7 +47,8 @@ mpu9250::mpu9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups
 }
 
 /* MPU9250 object, input the SPI CS Pin */
-mpu9250::mpu9250(uint8_t csPin){
+mpu9250::mpu9250(uint8_t csPin)
+{
     _csPin = csPin;
     _mosiPin = MOSI_PIN_11;
     _useSPI = true;
@@ -52,7 +56,8 @@ mpu9250::mpu9250(uint8_t csPin){
 }
 
 /* MPU9250 object, input the SPI CS Pin and MOSI Pin */
-mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin){
+mpu9250::mpu9250(uint8_t csPin, spi_mosi_pin pin)
+{
     _csPin = csPin;
     _mosiPin = pin;
     _useSPI = true;

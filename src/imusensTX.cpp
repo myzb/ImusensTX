@@ -126,7 +126,7 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
     // Config for normal operation
-    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
+    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);    // sample-rate div by 2 (0x01 + 1)
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -173,7 +173,7 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
     // Config for normal operation
-    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x03);    // sample-rate div by 2 (0x01 + 1)
+    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);    // sample-rate div by 2 (0x01 + 1)
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -220,8 +220,6 @@ void loop()
     static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                 // usb packet number
 
-    noInterrupts();
-
     // Read the i2c rx buffer when done
     if (headImu.RequestedAvailable()) {
         headImu.GetAllData(imuData2, HS_FALSE);
@@ -231,6 +229,7 @@ void loop()
     /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */
     if (task_filter.check()) {
 
+        noInterrupts();
         vhclFilter.MadgwickUpdate(imuData1[0], imuData1[1], imuData1[2],
                                   imuData1[4], imuData1[5], imuData1[6],
                                   imuData1[7], imuData1[8], imuData1[9], chrono_1.Split());
@@ -238,6 +237,7 @@ void loop()
         headFilter.MadgwickUpdate(imuData2[0], imuData2[1], imuData2[2],
                                   imuData2[4], imuData2[5], imuData2[6],
                                   imuData2[7], imuData2[8], imuData2[9], chrono_2.Split());
+        interrupts();
 
         // Get quat rotation difference, store result in tx_buffer[0:3]
         quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
@@ -252,17 +252,12 @@ void loop()
     Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0], q[1], q[2] ,q[3]);
 #endif
 
-    interrupts();
-
     /* Task 2 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {
 
         tx_buffer.num_d[15] = pktCnt;           // Place pktCnt into last 4 bytes
-
-        noInterrupts();
         num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
         if (num <= 0) task_usbTx.requeue();     // sending failed, re-run the task on next loop
-        interrupts();
 
         if (num > 0) {
             pktCnt++;
@@ -272,8 +267,7 @@ void loop()
         }
     }
 
-    // TODO: Use a timer to query each X millis
-    // Only send data to device if really necessary as it slows down usb tx
+    /* Task 3 - USB data RX @ on demand  */
     if (RawHID.available()) {
         num = RawHID.recv(rx_buffer.raw, 10);
         if (num > 0) {
@@ -290,7 +284,7 @@ void loop()
     }
 
 #if 1
-    /* Task 3 - Debug Output @ 2 sec */
+    /* Task 4 - Debug Output @ 2 sec */
     if (task_dbgOut.check()) {
 
         if (Debug) {

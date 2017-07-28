@@ -1031,7 +1031,7 @@ uint8_t mpu9250::RequestedAvailable()
         // TODO: non-blocking SPI not implemented
     }
 
-    if (!_useSPI && _i2cBus->done() && _requestedData) {
+    if (!_useSPI && _requestedData && _i2cBus->done()) {
         return !(_requestedData = false);
     }
 

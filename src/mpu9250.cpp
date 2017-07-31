@@ -967,11 +967,16 @@ void mpu9250::ReadRegisters(uint8_t address, uint8_t subAddress, uint8_t count, 
 {
     if (_useSPI) {
         _spiBus->beginTransaction(SPISettings(_useSPIHS ? SPIHS_CLK : SPILS_CLK, MSBFIRST, SPI_MODE3));
+
+        // WORKAROUND: Trigger a pre-transfer to avoid a bug where SPI would
+        // report data being 1 frame old
+
         digitalWriteFast(_csPin, LOW);              // select the MPU9250 chip
         _spiBus->transfer(subAddress | SPI_READ);   // specify the starting register address
-
         digitalWriteFast(_csPin, HIGH);             // deselect the MPU9250 chip
         delayMicroseconds(1);
+
+        // Proceed with the actual transaction
         digitalWriteFast(_csPin, LOW);              // select the MPU9250 chip
         _spiBus->transfer(subAddress | SPI_READ);   // specify the starting register address
 

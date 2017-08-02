@@ -24,7 +24,7 @@
 static const int Debug = 1;
 
 // Pin definitions
-static const int intPin1_vhcl = 36; // MPU9250 1 vhcl intPin
+static const int intPin1_vhcl = 9; // MPU9250 1 vhcl intPin
 static const int intPin2_head = 2;  // MPU9250 2 head intPin
 static const int ledPin = 13;
 
@@ -38,7 +38,7 @@ volatile static float dt = 0, ts = 0;
 //mpu9250 vhclImu(0x69, 0, I2C_PINS_33_34);   // MPU9250 1 on I2C bus 0 at addr 0x68
 mpu9250 headImu(0x69, 0, I2C_PINS_18_19);   // MPU9250 2 On I2C bus 0 at addr 0x69
 
-mpu9250 vhclImu(35, MOSI_PIN_28);   // MPU9250 1 On SPI bus 0, read called from IRS
+mpu9250 vhclImu(10, MOSI_PIN_28);   // MPU9250 1 On SPI bus 0, read called from IRS
 //mpu9250 headImu(3,  MOSI_PIN_21);   // MPU9250 2 On SPI bus 0, read called from IRS
 
 FusionFilter vhclFilter, headFilter;

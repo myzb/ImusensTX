@@ -25,7 +25,7 @@ static const int Debug = 1;
 
 // Pin definitions
 static const int intPin1_vhcl = 9; // MPU9250 1 vhcl intPin
-static const int intPin2_head = 2;  // MPU9250 2 head intPin
+static const int intPin2_head = 5; // MPU9250 2 head intPin
 static const int ledPin = 13;
 
 #ifdef I2C_SPI_TIME
@@ -35,11 +35,8 @@ volatile static float dt = 0, ts = 0;
 #endif
 
 // Globals
-//mpu9250 vhclImu(0x69, 0, I2C_PINS_33_34);   // MPU9250 1 on I2C bus 0 at addr 0x68
-mpu9250 headImu(0x69, 0, I2C_PINS_18_19);   // MPU9250 2 On I2C bus 0 at addr 0x69
-
-mpu9250 vhclImu(10, MOSI_PIN_28);   // MPU9250 1 On SPI bus 0, read called from IRS
-//mpu9250 headImu(3,  MOSI_PIN_21);   // MPU9250 2 On SPI bus 0, read called from IRS
+mpu9250 headImu(0x69, 2, I2C_PINS_3_4);  // MPU9250 2 On I2C bus 2 at addr 0x69
+mpu9250 vhclImu(10, MOSI_PIN_28);        // MPU9250 1 On SPI bus 0 at csPin 10
 
 FusionFilter vhclFilter, headFilter;
 Stopwatch chrono_1, chrono_2;
@@ -54,6 +51,11 @@ static float imuData1[10], imuData2[10];
 void irs1Func_vhcl()
 {
     vhclImu.GetAllData(imuData1, HS_TRUE);
+#ifndef I2C_SPI_TIME
+    if (task_dbgIRS.check()) {
+        digitalWrite(ledPin, !digitalRead(ledPin));
+    }
+#endif /* I2C_SPI_TIME */
 }
 
 void irs2Func_head()
@@ -126,7 +128,7 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
     // Config for normal operation
-    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);    // sample-rate div by 2 (0x01 + 1)
+    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);    // sample-rate div by X+1 (= 0x0X + 1)
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
@@ -173,7 +175,7 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
     // Config for normal operation
-    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);    // sample-rate div by 2 (0x01 + 1)
+    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);    // sample-rate div by X+1 (= 0x0X + 1)
 
     if (Debug) {
         // Read the WHO_AM_I register of the magnetometer, this is a good test of communication

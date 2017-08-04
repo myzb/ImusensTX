@@ -70,8 +70,8 @@ void irs2Func_head()
     dt += micros() - ts;
     irsCnt++;
     if (task_dbgIRS.check()) {
-        Serial.printf("IMU: fs = %.2f Hz\n", (float)irsCnt/2.0f);
-        Serial.printf("IMU: I2C/SPI rx speed = %.2f us\n\n", dt /irsCnt);
+        Serial.printf("IMU: fs = %.2f Hz\n", (float)irsCnt / 2.0f);
+        Serial.printf("IMU: I2C/SPI irsFunc speed = %.2f us\n\n", dt / irsCnt);
         dt = 0;
         irsCnt = 0;
         // Toggle the LED (signal sensor rx is active)
@@ -92,7 +92,7 @@ void setup()
     float magSoftIron[3] = {1.02854228f, 0.99213374f, 0.98056370f};
 #endif
 
-    Serial.begin(38400);
+    if (Debug) Serial.begin(38400);
     delay(4000);
 
     // Setup the LED
@@ -109,32 +109,27 @@ void setup()
     // Start the bus (only one device needs to start it on a shared bus)
     vhclImu.WireBegin();
 
-    // Loop forever if MPU9250 is not online
+    // Skip setup if this MPU9250 is not online
     if (vhclImu.whoAmI() != 0x71) goto next;
 
-    if (Debug) {
-        Serial.printf("MPU9250 (1): 9-axis motion sensor is online\n");
-    }
+    if (Debug) Serial.printf("MPU9250 (1): 9-axis motion sensor is online\n");
 
-    // Start by performing self test and reporting values
+    // Start by performing self test (and reporting values)
     vhclImu.SelfTest();
     delay(1000);
 
     if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
-    // Calibrate gyro and accelerometers, load biases in bias registers
+    // Calibrate gyro and accelerometers, load biases into bias registers
     vhclImu.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
-    // Config for normal operation
-    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);    // sample-rate div by X+1 (= 0x0X + 1)
+    // Config for normal operation, set sample-rate div to '0x0X + 1'
+    vhclImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);
 
-    if (Debug) {
-        // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        Serial.printf("AK8963  (1): I'm 0x%02x\n", vhclImu.whoAmIAK8963());
-        delay(100);
-    }
+    // Check if AK8963 magnetometer is online
+    if (Debug) Serial.printf("AK8963  (1): I'm 0x%02x\n", vhclImu.whoAmIAK8963());
 
     // Get magnetometer calibration from AK8963 ROM
     vhclImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
@@ -158,30 +153,27 @@ next:
     // Start the bus (only one device needs to start it on a shared bus)
     headImu.WireBegin();
 
-    // Loop forever if MPU9250 is not online
+    // Skip setup if this MPU9250 is not online
     if (headImu.whoAmI() != 0x71) goto end;
 
     if (Debug) Serial.printf("MPU9250 (2): 9-axis motion sensor is online\n");
 
-    // Start by performing self test and reporting values
+    // Start by performing self test (and reporting values)
     headImu.SelfTest();
     delay(1000);
 
     if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
-    // Calibrate gyro and accelerometers, load biases in bias registers
+    // Calibrate gyro and accelerometers, load biases into bias registers
     headImu.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
-    // Config for normal operation
-    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);    // sample-rate div by X+1 (= 0x0X + 1)
+    // Config for normal operation, set sample-rate div to '0x0X + 1'
+    headImu.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x01);
 
-    if (Debug) {
-        // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
-        Serial.printf("AK8963  (2): I'm 0x%02x\n", headImu.whoAmIAK8963());
-        delay(100);
-    }
+    // Check if AK8963 magnetometer is online
+    if (Debug) Serial.printf("AK8963  (2): I'm 0x%02x\n", headImu.whoAmIAK8963());
 
     // Get magnetometer calibration from AK8963 ROM
     headImu.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
@@ -197,17 +189,17 @@ next:
     headImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
-end:
-    // Wait for the host application to be ready
-    if (Debug) Serial.printf("Setup done!\n");
-
     headImu.EnableDMA();
+
+end:
+    if (Debug) Serial.printf("\nSetup done, enabling interrupts!\n");
 
     // Enable interrupts
     vhclImu.EnableInterrupt(intPin1_vhcl, irs1Func_vhcl);
     headImu.EnableInterrupt(intPin2_head, irs2Func_head);
     interrupts();
 
+    // Wait for the host application to be ready
     while (!RawHID.available());
 
     chrono_1.Reset();

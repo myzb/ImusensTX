@@ -25,7 +25,7 @@ static const int Debug = 1;
 
 // Pin definitions
 static const int intPin1_vhcl = 9; // MPU9250 1 vhcl intPin
-static const int intPin2_head = 5; // MPU9250 2 head intPin
+static const int intPin2_head = 6; // MPU9250 2 head intPin
 static const int ledPin = 13;
 
 #ifdef I2C_SPI_TIME

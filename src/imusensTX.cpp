@@ -189,8 +189,6 @@ next:
     headImu.SetMagCal(magHardIron, magSoftIron);
 #endif /* RESET_MAGCAL */
 
-    headImu.EnableDMA();
-
 end:
     if (Debug) Serial.printf("\nSetup done, enabling interrupts!\n");
 

@@ -17,6 +17,7 @@
 
 #define AHRS
 #define I2C_SPI_TIME
+#define SPI_ONLY
 //#define RESET_MAGCAL
 
 // Debug flag
@@ -24,9 +25,13 @@
 static const int Debug = 1;
 
 // Pin definitions
-static const int intPin1_vhcl = 9; // MPU9250 1 vhcl intPin
-static const int intPin2_head = 6; // MPU9250 2 head intPin
 static const int ledPin = 13;
+static const int intPin1_vhcl = 9;  // MPU9250 1 vhcl intPin
+#ifndef SPI_ONLY
+static const int intPin2_head = 6;  // MPU9250 2 head intPin
+#else
+static const int intPin2_head = 18; // MPU9250 2 head intPin
+#endif /* SPI_ONLY */
 
 #ifdef I2C_SPI_TIME
 // Times the avg sensor readout time
@@ -35,8 +40,12 @@ volatile static float dt = 0, ts = 0;
 #endif
 
 // Globals
-mpu9250 headImu(0x69, 2, I2C_PINS_3_4);  // MPU9250 2 On I2C bus 2 at addr 0x69
-mpu9250 vhclImu(10, MOSI_PIN_28);        // MPU9250 1 On SPI bus 0 at csPin 10
+mpu9250 vhclImu(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
+#ifndef SPI_ONLY
+mpu9250 headImu(0x69, 2, I2C_PINS_3_4); // MPU9250 2 On I2C bus 2 at addr 0x69
+#else
+mpu9250 headImu(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
+#endif /* SPI_ONLY */
 
 FusionFilter vhclFilter, headFilter;
 Stopwatch chrono_1, chrono_2;
@@ -64,7 +73,11 @@ void irs2Func_head()
     ts = micros();
 #endif /* I2C_SPI_TIME */
 
+#ifndef SPI_ONLY
     headImu.RequestAllData();
+#else
+    headImu.GetAllData(imuData2, HS_TRUE);
+#endif /* SPI_ONLY */
 
 #ifdef I2C_SPI_TIME
     dt += micros() - ts;
@@ -212,10 +225,12 @@ void loop()
     static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                 // usb packet number
 
+#ifndef SPI_ONLY
     // Read the i2c rx buffer when done
     if (headImu.RequestedAvailable()) {
         headImu.GetAllData(imuData2, HS_FALSE);
     }
+#endif /* SPI_ONLY */
 
 #ifdef AHRS
     /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */

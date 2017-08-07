@@ -403,7 +403,10 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     // auto-select best clock source
     WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
 
-    // enable I2C master mode
+    // Disable I2C when in SPI mode (internal comm with AK8963 is still via I2C)
+    if (_useSPI) WriteRegister(_address, USER_CTRL, I2C_IF_DIS);
+
+    // enable internal I2C master mode
     WriteRegister(_address,USER_CTRL, I2C_MST_EN);
 
     // set the I2C bus speed to 400 kHz

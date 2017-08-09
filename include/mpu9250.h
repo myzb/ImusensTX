@@ -256,6 +256,7 @@ public:
     const uint8_t I2C_SLV0_GRP_EVN = 0x10;
     const uint8_t I2C_SLV0_EN      = 0x80;
     const uint8_t I2C_MST_EN       = 0x20;
+    const uint8_t I2C_MST_RST      = 0x02;
     const uint8_t I2C_MST_CLK      = 0x0D;  // 400 kHz
     const uint8_t I2C_IF_DIS       = 0x10;
     const uint8_t FIFO_DMP_RST     = 0x0C;

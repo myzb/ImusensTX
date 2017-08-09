@@ -398,16 +398,18 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     WriteRegister(_address, PWR_MGMT_1, H_RESET);
 
     // wait for MPU-9250 to come back up
-    delay(1);
+    delay(150);
 
     // auto-select best clock source
     WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
 
-    // Disable I2C when in SPI mode (internal comm with AK8963 is still via I2C)
-    if (_useSPI) WriteRegister(_address, USER_CTRL, I2C_IF_DIS);
-
-    // enable internal I2C master mode
-    WriteRegister(_address,USER_CTRL, I2C_MST_EN);
+    // Reset and enable internal I2C master mode
+    if (_useSPI) {
+        // Disable external I2C interface
+        WriteRegister(_address, USER_CTRL, I2C_MST_EN | I2C_IF_DIS | I2C_MST_RST);
+    } else {
+        WriteRegister(_address, USER_CTRL, I2C_MST_EN | I2C_MST_RST);
+    }
 
     // set the I2C bus speed to 400 kHz
     WriteRegister(_address, I2C_MST_CTRL, I2C_MST_CLK);

@@ -252,13 +252,6 @@ void loop()
     }
 #endif /* AHRS */
 
-#if 0
-    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n", q1[0], q1[1], q1[2] ,q1[3]);
-    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n", q2[0], q2[1], q2[2] ,q2[3]);
-
-    Serial.printf("%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0], q[1], q[2] ,q[3]);
-#endif
-
     /* Task 2 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {
 
@@ -296,8 +289,18 @@ void loop()
 
         if (Debug) {
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
+
+            // The current rotation quaternions
+            static const float *q1 = vhclFilter.GetQuat();
+            static const float *q2 = headFilter.GetQuat();
+            static const float *q  = tx_buffer.num_f;
+            Serial.printf("q1 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q1[0], q1[1], q1[2], q1[3]);
+            Serial.printf("q2 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q2[0], q2[1], q2[2], q2[3]);
+            Serial.printf("q  = \t%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0],  q[1],  q[2],  q[3]);
         }
+
         if (Debug == 2) {
+            // The current raw sensor data
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[0], imuData1[1], imuData1[2]);
             Serial.printf("%6.2f\n",                 imuData1[3]);
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData1[4], imuData1[5], imuData1[6]);
@@ -308,9 +311,6 @@ void loop()
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   imuData2[4], imuData2[5], imuData2[6]);
             Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", imuData2[7], imuData2[8], imuData2[9]);
         }
-
-        // Toggle the LED (signal mainloop is running)
-        //digitalWrite(ledPin, !digitalRead(ledPin));
 
         // Reset print counters
         filterCnt = 0;

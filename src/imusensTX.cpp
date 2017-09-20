@@ -11,6 +11,7 @@
 
 #include "utils.h"
 #include "FusionFilter.h"
+#include "ComplementaryFilter.h"
 #include "mpu9250.h"
 #include "MetroExt.h"
 #include "Stopwatch.h"
@@ -22,7 +23,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 1;
+static const int Debug = 0;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -47,7 +48,11 @@ mpu9250 headMarg(0x69, 2, I2C_PINS_3_4); // MPU9250 2 On I2C bus 2 at addr 0x69
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 #endif /* SPI_ONLY */
 
+#ifdef MADGWICK
 FusionFilter vhclFilter, headFilter;
+#else
+Filter vhclFilter, headFilter;
+#endif
 Stopwatch chrono_1, chrono_2;
 
 MetroExt task_filter = MetroExt(100);       // 100 usec
@@ -237,6 +242,7 @@ void loop()
     if (task_filter.check()) {
 
         noInterrupts();
+#ifdef MADGWICK
         vhclFilter.MadgwickUpdate(margData1[0], margData1[1], margData1[2],
                                   margData1[4], margData1[5], margData1[6],
                                   margData1[7], margData1[8], margData1[9], chrono_1.Split());
@@ -244,10 +250,18 @@ void loop()
         headFilter.MadgwickUpdate(margData2[0], margData2[1], margData2[2],
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
+#else
+        vhclFilter.Prediction(chrono_1.Split(), &margData1[4]);
+        //headFilter.Prediction(chrono_2.Split(), &margData2[4]);
+
+        vhclFilter.Correction(&margData1[0], &margData1[7]);
+        //headFilter.Correction(&margData2[0], &margData2[7]);
+#endif
         interrupts();
 
         // Get quat rotation difference, store result in tx_buffer[0:3]
-        quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
+        //quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
+        memcpy(tx_buffer.num_f, vhclFilter.GetQuat(), 4*sizeof(float));
         filterCnt++;
     }
 #endif /* AHRS */

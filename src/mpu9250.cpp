@@ -491,9 +491,10 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
         _accelScale = 16.0f / 32767.5f * _G;
         break;
     }
-    // By convention gravity-vector is defined positive up (+1G). For NED world coordinates the
-    // z axis points downwards in the direction of the gravitational force. The accel g-vector
-    // measured by the sensor has to be inverted to also point downwards:
+    // The 'downwards' gravitational pull on the accel probe mass causes the accel to output an
+    // acceleration upwards. In NED coordinates the z-axis is positive down, therefore the upwards
+    // acceleration (due to the gravitational pull) is negative. By convention +1G is a positive
+    // vector that points downwards. The measured acceleration (due to gravity) has to be inverted.
     _accelScale *= -1;
 
     // Set gyro-counts to deg/s (rad/s) scale factor

@@ -201,13 +201,14 @@ void loop()
     static uint8_t num;                         // usb return code
     static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                 // usb packet number
-
+    static float fs_max;                        // fusion speed variable
 
 #ifdef AHRS
     /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */
     if (task_filter.check()) {
 
         noInterrupts();
+        Stopwatch chrono_3;
 #ifdef MADGWICK
         vhclFilter.MadgwickUpdate(margData1[0], margData1[1], margData1[2],
                                   margData1[4], margData1[5], margData1[6],
@@ -223,6 +224,7 @@ void loop()
         vhclFilter.Correction(&margData1[0], &margData1[7]);
         //headFilter.Correction(&margData2[0], &margData2[7]);
 #endif
+        fs_max += chrono_3.Split();
         interrupts();
 
         // Get quat rotation difference, store result in tx_buffer[0:3]
@@ -270,6 +272,9 @@ void loop()
         if (Debug) {
             // Timings
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
+            Serial.printf("   max rate = %.2f Hz\n", 20000.0f / fs_max);
+            fs_max = 0.0f;
+
 #ifdef I2C_SPI_TIME
             Serial.printf("MARG: fs = %.2f Hz\n", (float)irsCnt / 2.0f);
             Serial.printf("MARG: I2C/SPI irsFunc speed = %.2f us\n\n", dt / irsCnt);

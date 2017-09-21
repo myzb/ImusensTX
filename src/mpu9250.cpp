@@ -341,6 +341,61 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
 #endif /* MAG_EXPORT */
 }
 
+void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
+{
+    int16_t counts[10];
+    float mag[3];
+
+    _useSPIHS = mode;       // Use high speed SPI for data readout
+    GetAllCounts(counts);   // Get raw ADC counts
+
+    // Accel counts in NED
+    all_out[0] = tX[0]*(float)counts[0] + tX[1]*(float)counts[1] + tX[2]*(float)counts[2];
+    all_out[1] = tY[0]*(float)counts[0] + tY[1]*(float)counts[1] + tY[2]*(float)counts[2];
+    all_out[2] = tZ[0]*(float)counts[0] + tZ[1]*(float)counts[1] + tZ[2]*(float)counts[2];
+    all_out[0] *= _accelScale;
+    all_out[1] *= _accelScale;
+    all_out[2] *= _accelScale;
+
+    // Temp counts in degrees celcius
+    all_out[3] = ((float)counts[3] - _tempOffset) / _tempScale + _tempOffset;
+
+    // Gyro counts in NED
+    all_out[4] = tX[0]*(float)counts[4] + tX[1]*(float)counts[5] + tX[2]*(float)counts[6];
+    all_out[5] = tY[0]*(float)counts[4] + tY[1]*(float)counts[5] + tY[2]*(float)counts[6];
+    all_out[6] = tZ[0]*(float)counts[4] + tZ[1]*(float)counts[5] + tZ[2]*(float)counts[6];
+    all_out[4] *= _gyroScale;
+    all_out[5] *= _gyroScale;
+    all_out[6] *= _gyroScale;
+
+    // Return if mag data not ready or mag overflow (and use previous data)
+    if (!(counts[7] | counts[8] | counts[9])) return;
+
+    // Convert counts to microTesla, also include factory calibration per data sheet
+    // and user environmental corrections for soft/hard iron distortions
+    mag[0] = (float)counts[7] * _magScale * _magScale_factory[0] - _magHardIron[0];
+    mag[1] = (float)counts[8] * _magScale * _magScale_factory[1] - _magHardIron[1];
+    mag[2] = (float)counts[9] * _magScale * _magScale_factory[2] - _magHardIron[2];
+    mag[0] *= _magSoftIron[0];
+    mag[1] *= _magSoftIron[1];
+    mag[2] *= _magSoftIron[2];
+
+    // Mag in uTesla
+    all_out[7] = mag[0];
+    all_out[8] = mag[1];
+    all_out[9] = mag[2];
+
+#ifdef MAG_EXPORT
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int)((float)counts[i] * _magScale));
+    }
+    Serial.printf("\n");
+    for (int i = 7; i < 10; i++) {
+        Serial.printf("%d\t", (int) all_out[i] );
+    }
+#endif /* MAG_EXPORT */
+}
+
 void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
 {
     // Set mag axis scale factor

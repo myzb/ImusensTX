@@ -347,7 +347,8 @@ public:
     void SetMagCal(float *magBias_in, float *magScale_in);
 
     // Functions that return the sensor data
-    void GetAllCounts(int16_t *counts_out);         // Raw ADC values
+    void GetAllCounts(int16_t *counts_out);         // ADC values
+    void GetAllRaw(float* all_out, bus_hs mode);  // Raw values (converted)
     void GetAllData(float *all_out, bus_hs mode);   // Values in m/s^2, rad/s, microTesla, DegCelcius
 
     // Register R/W access

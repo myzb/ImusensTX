@@ -219,10 +219,10 @@ void loop()
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #else
         vhclFilter.Prediction(&margData1[4], chrono_1.Split());
-        //headFilter.Prediction(chrono_2.Split(), &margData2[4]);
+        headFilter.Prediction(&margData2[4], chrono_2.Split());
 
         vhclFilter.Correction(&margData1[0], &margData1[7]);
-        //headFilter.Correction(&margData2[0], &margData2[7]);
+        headFilter.Correction(&margData2[0], &margData2[7]);
 #endif
         fs_max += chrono_3.Split();
         interrupts();

@@ -217,7 +217,7 @@ void loop()
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #else
-        vhclFilter.Prediction(chrono_1.Split(), &margData1[4]);
+        vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         //headFilter.Prediction(chrono_2.Split(), &margData2[4]);
 
         vhclFilter.Correction(&margData1[0], &margData1[7]);

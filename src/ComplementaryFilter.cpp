@@ -52,8 +52,6 @@ int Filter::QuatNorm(float *q, float *q_out)
     return 1;
 }
 
-//static mat3f_t R;
-
 void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
 {
     // q0 * qx
@@ -77,17 +75,17 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
     // The Rotation matrix: xyz = rows, 123 = cols
 #if 1
     /* Sabatini */
-    R_out->x[0] = q0q0+q1q1-q2q2-q3q3;
-    R_out->x[1] = 2.0f*(q1q2-q0q3);
-    R_out->x[2] = 2.0f*(q1q3+q0q2);
+    R_out->x[0] = q0q0 + q1q1- q2q2 - q3q3;
+    R_out->x[1] = 2.0f*(q1q2 - q0q3);
+    R_out->x[2] = 2.0f*(q1q3 + q0q2);
 
-    R_out->y[0] = 2.0f*(q1q2+q0q3);
-    R_out->y[1] = q0q0-q1q1+q2q2-q3q3;
-    R_out->y[2] = 2.0f*(q2q3-q0q1);
+    R_out->y[0] = 2.0f*(q1q2 + q0q3);
+    R_out->y[1] = q0q0 - q1q1 + q2q2 - q3q3;
+    R_out->y[2] = 2.0f*(q2q3 - q0q1);
 
-    R_out->z[0] = 2.0f*(q1q3-q0q2);
-    R_out->z[1] = 2.0f*(q2q3+q0q1);
-    R_out->z[2] = q0q0-q1q1-q2q2+q3q3;
+    R_out->z[0] = 2.0f*(q1q3 - q0q2);
+    R_out->z[1] = 2.0f*(q2q3 + q0q1);
+    R_out->z[2] = q0q0 - q1q1 - q2q2 + q3q3;
 #else
     /* Mathworks */
     R_out->x[0] = 1.0f - 2.0f*q2q2 - 2.0f*q3q3;
@@ -104,70 +102,52 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
 #endif
 }
 
-void Filter::Prediction(float dt, float *w_in)
+void Filter::Prediction(float *w_in, float dt)
 {
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
     // Arange angular velocity as pure quaternion
-    float wquat[4] = { 0.0f, w_in[0], w_in[1], w_in[2] };
+    float q_w[4] = { 0.0f, w_in[0], w_in[1], w_in[2] };
 
-    //if (!quatNorm(wquat, wquat)) return;
-    //QuatNorm(wquat, wquat);
-
-/*
-    Serial.printf("%s: qq_1 = \t%.2f\t%.2f\t%.2f\t%.2f\n", __func__,  wquat[0], wquat[1], wquat[2], wquat[3]);
-    Serial.printf("%s: qq_2 = \t%.2f\t%.2f\t%.2f\t%.2f\n", __func__,  q_in[0], q_in[1], q_in[2], q_in[3]);
-    Serial.printf("%s: qq_3 = \t%.2f\t%.2f\t%.2f\t%.2f\n", __func__,  q_out[0], q_out[1], q_out[2], q_out[3]);
-*/
-
-    // Compute derivate of rotation quaternion and integrate over dt
-    //      dquat = -0.5 wquat * q_in
-    //      q_out = q_in + dquat * dt
+    // Compute derivate of rotation quaternion
     float q_res[4];
-    QuatMult(wquat, q_in, q_res);
+    QuatMult(q_w, q_in, q_res);
 
+    // Integrate over dt and store result in _q[]
     for (unsigned int i = 0; i < 4; i++)
-        _q[i] =  q_in[i] - 0.5f * q_res[i] * dt;
-
-    //Serial.printf("%s: _q = \t%.2f\t%.2f\t%.2f\t%.2f\n", __func__,  _q[0], _q[1], _q[2], _q[3]);
+        _q[i] =  q_in[i] - 0.5f*q_res[i]*dt;
 }
 
 void Filter::Correction(float *a_in, float *m_in)
 {
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
-    // (1) Acceleromenter
-    // Calculate the rotation matrix
+    // Correction Step 1: Acceleromenter
+    // Get rotation matrix for predicted _q[]
     mat3f_t R;
     Quat2Mat(q_in, &R);
 
+    // Normalise accel data
     float a[3];
-    VecNorm(a_in, a);   // Normalise accel data
+    VecNorm(a_in, a);
 
-    // Predicted gravity 'g' = R_transposed * a
+    // Get predicted gravity 'g' = R_transposed * a
     float g[3] = {
-                  R.x[0] * a[0] + R.y[0] * a[1] + R.z[0] * a[2],
-                  R.x[1] * a[0] + R.y[1] * a[1] + R.z[1] * a[2],
-                  R.x[2] * a[0] + R.y[2] * a[1] + R.z[2] * a[2]
+            R.x[0]*a[0] + R.y[0]*a[1] + R.z[0]*a[2],
+            R.x[1]*a[0] + R.y[1]*a[1] + R.z[1]*a[2],
+            R.x[2]*a[0] + R.y[2]*a[1] + R.z[2]*a[2]
     };
 
-    //Serial.printf("%s: g[] = \t%.2f\t%.2f\t%.2f\n", __func__, g[0], g[1], g[2]);
-
-    // Delta quaternion q_acc
+    // Get delta quaternion dq_acc
     float dq_acc[4] = {
-                       sqrtf( (g[2] + 1.0f)/2.0f ),
-                      -g[1] / sqrtf( 2.0f*(g[2]+1.0f) ),
-                       g[0] / sqrtf( 2.0f*(g[2]+1.0f) ),
-                       0.0f
+            sqrtf((g[2] + 1.0f) / 2.0f),
+            -g[1] / sqrtf(2.0f*(g[2] + 1.0f)),
+             g[0] / sqrtf(2.0f*(g[2] + 1.0f)),
+             0.0f
     };
-/*
-    Serial.printf("%s: dq_acc[] = \t%.2f\t%.2f\t%.2f\t%.2f\n", __func__, dq_acc[0], dq_acc[1], dq_acc[2], dq_acc[3]);
-    static int counter = 0;
-    counter++;
-    if (counter == 20) exit(1);
-*/
-    // Acc LERP
-    float dq_acc_[4] = {
+
+    // Linear interpolation for dq_acc
+    float dq_acc_l[4] = {
         (1.0f - _alpha) + _alpha*dq_acc[0],
         _alpha*dq_acc[1],
         _alpha*dq_acc[2],
@@ -176,38 +156,39 @@ void Filter::Correction(float *a_in, float *m_in)
 
     // Normalize the quaternion
     float nq_acc[4];
-    QuatNorm(dq_acc_, nq_acc);
+    QuatNorm(dq_acc_l, nq_acc);
 
-    // Applying 1st correction
+    // Apply 1st correction
     float q_new[4];
     QuatMult(q_in, nq_acc, q_new);
 
 #if 1
-    // (2) Magnetometer
-    // Calculate the new rotation matrix
+    // Correction Step 2: Magnetometer
+    // Get rotation matrix for corrected-predicted _q[] (q_new)
     Quat2Mat(q_new, &R);
 
+    // Normalise mag data
     float m[3];
-    VecNorm(m_in, m);   // Normalise mag data
+    VecNorm(m_in, m);
 
-    // magnetic vector into world frame: R_transposed * m
+    // Mag vector into world frame: R_transposed * m
     float l[3] = {
-                  R.x[0] * m[0] + R.y[0] * m[1] + R.z[0] * m[2],
-                  R.x[1] * m[0] + R.y[1] * m[1] + R.z[1] * m[2],
-                  R.x[2] * m[0] + R.y[2] * m[1] + R.z[2] * m[2]
+                  R.x[0]*m[0] + R.y[0]*m[1] + R.z[0]*m[2],
+                  R.x[1]*m[0] + R.y[1]*m[1] + R.z[1]*m[2],
+                  R.x[2]*m[0] + R.y[2]*m[1] + R.z[2]*m[2]
     };
     float Gma = l[0]*l[0] + l[1]*l[1];
 
-    // Delta quaternion q_mag
+    // Delta quaternion dq_mag
     float dq_mag[4] = {
-       sqrtf( (Gma + l[0]*sqrtf(Gma)) / (2.0f*Gma) ),
+       sqrtf((Gma + l[0]*sqrtf(Gma)) / (2.0f*Gma)),
        0.0f,
        0.0f,
-       l[1] / sqrtf( 2.0f*(Gma + l[0]*sqrtf(Gma)) )
+       l[1] / sqrtf(2.0f*(Gma + l[0]*sqrtf(Gma)))
     };
 
-    // Mag LERP
-    float dq_mag_[4] = {
+    // Linear interpolation for dq_mag
+    float dq_mag_l[4] = {
         (1.0f - _beta) + _beta*dq_mag[0],
         _beta*dq_mag[1],
         _beta*dq_mag[2],
@@ -216,9 +197,9 @@ void Filter::Correction(float *a_in, float *m_in)
 
     // Normalize the quaternion
     float nq_mag[4];
-    QuatNorm(dq_mag_, nq_mag);
+    QuatNorm(dq_mag_l, nq_mag);
 
-    // Applying 2st correction
+    // Apply 2nd correction
     QuatMult(q_new, nq_mag, _q);
 #else
     memcpy(_q, q_new, 4*sizeof(float));

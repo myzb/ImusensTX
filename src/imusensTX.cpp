@@ -18,8 +18,6 @@
 
 #define AHRS
 #define I2C_SPI_TIME
-#define SPI_ONLY
-//#define RESET_MAGCAL
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
@@ -28,11 +26,7 @@ static const int Debug = 2;
 // Pin definitions
 static const int ledPin = 13;
 static const int intPin1_vhcl = 9;  // MPU9250 1 vhcl intPin
-#ifndef SPI_ONLY
-static const int intPin2_head = 6;  // MPU9250 2 head intPin
-#else
 static const int intPin2_head = 18; // MPU9250 2 head intPin
-#endif /* SPI_ONLY */
 
 #ifdef I2C_SPI_TIME
 // Times the avg sensor readout time
@@ -42,11 +36,7 @@ volatile static float dt = 0, ts = 0;
 
 // Globals
 mpu9250 vhclMarg(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
-#ifndef SPI_ONLY
-mpu9250 headMarg(0x69, 2, I2C_PINS_3_4); // MPU9250 2 On I2C bus 2 at addr 0x69
-#else
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
-#endif /* SPI_ONLY */
 
 #ifdef MADGWICK
 FusionFilter vhclFilter, headFilter;
@@ -58,18 +48,12 @@ Stopwatch chrono_1, chrono_2;
 MetroExt task_filter = MetroExt(100);       // 100 usec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
-MetroExt task_dbgIRS = MetroExt(2000000);   //   2 sec
 
 static float margData1[10], margData2[10];
 
 void irs1Func_vhcl()
 {
     vhclMarg.GetAllRaw(margData1, HS_TRUE);
-#ifndef I2C_SPI_TIME
-    if (task_dbgIRS.check()) {
-        digitalWrite(ledPin, !digitalRead(ledPin));
-    }
-#endif /* I2C_SPI_TIME */
 }
 
 void irs2Func_head()
@@ -78,11 +62,7 @@ void irs2Func_head()
     ts = micros();
 #endif /* I2C_SPI_TIME */
 
-#ifndef SPI_ONLY
-    headMarg.RequestAllData();
-#else
     headMarg.GetAllRaw(margData2, HS_TRUE);
-#endif /* SPI_ONLY */
 
 #ifdef I2C_SPI_TIME
     dt += micros() - ts;
@@ -222,12 +202,6 @@ void loop()
     static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                 // usb packet number
 
-#ifndef SPI_ONLY
-    // Read the i2c rx buffer when done
-    if (headMarg.RequestedAvailable()) {
-        headMarg.GetAllData(margData2, HS_FALSE);
-    }
-#endif /* SPI_ONLY */
 
 #ifdef AHRS
     /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */

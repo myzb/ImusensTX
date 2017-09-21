@@ -23,7 +23,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 0;
+static const int Debug = 2;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -64,7 +64,7 @@ static float margData1[10], margData2[10];
 
 void irs1Func_vhcl()
 {
-    vhclMarg.GetAllData(margData1, HS_TRUE);
+    vhclMarg.GetAllRaw(margData1, HS_TRUE);
 #ifndef I2C_SPI_TIME
     if (task_dbgIRS.check()) {
         digitalWrite(ledPin, !digitalRead(ledPin));
@@ -81,7 +81,7 @@ void irs2Func_head()
 #ifndef SPI_ONLY
     headMarg.RequestAllData();
 #else
-    headMarg.GetAllData(margData2, HS_TRUE);
+    headMarg.GetAllRaw(margData2, HS_TRUE);
 #endif /* SPI_ONLY */
 
 #ifdef I2C_SPI_TIME

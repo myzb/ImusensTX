@@ -19,8 +19,8 @@ typedef struct {
 class Filter {
 public:
     float _q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
-    const float _alpha = 0.05f;
-    const float _beta = 0.05f;
+    const float _alpha = 0.0001f;
+    const float _beta = 0.0001f;
 
     int VecNorm(float *v, float *v_out);
 

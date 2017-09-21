@@ -20,8 +20,12 @@ private:
     } mat3f_t;
 
     float _q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
-    const float _alpha = 0.0001f;
-    const float _beta = 0.0001f;
+    float _q_id[4] = { 1.0f, 0.0f, 0.0f, 0.0f };    // Identity quaternion
+    const float _alpha = 0.001f;
+    const float _beta = 0.001f;
+
+    void Lerp(float *q, float *r, float factor, float *q_out);
+    void Slerp(float *q, float *r, float factor, float cosRads, float *q_out);
 
     int VecNorm(float *v, float *v_out);
     void QuatMult(float *r, float *q, float *q_out);

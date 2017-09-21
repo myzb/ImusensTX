@@ -102,6 +102,23 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
 #endif
 }
 
+void Filter::Lerp(float *q, float *r, float factor, float *q_out)
+{
+    for (unsigned int i = 0; i < 4; i++)
+        q_out[i] = (1.0f - factor)*q[i] + factor*r[i];
+}
+
+void Filter::Slerp(float *q, float *r, float factor, float cosRads, float *q_out)
+{
+    float omga = acosf(cosRads);
+    float sinOmga = sinf(omga);
+    float sinOmga1 = sinf((1.0f - factor)*omga);
+    float sinOmga2 = sinf(factor*omga);
+
+    for (unsigned int i = 0; i < 4; i++)
+        q_out[i] = sinOmga1/sinOmga*q[i] + sinOmga2/sinOmga*r[i];
+}
+
 void Filter::Prediction(float *w_in, float dt)
 {
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
@@ -146,17 +163,31 @@ void Filter::Correction(float *a_in, float *m_in)
              0.0f
     };
 
-    // Linear interpolation for dq_acc
-    float dq_acc_l[4] = {
-        (1.0f - _alpha) + _alpha*dq_acc[0],
-        _alpha*dq_acc[1],
-        _alpha*dq_acc[2],
-        _alpha*dq_acc[3]
-    };
-
-    // Normalize the quaternion
+    // Interpolation for dq_acc
+    float dq_acc_l[4];
     float nq_acc[4];
-    QuatNorm(dq_acc_l, nq_acc);
+
+    // dq_acc[0] = dot_product(dq_acc, q_identity)
+    if (dq_acc[0] > 0.9f) {
+        // Linear interpolation
+#if 1
+        Lerp(_q_id, dq_acc, _alpha, dq_acc_l);
+#else
+        float dq_acc_l[4] = {
+            (1.0f - _alpha) + _alpha*dq_acc[0],
+            _alpha*dq_acc[1],
+            _alpha*dq_acc[2],
+            _alpha*dq_acc[3]
+        };
+#endif
+        // Normalize the quaternion
+        QuatNorm(dq_acc_l, nq_acc);
+
+    } else {
+        // Shperical interpolation
+        Slerp(_q_id, dq_acc, _alpha, dq_acc[0], nq_acc);
+        //Serial.printf("Sherical interpol!\n");
+    }
 
     // Apply 1st correction
     float q_new[4];
@@ -187,17 +218,29 @@ void Filter::Correction(float *a_in, float *m_in)
        l[1] / sqrtf(2.0f*(Gma + l[0]*sqrtf(Gma)))
     };
 
-    // Linear interpolation for dq_mag
-    float dq_mag_l[4] = {
-        (1.0f - _beta) + _beta*dq_mag[0],
-        _beta*dq_mag[1],
-        _beta*dq_mag[2],
-        _beta*dq_mag[3]
-    };
+    // Interpolation for dq_mag
+#if 1
+    float dq_mag_l[4];
+    float nq_mag[4];
+
+    if (dq_mag[0] > 0.9f) {
+        // Linear interpolation
+        Lerp(_q_id, dq_mag, _beta, dq_mag_l);
+#else
+        float dq_mag_l[4] = {
+            (1.0f - _beta) + _beta*dq_mag[0],
+            _beta*dq_mag[1],
+            _beta*dq_mag[2],
+            _beta*dq_mag[3]
+        };
+#endif
 
     // Normalize the quaternion
-    float nq_mag[4];
     QuatNorm(dq_mag_l, nq_mag);
+    } else {
+        // Shperical interpolation
+        Slerp(_q_id, dq_mag, _beta, dq_mag[0], nq_mag);
+    }
 
     // Apply 2nd correction
     QuatMult(q_new, nq_mag, _q);

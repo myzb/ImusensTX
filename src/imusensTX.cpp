@@ -87,14 +87,6 @@ void irs2Func_head()
 #ifdef I2C_SPI_TIME
     dt += micros() - ts;
     irsCnt++;
-    if (task_dbgIRS.check()) {
-        Serial.printf("IMU: fs = %.2f Hz\n", (float)irsCnt / 2.0f);
-        Serial.printf("IMU: I2C/SPI irsFunc speed = %.2f us\n\n", dt / irsCnt);
-        dt = 0;
-        irsCnt = 0;
-        // Toggle the LED (signal sensor rx is active)
-        digitalWrite(ledPin, !digitalRead(ledPin));
-    }
 #endif /* I2C_SPI_TIME */
 }
 
@@ -302,7 +294,14 @@ void loop()
     if (task_dbgOut.check()) {
 
         if (Debug) {
+            // Timings
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
+#ifdef I2C_SPI_TIME
+            Serial.printf("MARG: fs = %.2f Hz\n", (float)irsCnt / 2.0f);
+            Serial.printf("MARG: I2C/SPI irsFunc speed = %.2f us\n\n", dt / irsCnt);
+            dt = 0;
+            irsCnt = 0;
+#endif /* I2C_SPI_TIME */
 
             // The current rotation quaternions
             static const float *q1 = vhclFilter.GetQuat();
@@ -325,6 +324,9 @@ void loop()
             Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   margData2[4], margData2[5], margData2[6]);
             Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", margData2[7], margData2[8], margData2[9]);
         }
+
+        // Toggle the LED (signal uC is alive)
+        digitalWrite(ledPin, !digitalRead(ledPin));
 
         // Reset print counters
         filterCnt = 0;

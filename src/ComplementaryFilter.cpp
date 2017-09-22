@@ -11,12 +11,13 @@
 
 int Filter::VecNorm(float *v, float *v_out)
 {
-    float sqrt_vv = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    float norm = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 
-    if (sqrt_vv == 0.0f) Serial.printf("Division by Zero!\n");
+    if (norm == 0.0f) Serial.printf("Division by Zero!\n");
+    norm = 1/norm;
 
     for (unsigned int i = 0; i < 3; i++)
-        v_out[i] = v[i]/sqrt_vv;
+        v_out[i] = v[i]*norm;
 
     return 1;
 }
@@ -42,12 +43,13 @@ void Filter::QuatMult(float *r, float *q, float *q_out)
 // Quaternion normalize
 int Filter::QuatNorm(float *q, float *q_out)
 {
-    float sqrt_qq = sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] +q[3]*q[3]);
+    float norm = sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] +q[3]*q[3]);
 
-    if (sqrt_qq == 0.0f) Serial.printf("Division by Zero!\n");
+    if (norm == 0.0f) Serial.printf("Division by Zero!\n");
+    norm = 1/norm;
 
     for (unsigned int i = 0; i < 4; i++)
-        q_out[i] = q[i]/sqrt_qq;
+        q_out[i] = q[i]*norm;
 
     return 1;
 }
@@ -111,12 +113,12 @@ void Filter::Lerp(float *q, float *r, float factor, float *q_out)
 void Filter::Slerp(float *q, float *r, float factor, float cosRads, float *q_out)
 {
     float omga = acosf(cosRads);
-    float sinOmga = sinf(omga);
+    float isinOmga = 1/sinf(omga); // isin = 1/sin
     float sinOmga1 = sinf((1.0f - factor)*omga);
     float sinOmga2 = sinf(factor*omga);
 
     for (unsigned int i = 0; i < 4; i++)
-        q_out[i] = sinOmga1/sinOmga*q[i] + sinOmga2/sinOmga*r[i];
+        q_out[i] = sinOmga1*isinOmga*q[i] + sinOmga2*isinOmga*r[i];
 }
 
 void Filter::Prediction(float *w_in, float dt)
@@ -134,6 +136,7 @@ void Filter::Prediction(float *w_in, float dt)
     for (unsigned int i = 0; i < 4; i++)
         _q[i] =  q_in[i] - 0.5f*q_res[i]*dt;
 
+    // Avoid quat de-normalization due to recursive numerical operations
     QuatNorm(_q,_q);
 }
 
@@ -159,7 +162,7 @@ void Filter::Correction(float *a_in, float *m_in)
 
     // Get delta quaternion dq_acc
     float dq_acc[4] = {
-            sqrtf((g[2] + 1.0f) / 2.0f),
+            sqrtf((g[2] + 1.0f) * 0.5f),
             -g[1] / sqrtf(2.0f*(g[2] + 1.0f)),
              g[0] / sqrtf(2.0f*(g[2] + 1.0f)),
              0.0f
@@ -249,6 +252,8 @@ void Filter::Correction(float *a_in, float *m_in)
 #else
     memcpy(_q, q_new, 4*sizeof(float));
 #endif
+
+    // Avoid quat de-normalization due to recursive numerical operations
     QuatNorm(_q,_q);
 }
 

@@ -104,6 +104,28 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
 #endif
 }
 
+float Filter::Gain(float *a_in)
+{
+    // Compute function factors once
+    static const float a = 1.0f/(_th2 - _th1);
+    static const float iG = 1.0f/_G;
+
+    float norm_a = sqrtf(a_in[0]*a_in[0] + a_in[1]*a_in[1] + a_in[2]*a_in[2]);
+    float error = fabsf(norm_a - _G)*iG;
+
+    // Compute gain factor
+    float factor = -a*(error - _th2);
+
+    // Limit gain to factor = [0, 1]
+    if (factor > 1.0f) {
+        return 1.0f;
+    } else if (factor < 0.0f) {
+        return 0.0f;
+    } else {
+        return factor;
+    }
+}
+
 void Filter::Lerp(float *q, float *r, float factor, float *q_out)
 {
     for (unsigned int i = 0; i < 4; i++)
@@ -176,7 +198,7 @@ void Filter::Correction(float *a_in, float *m_in)
     if (dq_acc[0] > 0.9f) {
         // Linear interpolation
 #if 1
-        Lerp(_q_id, dq_acc, _alpha, dq_acc_l);
+        Lerp(_q_id, dq_acc, Gain(a_in), dq_acc_l);
 #else
         float dq_acc_l[4] = {
             (1.0f - _alpha) + _alpha*dq_acc[0],
@@ -190,7 +212,7 @@ void Filter::Correction(float *a_in, float *m_in)
 
     } else {
         // Shperical interpolation
-        Slerp(_q_id, dq_acc, _alpha, dq_acc[0], nq_acc);
+        Slerp(_q_id, dq_acc, Gain(a_in), dq_acc[0], nq_acc);
         //Serial.printf("Sherical interpol!\n");
     }
 

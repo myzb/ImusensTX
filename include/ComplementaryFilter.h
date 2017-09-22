@@ -24,8 +24,14 @@ private:
     const float _alpha = 0.001f;
     const float _beta = 0.001f;
 
+    // Adaptive gain thersholds
+    const float _th1 = 0.1f;
+    const float _th2 = 0.2f;
+    const float _G = 9.807f;    // Force of gravity
+
     void Lerp(float *q, float *r, float factor, float *q_out);
     void Slerp(float *q, float *r, float factor, float cosRads, float *q_out);
+    float Gain(float *a_in);
 
     int VecNorm(float *v, float *v_out);
     void QuatMult(float *r, float *q, float *q_out);

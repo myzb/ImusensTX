@@ -8,6 +8,9 @@
 #include <Arduino.h>
 
 #include "ComplementaryFilter.h"
+#include "MetroExt.h"
+
+MetroExt task_print = MetroExt(200000);   //   0,2 sec
 
 int Filter::VecNorm(float *v, float *v_out)
 {
@@ -107,18 +110,23 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
 float Filter::Gain(float *a_in)
 {
     // Compute function factors once
-    static const float a = 1.0f/(_th2 - _th1);
+    static const float m = _gain_max/(_th2 - _th1);
     static const float iG = 1.0f/_G;
 
     float norm_a = sqrtf(a_in[0]*a_in[0] + a_in[1]*a_in[1] + a_in[2]*a_in[2]);
     float error = fabsf(norm_a - _G)*iG;
 
     // Compute gain factor
-    float factor = -a*(error - _th2);
+    float factor = -m*(error - _th2);
 
-    // Limit gain to factor = [0, 1]
-    if (factor > 1.0f) {
-        return 1.0f;
+    if (task_print.check()) {
+        Serial.printf("%s: norm_a = %f\tmag = %f\talpha = %f\n", __func__, norm_a, error, factor);
+    }
+    return _alpha;
+
+    // Limit gain to factor = [0, _gain_max]
+    if (factor > _gain_max) {
+        return _gain_max;
     } else if (factor < 0.0f) {
         return 0.0f;
     } else {

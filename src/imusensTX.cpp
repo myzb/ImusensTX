@@ -18,6 +18,7 @@
 
 #define AHRS
 #define I2C_SPI_TIME
+//#define MADGWICK
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
@@ -226,7 +227,7 @@ void loop()
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #else
-        vhclFilter.Prediction(&margData1[4], chrono_1.Split());
+        //vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         headFilter.Prediction(&margData2[4], chrono_2.Split());
 
         vhclFilter.Correction(&margData1[0], &margData1[7]);

@@ -25,9 +25,10 @@ private:
     const float _beta = 0.001f;
 
     // Adaptive gain thersholds
-    const float _th1 = 0.1f;
-    const float _th2 = 0.2f;
-    const float _G = 9.807f;    // Force of gravity
+    const float _gain_max = 0.01f;
+    const float _th1 = 0.001f;
+    const float _th2 = 0.005f;
+    const float _G = 9.99f;    // Force of gravity
 
     void Lerp(float *q, float *r, float factor, float *q_out);
     void Slerp(float *q, float *r, float factor, float cosRads, float *q_out);

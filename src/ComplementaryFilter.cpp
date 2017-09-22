@@ -133,6 +133,8 @@ void Filter::Prediction(float *w_in, float dt)
     // Integrate over dt and store result in _q[]
     for (unsigned int i = 0; i < 4; i++)
         _q[i] =  q_in[i] - 0.5f*q_res[i]*dt;
+
+    QuatNorm(_q,_q);
 }
 
 void Filter::Correction(float *a_in, float *m_in)
@@ -247,6 +249,7 @@ void Filter::Correction(float *a_in, float *m_in)
 #else
     memcpy(_q, q_new, 4*sizeof(float));
 #endif
+    QuatNorm(_q,_q);
 }
 
 const float *Filter::GetQuat()

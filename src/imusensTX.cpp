@@ -18,7 +18,7 @@
 
 #define AHRS
 #define I2C_SPI_TIME
-//#define MADGWICK
+#define MADGWICK
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
@@ -41,7 +41,7 @@ mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
 #ifdef MADGWICK
 FusionFilter vhclFilter, headFilter;
-MetroExt task_filter = MetroExt(1000);      // 100 us
+MetroExt task_filter = MetroExt(100);       // 100 us
 #else
 Filter vhclFilter, headFilter;
 volatile int int1_event = 0, int2_event = 0;
@@ -56,7 +56,9 @@ static float margData1[10], margData2[10];
 void irs1Func_vhcl()
 {
     vhclMarg.GetAllRaw(margData1, HS_TRUE);
+#ifndef MADGWICK
     int1_event = 1;
+#endif
 }
 
 void irs2Func_head()
@@ -71,8 +73,9 @@ void irs2Func_head()
     dt += micros() - ts;
     irsCnt++;
 #endif /* I2C_SPI_TIME */
-
+#ifndef MADGWICK
     int2_event = 1;
+#endif
 }
 
 void setup()
@@ -213,9 +216,13 @@ void loop()
     static float fs_max;                        // fusion speed variable
 
 #ifdef AHRS
+#ifdef MADGWICK
+    /* Task 1 - Filter sensor data @ 100us (10 kHz) */
+    if (task_filter.check()) {
+#else
     /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
     if (int1_event) {
-
+#endif
         noInterrupts();
         Stopwatch chrono_3;
 #ifdef MADGWICK
@@ -227,15 +234,16 @@ void loop()
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #else
-        //vhclFilter.Prediction(&margData1[4], chrono_1.Split());
+        vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         headFilter.Prediction(&margData2[4], chrono_2.Split());
 
         vhclFilter.Correction(&margData1[0], &margData1[7]);
         headFilter.Correction(&margData2[0], &margData2[7]);
-#endif
-        fs_max += chrono_3.Split();
 
         int1_event = 0;
+    #endif
+
+        fs_max += chrono_3.Split();
         interrupts();
 
         // Get quat rotation difference, store result in tx_buffer[0:3]
@@ -283,7 +291,7 @@ void loop()
         if (Debug) {
             // Timings
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
-            Serial.printf("   max rate = %.2f Hz\n", 20000.0f / fs_max);
+            Serial.printf("   max rate = %.2f Hz\n", 10.0f * 2000.0f / fs_max);
             fs_max = 0.0f;
 
 #ifdef I2C_SPI_TIME

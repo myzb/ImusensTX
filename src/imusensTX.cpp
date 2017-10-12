@@ -55,7 +55,7 @@ static float margData1[10], margData2[10];
 
 void irs1Func_vhcl()
 {
-    vhclMarg.GetAllRaw(margData1, HS_TRUE);
+    vhclMarg.GetAll(margData1, HS_TRUE);
 #ifndef MADGWICK
     int1_event = 1;
 #endif
@@ -67,7 +67,7 @@ void irs2Func_head()
     ts = micros();
 #endif /* I2C_SPI_TIME */
 
-    headMarg.GetAllRaw(margData2, HS_TRUE);
+    headMarg.GetAll(margData2, HS_TRUE);
 
 #ifdef I2C_SPI_TIME
     dt += micros() - ts;
@@ -82,16 +82,16 @@ void setup()
 {
 #if 1
     // Pre-calibrated values (office)
-    float magHardIron[2][3] = { {36.000000f, 59.000000f, -52.000000f},
-                                {-1.000000f, 258.000000f, -179.000000f} };
-    float magSoftIron[2][3] = { {1.112245f, 0.981982f, 0.923729f},
-                                {1.137931f, 0.895349f, 0.995690f} };
+    float magHardIron[][3] = { {36.000000f, 59.000000f, -52.000000f},
+                               {-1.000000f, 258.000000f, -179.000000f} };
+    float magSoftIron[][3] = { {1.112245f, 0.981982f, 0.923729f},
+                               {1.137931f, 0.895349f, 0.995690f} };
 #else
     // Pre-calibrated values (golf)
-    float magHardIron[2][3] = { {36.000000f, 59.000000f, -52.000000f},
-                                {-1.000000f, 258.000000f, -179.000000f} };
-    float magSoftIron[2][3] = { {1.112245f, 0.981982f, 0.923729f},
-                                {1.137931f, 0.895349f, 0.995690f} };
+    float magHardIron[][3] = { {36.000000f, 59.000000f, -52.000000f},
+                               {-1.000000f, 258.000000f, -179.000000f} };
+    float magSoftIron[][3] = { {1.112245f, 0.981982f, 0.923729f},
+                               {1.137931f, 0.895349f, 0.995690f} };
 #endif
 
     if (Debug) Serial.begin(38400);

@@ -318,12 +318,12 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
 
     // Convert counts to microTesla, also include factory calibration per data sheet
     // and user environmental corrections for soft/hard iron distortions
-    mag[0] = (float)counts[7] * _magScale * _magScale_factory[0] - _magHardIron[0];
-    mag[1] = (float)counts[8] * _magScale * _magScale_factory[1] - _magHardIron[1];
-    mag[2] = (float)counts[9] * _magScale * _magScale_factory[2] - _magHardIron[2];
-    mag[0] *= _magSoftIron[0];
-    mag[1] *= _magSoftIron[1];
-    mag[2] *= _magSoftIron[2];
+    mag[0] = (float)counts[7] - _magHardIron[0];
+    mag[1] = (float)counts[8] - _magHardIron[1];
+    mag[2] = (float)counts[9] - _magHardIron[2];
+    mag[0] *= _magSoftIron[0] * _magScale_factory[0] * _magScale;
+    mag[1] *= _magSoftIron[1] * _magScale_factory[1] * _magScale;
+    mag[2] *= _magSoftIron[2] * _magScale_factory[2] * _magScale;
 
     // Transform magnetometer axes to match gyro/accel axes
     all_out[7] = tX[0]*mag[0] + tX[1]*mag[1] + tX[2]*mag[2];
@@ -353,14 +353,19 @@ void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
     all_out[0] = tX[0]*(float)counts[0] + tX[1]*(float)counts[1] + tX[2]*(float)counts[2];
     all_out[1] = tY[0]*(float)counts[0] + tY[1]*(float)counts[1] + tY[2]*(float)counts[2];
     all_out[2] = tZ[0]*(float)counts[0] + tZ[1]*(float)counts[1] + tZ[2]*(float)counts[2];
-    all_out[0] *= _accelScale;
-    all_out[1] *= _accelScale;
-    all_out[2] *= _accelScale;
 
-    // Temp counts in degrees celcius
+    // The 'downwards' gravitational pull on the accel probe mass causes the accel to output an
+    // acceleration upwards. In NED coordinates the z-axis is positive down, therefore the upwards
+    // acceleration (due to the gravitational pull) is negative. By convention +1G is a positive
+    // vector that points downwards. The measured acceleration (due to gravity) has to be inverted.
+    all_out[0] *= -1;
+    all_out[1] *= -1;
+    all_out[2] *= -1;
+
+    // Temp in degrees celcius
     all_out[3] = ((float)counts[3] - _tempOffset) / _tempScale + _tempOffset;
 
-    // Gyro counts in NED
+    // Gyro rad/s in NED
     all_out[4] = tX[0]*(float)counts[4] + tX[1]*(float)counts[5] + tX[2]*(float)counts[6];
     all_out[5] = tY[0]*(float)counts[4] + tY[1]*(float)counts[5] + tY[2]*(float)counts[6];
     all_out[6] = tZ[0]*(float)counts[4] + tZ[1]*(float)counts[5] + tZ[2]*(float)counts[6];
@@ -371,19 +376,13 @@ void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
     // Return if mag data not ready or mag overflow (and use previous data)
     if (!(counts[7] | counts[8] | counts[9])) return;
 
-    // Convert counts to microTesla, also include factory calibration per data sheet
-    // and user environmental corrections for soft/hard iron distortions
-    mag[0] = (float)counts[7] * _magScale * _magScale_factory[0] - _magHardIron[0];
-    mag[1] = (float)counts[8] * _magScale * _magScale_factory[1] - _magHardIron[1];
-    mag[2] = (float)counts[9] * _magScale * _magScale_factory[2] - _magHardIron[2];
-    mag[0] *= _magSoftIron[0];
-    mag[1] *= _magSoftIron[1];
-    mag[2] *= _magSoftIron[2];
-
-    // Mag in uTesla
-    all_out[7] = mag[0];
-    all_out[8] = mag[1];
-    all_out[9] = mag[2];
+    // Mag counts minus hard_iron in NED
+    all_out[7] = (float)counts[7] - _magHardIron[0];
+    all_out[8] = (float)counts[8] - _magHardIron[1];
+    all_out[9] = (float)counts[9] - _magHardIron[2];
+    all_out[7] *= _magScale_factory[0];
+    all_out[8] *= _magScale_factory[1];
+    all_out[9] *= _magScale_factory[2];
 
 #ifdef MAG_EXPORT
     for (int i = 7; i < 10; i++) {
@@ -860,9 +859,9 @@ void mpu9250::MagCal()
     mag_bias[2] = (mag_max[2] + mag_min[2]) / 2;
 
     // save mag biases in G for main program
-    _magHardIron[0] = (float)mag_bias[0] * _magScale * _magScale_factory[0];
-    _magHardIron[1] = (float)mag_bias[1] * _magScale * _magScale_factory[1];
-    _magHardIron[2] = (float)mag_bias[2] * _magScale * _magScale_factory[2];
+    _magHardIron[0] = (float)mag_bias[0]; // * _magScale * _magScale_factory[0];
+    _magHardIron[1] = (float)mag_bias[1]; // * _magScale * _magScale_factory[1];
+    _magHardIron[2] = (float)mag_bias[2]; // * _magScale * _magScale_factory[2];
 
     // Get soft iron correction estimate for xyz axes in counts
     // This is the sphere/elipse diameter for each dimension
@@ -880,11 +879,11 @@ void mpu9250::MagCal()
 
 #if 0
     Serial.printf("Mag calibration done!\n");
-    Serial.printf("AK8963 mag biases (mG)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
-    Serial.printf("AK8963 mag scale (mG)\n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);
+    Serial.printf("AK8963 mag biases (counts)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
+    Serial.printf("AK8963 mag scale  \n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);
 
     Serial.printf("Factory calibration:\n");
-    Serial.printf("Sensitivity scale (counts)\n%.2f\n%.2f\n%.2f\n\n",
+    Serial.printf("Sensitivity scale \n%.2f\n%.2f\n%.2f\n\n",
                     _magScale_factory[0], _magScale_factory[1], _magScale_factory[2]);
 #endif
 }

@@ -40,12 +40,13 @@ mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
 #ifdef MADGWICK
 FusionFilter vhclFilter, headFilter;
+MetroExt task_filter = MetroExt(1000);      // 100 us
 #else
 Filter vhclFilter, headFilter;
+volatile int int1_event = 0, int2_event = 0;
 #endif
 Stopwatch chrono_1, chrono_2;
 
-MetroExt task_filter = MetroExt(100);       // 100 usec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
 
@@ -54,6 +55,7 @@ static float margData1[10], margData2[10];
 void irs1Func_vhcl()
 {
     vhclMarg.GetAllRaw(margData1, HS_TRUE);
+    int1_event = 1;
 }
 
 void irs2Func_head()
@@ -68,18 +70,24 @@ void irs2Func_head()
     dt += micros() - ts;
     irsCnt++;
 #endif /* I2C_SPI_TIME */
+
+    int2_event = 1;
 }
 
 void setup()
 {
 #if 1
     // Pre-calibrated values (office)
-    float magHardIron[3] = {6.21309566f, 48.00038147f, -26.88592911};
-    float magSoftIron[3] = {1.05979073f, 0.90549165f, 1.05037034f};
+    float magHardIron[2][3] = { {36.000000f, 59.000000f, -52.000000f},
+                                {-1.000000f, 258.000000f, -179.000000f} };
+    float magSoftIron[2][3] = { {1.112245f, 0.981982f, 0.923729f},
+                                {1.137931f, 0.895349f, 0.995690f} };
 #else
     // Pre-calibrated values (golf)
-    float magHardIron[3] = {47.51190567f, 584.83221436f, -210.48852539};
-    float magSoftIron[3] = {1.02854228f, 0.99213374f, 0.98056370f};
+    float magHardIron[2][3] = { {36.000000f, 59.000000f, -52.000000f},
+                                {-1.000000f, 258.000000f, -179.000000f} };
+    float magSoftIron[2][3] = { {1.112245f, 0.981982f, 0.923729f},
+                                {1.137931f, 0.895349f, 0.995690f} };
 #endif
 
     if (Debug) Serial.begin(38400);
@@ -111,7 +119,7 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    vhclMarg.AcelGyroCal();
+    //vhclMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
@@ -132,7 +140,7 @@ void setup()
     vhclMarg.MagCal();
 #else
     if (Debug) Serial.printf("AK8963  (1): Mag calibration using pre-recorded values\n");
-    vhclMarg.SetMagCal(magHardIron, magSoftIron);
+    vhclMarg.SetMagCal(&magHardIron[0][0], &magSoftIron[0][0]);
 #endif /* RESET_MAGCAL */
 
 next:
@@ -155,7 +163,7 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    headMarg.AcelGyroCal();
+    //headMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
@@ -176,7 +184,7 @@ next:
     headMarg.MagCal();
 #else
     if (Debug) Serial.printf("AK8963  (2): Mag calibration using pre-recorded values\n");
-    headMarg.SetMagCal(magHardIron, magSoftIron);
+    headMarg.SetMagCal(&magHardIron[1][0], &magSoftIron[1][0]);
 #endif /* RESET_MAGCAL */
 
 end:
@@ -204,8 +212,8 @@ void loop()
     static float fs_max;                        // fusion speed variable
 
 #ifdef AHRS
-    /* Task 1 - Filter sensor data @ 0.1 msec (10 kHz) */
-    if (task_filter.check()) {
+    /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
+    if (int1_event) {
 
         noInterrupts();
         Stopwatch chrono_3;
@@ -225,6 +233,8 @@ void loop()
         headFilter.Correction(&margData2[0], &margData2[7]);
 #endif
         fs_max += chrono_3.Split();
+
+        int1_event = 0;
         interrupts();
 
         // Get quat rotation difference, store result in tx_buffer[0:3]

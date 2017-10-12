@@ -292,7 +292,7 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
     _useSPIHS = mode;       // Use high speed SPI for data readout
     GetAllCounts(counts);   // Get raw ADC counts
 
-    // Accel counts in m/s^2 accounting for direction of gravitational force (downwards)
+    // Accel in m/s2 (ENU coords)
 #if 0
     // There was a bug that prevented writing accel calibration values to the
     // corresponding registers. Keep this here just incase.
@@ -308,24 +308,32 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
     // Temp counts in degrees celcius
     all_out[3] = ((float)counts[3] - _tempOffset) / _tempScale + _tempOffset;
 
-    // Gyro counts in rad/s
+    // Gyro in rad/s (ENU coords)
     all_out[4] = (float)counts[4] * _gyroScale;
     all_out[5] = (float)counts[5] * _gyroScale;
     all_out[6] = (float)counts[6] * _gyroScale;
 
-    // Return if mag data not ready or mag overflow (and use previous data)
-    if (!(counts[7] | counts[8] | counts[9])) return;
+    // Return if mag data not ready or mag overflow
+    _magReady = (counts[7] | counts[8] | counts[9]);
+   if (!_magReady) return;
 
-    // Convert counts to microTesla, also include factory calibration per data sheet
-    // and user environmental corrections for soft/hard iron distortions
+    // Mag in mTesla
+    // Substract hardIron offset from mag counts
     mag[0] = (float)counts[7] - _magHardIron[0];
     mag[1] = (float)counts[8] - _magHardIron[1];
     mag[2] = (float)counts[9] - _magHardIron[2];
-    mag[0] *= _magSoftIron[0] * _magScale_factory[0] * _magScale;
-    mag[1] *= _magSoftIron[1] * _magScale_factory[1] * _magScale;
-    mag[2] *= _magSoftIron[2] * _magScale_factory[2] * _magScale;
 
-    // Transform magnetometer axes to match gyro/accel axes
+    // Apply scaling factors and convert to micro Tesla
+    static float magScale_total[] = {
+            _magSoftIron[0] * _magScale_factory[0]  * _magScale,
+            _magSoftIron[1] * _magScale_factory[1]  * _magScale,
+            _magSoftIron[2] * _magScale_factory[2]  * _magScale
+    };
+    mag[0] *= magScale_total[0];
+    mag[1] *= magScale_total[1];
+    mag[2] *= magScale_total[2];
+
+    // Transform axes to ENU coords (east-north-up)
     all_out[7] = tX[0]*mag[0] + tX[1]*mag[1] + tX[2]*mag[2];
     all_out[8] = tY[0]*mag[0] + tY[1]*mag[1] + tY[2]*mag[2];
     all_out[9] = tZ[0]*mag[0] + tZ[1]*mag[1] + tZ[2]*mag[2];
@@ -341,15 +349,14 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
 #endif /* MAG_EXPORT */
 }
 
-void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
+void mpu9250::GetAll(float* all_out, bus_hs mode)
 {
     int16_t counts[10];
-    float mag[3];
 
     _useSPIHS = mode;       // Use high speed SPI for data readout
     GetAllCounts(counts);   // Get raw ADC counts
 
-    // Accel counts in NED
+    // Accel counts (NED coords)
     all_out[0] = tX[0]*(float)counts[0] + tX[1]*(float)counts[1] + tX[2]*(float)counts[2];
     all_out[1] = tY[0]*(float)counts[0] + tY[1]*(float)counts[1] + tY[2]*(float)counts[2];
     all_out[2] = tZ[0]*(float)counts[0] + tZ[1]*(float)counts[1] + tZ[2]*(float)counts[2];
@@ -358,14 +365,14 @@ void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
     // acceleration upwards. In NED coordinates the z-axis is positive down, therefore the upwards
     // acceleration (due to the gravitational pull) is negative. By convention +1G is a positive
     // vector that points downwards. The measured acceleration (due to gravity) has to be inverted.
-    all_out[0] *= -1;
-    all_out[1] *= -1;
-    all_out[2] *= -1;
+    all_out[0] *= -1.0f;
+    all_out[1] *= -1.0f;
+    all_out[2] *= -1.0f;
 
     // Temp in degrees celcius
     all_out[3] = ((float)counts[3] - _tempOffset) / _tempScale + _tempOffset;
 
-    // Gyro rad/s in NED
+    // Gyro rad/s (NED coords)
     all_out[4] = tX[0]*(float)counts[4] + tX[1]*(float)counts[5] + tX[2]*(float)counts[6];
     all_out[5] = tY[0]*(float)counts[4] + tY[1]*(float)counts[5] + tY[2]*(float)counts[6];
     all_out[6] = tZ[0]*(float)counts[4] + tZ[1]*(float)counts[5] + tZ[2]*(float)counts[6];
@@ -373,10 +380,11 @@ void mpu9250::GetAllRaw(float* all_out, bus_hs mode)
     all_out[5] *= _gyroScale;
     all_out[6] *= _gyroScale;
 
-    // Return if mag data not ready or mag overflow (and use previous data)
-    if (!(counts[7] | counts[8] | counts[9])) return;
+    // Return if mag data not ready or mag overflow
+    _magReady = (counts[7] | counts[8] | counts[9]);
+   if (!_magReady) return;
 
-    // Mag counts minus hard_iron in NED
+    // Mag counts minus hard_iron (NED coords)
     all_out[7] = (float)counts[7] - _magHardIron[0];
     all_out[8] = (float)counts[8] - _magHardIron[1];
     all_out[9] = (float)counts[9] - _magHardIron[2];

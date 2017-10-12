@@ -306,6 +306,7 @@ public:
 
     float _accelScale = 0, _gyroScale = 0, _magScale = 0;             // Sensor resolutions per LSB
     uint8_t _magRate = 0;                                             // Sensor sampling rate
+    uint16_t _magReady = 0;                                           // Ready status of mag data
 
     // SPI/I2C
     uint8_t _address;       // MPU9250 Address
@@ -348,8 +349,8 @@ public:
 
     // Functions that return the sensor data
     void GetAllCounts(int16_t *counts_out);         // ADC values
-    void GetAllRaw(float* all_out, bus_hs mode);  // Raw values (converted)
-    void GetAllData(float *all_out, bus_hs mode);   // Values in m/s^2, rad/s, microTesla, DegCelcius
+    void GetAll(float* all_out, bus_hs mode);       // Data for AHRS in NED Coordinates
+    void GetAllData(float *all_out, bus_hs mode);   // Data in SI-Units in ENU Coordinates
 
     // Register R/W access
     bool WriteRegister(uint8_t address, uint8_t subAddress, uint8_t data);

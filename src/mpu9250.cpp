@@ -456,6 +456,18 @@ void mpu9250::InitAK8963(ak8963_mag_range magRange, ak8963_mag_rate magRate)
 
 int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, uint8_t SRD)
 {
+    // WORKAROUND: The AK8963 hangs in some cases when restarting the MPU after reprogramming
+    // the uC. Power down the AK8963 first when initialising the MPU to avoid this bug.
+    // Enable internal I2C master mode
+    WriteRegister(_address, USER_CTRL, I2C_MST_EN);
+
+    // set the I2C bus speed to 400 kHz
+    WriteRegister(_address, I2C_MST_CTRL, I2C_MST_CLK);
+
+    // Power down magnetometer
+    WriteAK8963Register(AK8963_CNTL1, AK8963_PWR_DOWN);
+    // END WORKAROUND
+
     // Reset the MPU9250
     WriteRegister(_address, PWR_MGMT_1, H_RESET);
 

@@ -208,8 +208,6 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     // dq_acc[0] = dot_product(dq_acc, q_identity)
     if (dq_acc[0] > 0.9f) {
         // Linear interpolation
-
-
 #if 1
         Lerp(_q_id, dq_acc, Gain(a_in), dq_acc_l);
 #else
@@ -224,9 +222,9 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
         QuatNorm(dq_acc_l, nq_acc);
 
     } else {
-        // Shperical interpolation
+        // Spherical interpolation
         Slerp(_q_id, dq_acc, Gain(a_in), dq_acc[0], nq_acc);
-        //Serial.printf("Sherical interpol!\n");
+        //Serial.printf("Spherical interpol!\n");
     }
 
     // Apply 1st correction
@@ -278,8 +276,9 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
             // Normalize the quaternion
             QuatNorm(dq_mag_l, nq_mag);
         } else {
-            // Shperical interpolation
+            // Spherical interpolation
             Slerp(_q_id, dq_mag, _beta, dq_mag[0], nq_mag);
+            //Serial.printf("Spherical interpol!\n");
         }
 
         // Apply 2nd correction

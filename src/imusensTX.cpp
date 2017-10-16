@@ -288,7 +288,7 @@ void loop()
         if (Debug) {
             // Timings
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
-            Serial.printf("   max rate = %.2f Hz\n", 10.0f * 2000.0f / fs_max);
+            Serial.printf("   max rate = %.2f Hz\n", (float)filterCnt / fs_max);
             fs_max = 0.0f;
 
 #ifdef I2C_SPI_TIME

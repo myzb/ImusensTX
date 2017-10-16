@@ -43,8 +43,8 @@ int Filter::VecNorm(float *v, float *v_out)
 {
     float norm = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 
-    if (norm == 0.0f) Serial.printf("Division by Zero!\n");
-    norm = 1/norm;
+    if (norm == 0.0f) Serial.printf("Division by Zero!\n"); // TODO: do something
+    norm = 1.0f/norm;
 
     for (unsigned int i = 0; i < 3; i++)
         v_out[i] = v[i]*norm;
@@ -75,8 +75,8 @@ int Filter::QuatNorm(float *q, float *q_out)
 {
     float norm = sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] +q[3]*q[3]);
 
-    if (norm == 0.0f) Serial.printf("Division by Zero!\n");
-    norm = 1/norm;
+    if (norm == 0.0f) Serial.printf("Division by Zero!\n"); // TODO: do something
+    norm = 1.0f/norm;
 
     for (unsigned int i = 0; i < 4; i++)
         q_out[i] = q[i]*norm;
@@ -176,6 +176,8 @@ void Filter::Slerp(float *q, float *r, float factor, float cosRads, float *q_out
     float isinOmga = 1/sinf(omga); // isin = 1/sin
     float sinOmga1 = sinf((1.0f - factor)*omga);
     float sinOmga2 = sinf(factor*omga);
+
+    if (isinOmga != isinOmga) return; // TODO: do something
 
     for (unsigned int i = 0; i < 4; i++)
         q_out[i] = sinOmga1*isinOmga*q[i] + sinOmga2*isinOmga*r[i];

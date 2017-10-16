@@ -22,7 +22,7 @@ private:
     float _q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
     float _q_id[4] = { 1.0f, 0.0f, 0.0f, 0.0f };    // Identity quaternion
     const float _alpha = 0.001f;
-    const float _beta = 0.001f;
+    const float _beta = 0.005f;
 
     // Adaptive gain thersholds
     const float _gain_max = 0.01f;

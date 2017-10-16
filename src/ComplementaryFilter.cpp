@@ -36,7 +36,7 @@ void filterloop(float *m_in, float *m_out)
         m_out[i] =  magyv[i][5];
     }
 
-    Serial.printf("%f\t%f\n", m_in[0], m_out[0]);
+//    Serial.printf("%f\t%f\n", m_in[0], m_out[0]);
 }
 
 int Filter::VecNorm(float *v, float *v_out)
@@ -229,13 +229,13 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     };
 
     // Interpolation for dq_acc
-    float dq_acc_l[4];
+    // dq_acc[0] = dot_product(dq_acc, q_identity)
     float nq_acc[4];
 
-    // dq_acc[0] = dot_product(dq_acc, q_identity)
     if (dq_acc[0] > 0.9f) {
         // Linear interpolation
 #if 1
+        float dq_acc_l[4];
         Lerp(_q_id, dq_acc, Gain(a_in), dq_acc_l);
 #else
         float dq_acc_l[4] = {
@@ -288,12 +288,12 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
         };
 
         // Interpolation for dq_mag
-#if 1
-        float dq_mag_l[4];
         float nq_mag[4];
 
         if (dq_mag[0] > 0.9f) {
             // Linear interpolation
+#if 1
+            float dq_mag_l[4];
             Lerp(_q_id, dq_mag, _beta, dq_mag_l);
 #else
             float dq_mag_l[4] = {
@@ -303,7 +303,6 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
                 _beta*dq_mag[3]
             };
 #endif
-
             // Normalize the quaternion
             QuatNorm(dq_mag_l, nq_mag);
         } else {

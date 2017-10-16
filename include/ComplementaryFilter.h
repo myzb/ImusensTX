@@ -42,6 +42,6 @@ private:
 public:
     const float *GetQuat();
     void Prediction(float *w_in, float dt);
-    void Correction(float *a_in, float *m_in);
+    void Correction(float *a_in, float *m_in, uint16_t new_mag);
 };
 #endif /* _COMPLEMENTARYFILTER_H_ */

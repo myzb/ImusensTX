@@ -16,13 +16,12 @@
 #include "MetroExt.h"
 #include "Stopwatch.h"
 
-#define AHRS
 #define I2C_SPI_TIME
-#define MADGWICK
+//#define MADGWICK
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 2;
+static const int Debug = 1;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -215,7 +214,6 @@ void loop()
     static uint32_t pktCnt = 0;                 // usb packet number
     static float fs_max;                        // fusion speed variable
 
-#ifdef AHRS
 #ifdef MADGWICK
     /* Task 1 - Filter sensor data @ 100us (10 kHz) */
     if (task_filter.check()) {
@@ -237,11 +235,11 @@ void loop()
         vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         headFilter.Prediction(&margData2[4], chrono_2.Split());
 
-        vhclFilter.Correction(&margData1[0], &margData1[7]);
-        headFilter.Correction(&margData2[0], &margData2[7]);
+        vhclFilter.Correction(&margData1[0], &margData1[7], vhclMarg._magReady);
+        headFilter.Correction(&margData2[0], &margData2[7], headMarg._magReady);
 
         int1_event = 0;
-    #endif
+#endif
 
         fs_max += chrono_3.Split();
         interrupts();
@@ -251,7 +249,6 @@ void loop()
         memcpy(tx_buffer.num_f, vhclFilter.GetQuat(), 4*sizeof(float));
         filterCnt++;
     }
-#endif /* AHRS */
 
     /* Task 2 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {

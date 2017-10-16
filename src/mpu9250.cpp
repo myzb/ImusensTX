@@ -388,9 +388,9 @@ void mpu9250::GetAll(float* all_out, bus_hs mode)
     all_out[7] = (float)counts[7] - _magHardIron[0];
     all_out[8] = (float)counts[8] - _magHardIron[1];
     all_out[9] = (float)counts[9] - _magHardIron[2];
-    all_out[7] *= _magScale_factory[0];
-    all_out[8] *= _magScale_factory[1];
-    all_out[9] *= _magScale_factory[2];
+    all_out[7] *= _magScale_factory[0] *_magSoftIron[0];
+    all_out[8] *= _magScale_factory[1] *_magSoftIron[1];
+    all_out[9] *= _magScale_factory[2] *_magSoftIron[2];
 
 #ifdef MAG_EXPORT
     for (int i = 7; i < 10; i++) {
@@ -543,14 +543,14 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     // TODO: Allow the user to specify rate + bw
     c = ReadRegister(_address, CONFIG);
     c = c & ~0x03;          // Clear DLPFG bits [2:0]
-    c = c | 0x03;           // Set gyro rate to 1kHz and bandwidth to 41Hz
+    c = c | 0x01;           // Set gyro rate to 1kHz and bandwidth to 184Hz
     WriteRegister(_address, CONFIG, c);
 
     // Set accelerometer sampling rate and digital lp-filter config
     // TODO: Allow the user to specify rate + bw
     c = ReadRegister(_address, ACCEL_CONFIG2);
     c = c & ~0x0F; // Clear ACCEL_FCHOICE_B (bit 3) and A_DLPFG (bits [2:0])
-    c = c | 0x03;  // Set accel rate to 1 kHz and bandwidth to 41 Hz
+    c = c | 0x01;  // Set accel rate to 1 kHz and bandwidth to 184Hz
     WriteRegister(_address, ACCEL_CONFIG2, c);
 
     // Set sensor data output rate = sampling rate/(1 + SMPLRT_DIV)

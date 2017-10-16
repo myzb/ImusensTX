@@ -12,6 +12,33 @@
 
 MetroExt task_print = MetroExt(200000);   //   0,2 sec
 
+#define NZEROS 5
+#define NPOLES 5
+#define GAIN   1.672358808e+04
+
+float magxv[3][NZEROS+1], magyv[3][NPOLES+1];
+
+void filterloop(float *m_in, float *m_out)
+{
+    for (int i = 0; i < 3; i++) {
+        magxv[i][0] = magxv[i][1]; magxv[i][1] = magxv[i][2];
+        magxv[i][2] = magxv[i][3]; magxv[i][3] = magxv[i][4]; magxv[i][4] = magxv[i][5];
+        magxv[i][5] = m_in[i] / GAIN;
+
+        magyv[i][0] = magyv[i][1]; magyv[i][1] = magyv[i][2]; magyv[i][2] = magyv[i][3];
+        magyv[i][3] = magyv[i][4]; magyv[i][4] = magyv[i][5];
+        magyv[i][5] =   (magxv[i][0] + magxv[i][5]) + 5 * (magxv[i][1] + magxv[i][4])
+                     + 10 * (magxv[i][2] + magxv[i][3])
+                     + (  0.3599282451 * magyv[i][0]) + ( -2.1651329097 * magyv[i][1])
+                     + (  5.2536151704 * magyv[i][2]) + ( -6.4348670903 * magyv[i][3])
+                     + (  3.9845431196 * magyv[i][4]);
+
+        m_out[i] =  magyv[i][5];
+    }
+
+    Serial.printf("%f\t%f\n", m_in[0], m_out[0]);
+}
+
 int Filter::VecNorm(float *v, float *v_out)
 {
     float norm = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
@@ -232,6 +259,10 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     QuatMult(q_in, nq_acc, q_new);
 
     if (new_mag) {
+        // butterworth filter
+        float m_filt[3];
+        filterloop(m_in, m_filt);
+
         // Correction Step 2: Magnetometer
         // Get rotation matrix for corrected-predicted _q[] (q_new)
         Quat2Mat(q_new, &R);

@@ -10,6 +10,7 @@
 #include <SPI.h>
 
 #include "utils.h"
+#include "Filter.h"
 #include "FusionFilter.h"
 #include "ComplementaryFilter.h"
 #include "mpu9250.h"
@@ -42,7 +43,11 @@ mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 FusionFilter vhclFilter, headFilter;
 MetroExt task_filter = MetroExt(100);       // 100 us
 #else
+#if 0
 Filter vhclFilter, headFilter;
+#else
+CompFilter vhclFilter, headFilter;
+#endif
 volatile int int1_event = 0, int2_event = 0;
 #endif
 Stopwatch chrono_1, chrono_2;
@@ -122,7 +127,7 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    //vhclMarg.AcelGyroCal();
+    vhclMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
@@ -166,7 +171,7 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    //headMarg.AcelGyroCal();
+    headMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 

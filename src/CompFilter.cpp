@@ -11,6 +11,7 @@
 #include "MetroExt.h"
 #include "CompFilter.h"
 
+// Using ARM optimised trigonometrics
 #define ARM_MATH
 
 static float fast_acosf(float x) {
@@ -167,7 +168,6 @@ float CompFilter::QuatNorm(float *q)
 void CompFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
 {
 #ifdef ARM_MATH
-    // Using ARM optimised trigonometrics
     float sin_ = arm_sin_f32(0.5f*angle);
     q_out[0] = arm_cos_f32(0.5f*angle);
 #else
@@ -203,6 +203,7 @@ void CompFilter::Prediction(float *w_in, float dt)
 void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
 {
     // TODO: Check where normalisation is not needed
+    //       Check NaN's
 
     float *q_in = _q;
     float q_out[4];
@@ -235,14 +236,6 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     // Apply 1st correction
     QuatMult(q_c1, q_in, q_out);
     QuatNorm(q_out);
-
-    // Check NaN
-    if (q_out[0] != q_out[0]) {
-        Serial.printf("q_Sa = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_Sa[0], q_Sa[1], q_Sa[2], q_Sa[3]);
-        Serial.printf("q_Ea = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_Ea[0], q_Ea[1], q_Ea[2], q_Ea[3]);
-        Serial.printf("q_c1 = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_c1[0], q_c1[1], q_c1[2], q_c1[3]);
-        Serial.printf("angle = %6.3f, axis = %6.3f\%6.3f\t%6.3f\n", angle, axis[0], axis[1], axis[2]);
-    }
 
     // Return if no new magnetometer data
     if (!new_mag) {
@@ -280,14 +273,6 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     // Apply 2nd correction
     QuatMult(q_c2, q_in, _q);
     QuatNorm(_q);
-
-    // Check NaN
-    if (_q[0] != _q[0]) {
-        Serial.printf("q_Sm = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_Sm[0], q_Sm[1], q_Sm[2], q_Sm[3]);
-        Serial.printf("q_Em = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_Em[0], q_Em[1], q_Em[2], q_Em[3]);
-        Serial.printf("q_c2 = %6.3f\%6.3f\t%6.3f\t%6.3f\n", q_c2[0], q_c2[1], q_c2[2], q_c2[3]);
-        Serial.printf("angle = %6.3f, axis = %6.3f\%6.3f\t%6.3f\n", angle, axis[0], axis[1], axis[2]);
-    }
 
     return;
 }

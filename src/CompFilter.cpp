@@ -13,6 +13,11 @@
 
 #define ARM_MATH
 
+static float fast_acosf(float x) {
+    // Lagrange polynomial of arcos for x=[-1,-0.5,0,0.5,1]
+    return (-0.6981f*x*x -0.8727f)*x + 1.5708f;
+}
+
 // Vector normalise
 float CompFilter::VecNorm(float *v)
 {
@@ -220,7 +225,7 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
 
     // (Error) Angle between gravity vector and q_Ea
     float dot = q_Ea[3];
-    float angle = acosf(dot);
+    float angle = fast_acosf(dot);
 
     // Axis-Angle to correction quaternion q_c1
     float q_c1[4];
@@ -265,7 +270,7 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
 
     // (Error) Angle between north vector and q_Em
     dot = q_Em[1];
-    angle = acosf(dot);
+    angle = fast_acosf(dot);
 
     // Axis-Angle to correction quaternion q_c1
     float q_c2[4];

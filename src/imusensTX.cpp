@@ -10,15 +10,21 @@
 #include <SPI.h>
 
 #include "utils.h"
-#include "Filter.h"
-#include "FusionFilter.h"
-#include "ComplementaryFilter.h"
 #include "mpu9250.h"
 #include "MetroExt.h"
 #include "Stopwatch.h"
 
-#define I2C_SPI_TIME
 //#define MADGWICK
+
+#if defined(SABATINI)
+#include "CompFilter2.h"
+#elif defined(MADGWICK)
+#include "ExtFilter.h"
+#else
+#include "CompFilter.h"
+#endif
+
+#define I2C_SPI_TIME
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
@@ -39,17 +45,17 @@ volatile static float dt = 0, ts = 0;
 mpu9250 vhclMarg(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
-#ifdef MADGWICK
-FusionFilter vhclFilter, headFilter;
+#if defined(MADGWICK)
+ExtFilter vhclFilter, headFilter;
 MetroExt task_filter = MetroExt(100);       // 100 us
-#else
-#if 0
-Filter vhclFilter, headFilter;
+#elif defined(SABATINI)
+CompFilter2 vhclFilter, headFilter;
+volatile int int1_event = 0, int2_event = 0;
 #else
 CompFilter vhclFilter, headFilter;
-#endif
 volatile int int1_event = 0, int2_event = 0;
 #endif
+
 Stopwatch chrono_1, chrono_2;
 
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
@@ -60,7 +66,7 @@ static float margData1[10], margData2[10];
 void irs1Func_vhcl()
 {
     vhclMarg.GetAll(margData1, HS_TRUE);
-#ifndef MADGWICK
+#if !defined(MADGWICK)
     int1_event = 1;
 #endif
 }
@@ -77,7 +83,7 @@ void irs2Func_head()
     dt += micros() - ts;
     irsCnt++;
 #endif /* I2C_SPI_TIME */
-#ifndef MADGWICK
+#if !defined(MADGWICK)
     int2_event = 1;
 #endif
 }
@@ -219,7 +225,7 @@ void loop()
     static uint32_t pktCnt = 0;                 // usb packet number
     static float fs_max;                        // fusion speed variable
 
-#ifdef MADGWICK
+#if defined(MADGWICK)
     /* Task 1 - Filter sensor data @ 100us (10 kHz) */
     if (task_filter.check()) {
 #else
@@ -228,7 +234,7 @@ void loop()
 #endif
         noInterrupts();
         Stopwatch chrono_3;
-#ifdef MADGWICK
+#if defined(MADGWICK)
         vhclFilter.MadgwickUpdate(margData1[0], margData1[1], margData1[2],
                                   margData1[4], margData1[5], margData1[6],
                                   margData1[7], margData1[8], margData1[9], chrono_1.Split());

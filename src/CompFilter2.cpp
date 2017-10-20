@@ -1,5 +1,5 @@
 /*
- * ComplementaryFilter.cpp
+ * CompFilter2.cpp
  *
  *  Created on: Sep 20, 2017
  *      Author: may
@@ -7,19 +7,20 @@
 
 #include <Arduino.h>
 
-#include "ComplementaryFilter.h"
 #include "MetroExt.h"
+#include "CompFilter2.h"
 
 MetroExt task_print = MetroExt(200000);   //   0,2 sec
 
-#define NZEROS 5
-#define NPOLES 5
-#define GAIN   1.672358808e+04
-
-float magxv[3][NZEROS+1], magyv[3][NPOLES+1];
-
 void filterloop(float *m_in, float *m_out)
 {
+    // Butterworth LP with fc = 15Hz @ fs = 1kHz
+    static const int NZEROS = 5;
+    static const int NPOLES = 5;
+    static const float GAIN = 1.672358808e+04;
+
+    static float magxv[3][NZEROS+1], magyv[3][NPOLES+1];
+
     for (int i = 0; i < 3; i++) {
         magxv[i][0] = magxv[i][1]; magxv[i][1] = magxv[i][2];
         magxv[i][2] = magxv[i][3]; magxv[i][3] = magxv[i][4]; magxv[i][4] = magxv[i][5];
@@ -35,11 +36,10 @@ void filterloop(float *m_in, float *m_out)
 
         m_out[i] =  magyv[i][5];
     }
-
-//    Serial.printf("%f\t%f\n", m_in[0], m_out[0]);
 }
 
-int Filter::VecNorm(float *v, float *v_out)
+// Vector normalise
+void CompFilter2::VecNorm(float *v, float *v_out)
 {
     float norm = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 
@@ -49,29 +49,22 @@ int Filter::VecNorm(float *v, float *v_out)
     for (unsigned int i = 0; i < 3; i++)
         v_out[i] = v[i]*norm;
 
-    return 1;
+    return;
 }
 
 // Quaternion product
-void Filter::QuatMult(float *r, float *q, float *q_out)
+void CompFilter2::QuatMult(float *r, float *q, float *q_out)
 {
-#if 1
-    /* Sabatini */
     q_out[0] = (r[0]*q[0] - r[1]*q[1] - r[2]*q[2] - r[3]*q[3]);
     q_out[1] = (r[0]*q[1] + r[1]*q[0] + r[2]*q[3] - r[3]*q[2]);
     q_out[2] = (r[0]*q[2] - r[1]*q[3] + r[2]*q[0] + r[3]*q[1]);
     q_out[3] = (r[0]*q[3] + r[1]*q[2] - r[2]*q[1] + r[3]*q[0]);
-#else
-    /* Mathworks */
-    q_out[0] = (r[0]*q[0] - r[1]*q[1] - r[2]*q[2] - r[3]*q[3]);
-    q_out[1] = (r[0]*q[1] + r[1]*q[0] - r[2]*q[3] + r[3]*q[2]);
-    q_out[2] = (r[0]*q[2] + r[1]*q[3] + r[2]*q[0] - r[3]*q[1]);
-    q_out[3] = (r[0]*q[3] - r[1]*q[2] + r[2]*q[1] + r[3]*q[0]);
-#endif
+
+    return;
 }
 
-// Quaternion normalize
-int Filter::QuatNorm(float *q, float *q_out)
+// Quaternion normalise
+void CompFilter2::QuatNorm(float *q, float *q_out)
 {
     float norm = sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] +q[3]*q[3]);
 
@@ -81,10 +74,11 @@ int Filter::QuatNorm(float *q, float *q_out)
     for (unsigned int i = 0; i < 4; i++)
         q_out[i] = q[i]*norm;
 
-    return 1;
+    return;
 }
 
-void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
+// Transform quaternion to rotation matrix
+void CompFilter2::Quat2Mat(const float *q, mat3f_t *R_out)
 {
     // q0 * qx
     float q0q0 = q[0]*q[0];
@@ -105,8 +99,7 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
     float q3q3 = q[3]*q[3];
 
     // The Rotation matrix: xyz = rows, 123 = cols
-#if 1
-    /* Sabatini */
+
     R_out->x[0] = q0q0 + q1q1- q2q2 - q3q3;
     R_out->x[1] = 2.0f*(q1q2 - q0q3);
     R_out->x[2] = 2.0f*(q1q3 + q0q2);
@@ -118,23 +111,11 @@ void Filter::Quat2Mat(const float *q, mat3f_t *R_out)
     R_out->z[0] = 2.0f*(q1q3 - q0q2);
     R_out->z[1] = 2.0f*(q2q3 + q0q1);
     R_out->z[2] = q0q0 - q1q1 - q2q2 + q3q3;
-#else
-    /* Mathworks */
-    R_out->x[0] = 1.0f - 2.0f*q2q2 - 2.0f*q3q3;
-    R_out->x[1] = 2.0f*(q1q2 + q0q3);
-    R_out->x[2] = 2.0f*(q1q3 - q0q2);
 
-    R_out->y[0] = 2.0f*(q1q2 - q0q3);
-    R_out->y[1] = 1.0f - 2.0f*q1q1 - 2.0f*q3q3;
-    R_out->y[2] = 2.0f*(q2q3 + q0q1);
-
-    R_out->z[0] = 2.0f*(q1q3 + q0q2);
-    R_out->z[1] = 2.0f*(q2q3 - q0q1);
-    R_out->z[2] = 1.0f - 2.0f*q1q1 - 2.0f*q2q2;
-#endif
+    return;
 }
 
-float Filter::Gain(float *a_in)
+float CompFilter2::Gain(float *a_in)
 {
     // Compute function factors once
     static const float m = _gain_max/(_th2 - _th1);
@@ -164,13 +145,17 @@ float Filter::Gain(float *a_in)
     }
 }
 
-void Filter::Lerp(float *q, float *r, float factor, float *q_out)
+// Linear interpolation
+void CompFilter2::Lerp(float *q, float *r, float factor, float *q_out)
 {
     for (unsigned int i = 0; i < 4; i++)
         q_out[i] = (1.0f - factor)*q[i] + factor*r[i];
+
+    return;
 }
 
-void Filter::Slerp(float *q, float *r, float factor, float cosRads, float *q_out)
+// Spherical interpolation
+void CompFilter2::Slerp(float *q, float *r, float factor, float cosRads, float *q_out)
 {
     float omga = acosf(cosRads);
     float isinOmga = 1/sinf(omga); // isin = 1/sin
@@ -181,9 +166,11 @@ void Filter::Slerp(float *q, float *r, float factor, float cosRads, float *q_out
 
     for (unsigned int i = 0; i < 4; i++)
         q_out[i] = sinOmga1*isinOmga*q[i] + sinOmga2*isinOmga*r[i];
+
+    return;
 }
 
-void Filter::Prediction(float *w_in, float dt)
+void CompFilter2::Prediction(float *w_in, float dt)
 {
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
@@ -200,9 +187,11 @@ void Filter::Prediction(float *w_in, float dt)
 
     // Avoid quat de-normalization due to recursive numerical operations
     QuatNorm(_q,_q);
+
+    return;
 }
 
-void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
+void CompFilter2::Correction(float *a_in, float *m_in, uint16_t new_mag)
 {
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
@@ -320,9 +309,11 @@ void Filter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     }
     // Avoid quat de-normalization due to recursive numerical operations
     QuatNorm(_q,_q);
+
+    return;
 }
 
-const float *Filter::GetQuat()
+const float *CompFilter2::GetQuat()
 {
     return _q;
 }

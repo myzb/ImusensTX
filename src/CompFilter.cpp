@@ -1,5 +1,5 @@
 /*
- * Filter.cpp
+ * CompFilter.cpp
  *
  *  Created on: Oct 19, 2017
  *      Author: may
@@ -8,11 +8,12 @@
 #include <Arduino.h>
 #include <arm_math.h>
 
-#include "Filter.h"
 #include "MetroExt.h"
+#include "CompFilter.h"
 
 #define ARM_MATH
 
+// Vector normalise
 float CompFilter::VecNorm(float *v)
 {
 #ifdef ARM_MATH
@@ -31,6 +32,7 @@ float CompFilter::VecNorm(float *v)
     return norm;
 }
 
+// Vector cross product
 void CompFilter::VecCross(float *u,float *v, float *cross_out)
 {
     cross_out[0] = u[1]*v[2] - u[2]*v[1];
@@ -38,12 +40,14 @@ void CompFilter::VecCross(float *u,float *v, float *cross_out)
     cross_out[2] = u[0]*v[1] - u[1]*v[0];
 }
 
+// Vector dot product
 float CompFilter::VecDot(float *u, float *v)
 {
     // vectors u and v are assumed to be normalised
     return u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
 }
 
+// Transform quaternion to rotation matrix
 void CompFilter::Quat2Mat(const float *q, mat3f_t *R_out)
 {
     // q0 * qx
@@ -76,12 +80,15 @@ void CompFilter::Quat2Mat(const float *q, mat3f_t *R_out)
     R_out->z[0] = 2.0f*(q1q3 - q0q2);
     R_out->z[1] = 2.0f*(q2q3 + q0q1);
     R_out->z[2] = q0q0 - q1q1 - q2q2 + q3q3;
+
+    return;
 }
 
+// Rotate pure quaternion by rot quaternion
 void CompFilter::QuatRot(float *q, float *qv, float *qv_out)
 {
-    // qv_out = q*qv*q^(-1)
 #if 0
+    // qv_out = R(q)*qv
     mat3f_t R;
     Quat2Mat(q, &R);
 
@@ -91,6 +98,8 @@ void CompFilter::QuatRot(float *q, float *qv, float *qv_out)
     qv_out[2] = R.y[0]*qv[1] + R.y[1]*qv[2] + R.y[2]*qv[3];
     qv_out[3] = R.z[0]*qv[1] + R.z[1]*qv[2] + R.z[2]*qv[3];
 #else
+    // qv_out = q*qv*q^(-1)
+
     // q0 * qx
     float q0q0 = q[0]*q[0];
     float q0q1 = q[0]*q[1];
@@ -109,11 +118,14 @@ void CompFilter::QuatRot(float *q, float *qv, float *qv_out)
     // q3 * qx
     float q3q3 = q[3]*q[3];
 
+    //qv is a vector quaternion qv = (0, vec)
     qv_out[0] = qv[0];
     qv_out[1] = (q0q0 + q1q1 - q2q2 - q3q3)*qv[1] + 2.0f*(q1q2 - q0q3)*qv[2] + 2.0f*(q1q3 + q0q2)*qv[3];
     qv_out[2] = 2.0f*(q1q2 + q0q3)*qv[1] + (q0q0 - q1q1 + q2q2 - q3q3)*qv[2] + 2.0f*(q2q3 - q0q1)*qv[3];
     qv_out[3] = 2.0f*(q1q3 - q0q2)*qv[1] + 2.0f*(q2q3 + q0q1)*qv[2] + (q0q0 - q1q1 - q2q2 + q3q3)*qv[3];
 #endif
+
+    return;
 }
 
 // Quaternion product
@@ -123,9 +135,11 @@ void CompFilter::QuatMult(float *r, float *q, float *q_out)
     q_out[1] = (r[0]*q[1] + r[1]*q[0] + r[2]*q[3] - r[3]*q[2]);
     q_out[2] = (r[0]*q[2] - r[1]*q[3] + r[2]*q[0] + r[3]*q[1]);
     q_out[3] = (r[0]*q[3] + r[1]*q[2] - r[2]*q[1] + r[3]*q[0]);
+
+    return;
 }
 
-// Quaternion normalize
+// Quaternion normalise
 float CompFilter::QuatNorm(float *q)
 {
 #ifdef ARM_MATH
@@ -144,6 +158,7 @@ float CompFilter::QuatNorm(float *q)
     return norm;
 }
 
+// Transform axis-angle to quaternion representation
 void CompFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
 {
 #ifdef ARM_MATH
@@ -158,6 +173,7 @@ void CompFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
     q_out[2] = axis[1]*sin_;
     q_out[3] = axis[2]*sin_;
 
+    return;
 }
 
 void CompFilter::Prediction(float *w_in, float dt)
@@ -175,6 +191,8 @@ void CompFilter::Prediction(float *w_in, float dt)
 
     // Normalise
     QuatNorm(_q);
+
+    return;
 }
 
 void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
@@ -190,7 +208,7 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     VecNorm(a_in);
     float q_Sa[4] = { 0.0f, a_in[0], a_in[1], a_in[2] };
 
-    // Rotate q_Sa (Sensor frame) -> q_Ea (Earth frame)
+    // Rotate q_Sa (accelSensor frame) -> q_Ea (accelEarth frame)
     float q_Ea[4];
     QuatRot(q_in, q_Sa, q_Ea);
     QuatNorm(q_Ea);
@@ -234,7 +252,7 @@ void CompFilter::Correction(float *a_in, float *m_in, uint16_t new_mag)
     VecNorm(m_in);
     float q_Sm[4] = { 0.0f, m_in[0], m_in[1], m_in[2] };
 
-    // Rotate q_Sm (Sensor frame) -> q_Em (Earth frame)
+    // Rotate q_Sm (magSensor frame) -> q_Em (magEarth frame)
     float q_Em[4];
     QuatRot(q_in, q_Sm, q_Em);
     // Project onto XY Plane

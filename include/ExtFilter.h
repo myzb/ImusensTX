@@ -1,19 +1,25 @@
 /*
- * FusionFilter.cpp
+ * ExtFilter.cpp
  *
- *  Created on: Jun 12, 2017
+ *  Created on: Jul 21, 2017
  *      Author: may
+ *
+ *  Notice:
+ *    Implementation of Sebastian Madgwick's "...efficient orientation filter for ... inertial/magnetic
+ *    sensor arrays" (see http://www.x-io.co.uk/category/open-source/ for examples & more details)
+ *    The respective functions were take from Kris Winer's Arduino sketch for the MPU9250 and converted
+ *    into an cpp class.
  */
 
-#ifndef _FUSIONFILTER_H_
-#define _FUSIONFILTER_H_
+#ifndef _EXTFILTER_H_
+#define _EXTFILTER_H_
 
-#include "mpu9250.h"
+#include <arm_math.h>
 
-class FusionFilter {
+// Open source filters
+class ExtFilter {
 
-public:
-
+private:
     // These are the free parameters in the Mahony filter and fusion scheme, Kp
     // for proportional feedback, Ki for integral
     const float Kp = 2.0f * 2.0f;
@@ -46,6 +52,7 @@ public:
     // Vector to hold quaternion
     float q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 
+public:
     void MadgwickUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx,
         float my, float mz, float dt);
     void MahonyUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx,
@@ -53,4 +60,4 @@ public:
     const float *GetQuat();
 };
 
-#endif /* _FUSIONFILTER_H_ */
+#endif /* _EXTFILTER_H_ */

@@ -1,7 +1,7 @@
 /*
- * FusionFilter.cpp
+ * ExtFilter.cpp
  *
- *  Created on: Jun 12, 2017
+ *  Created on: Jul 21, 2017
  *      Author: may
  *
  *  Notice:
@@ -11,9 +11,11 @@
  *    into an cpp class.
  */
 
-#include "FusionFilter.h"
+#include <Arduino.h>
 
-void FusionFilter::MadgwickUpdate(float ax, float ay, float az, float gx, float gy, float gz,
+#include "ExtFilter.h"
+
+void ExtFilter::MadgwickUpdate(float ax, float ay, float az, float gx, float gy, float gz,
     float mx, float my, float mz, float dt)
 {
     // short name local variable for readability
@@ -135,7 +137,7 @@ void FusionFilter::MadgwickUpdate(float ax, float ay, float az, float gx, float 
 
 // Similar to Madgwick scheme but uses proportional and integral filtering on
 // the error between estimated reference vectors and measured ones.
-void FusionFilter::MahonyUpdate(float ax, float ay, float az, float gx, float gy, float gz,
+void ExtFilter::MahonyUpdate(float ax, float ay, float az, float gx, float gy, float gz,
     float mx, float my, float mz, float dt)
 {
     // short name local variable for readability
@@ -225,7 +227,7 @@ void FusionFilter::MahonyUpdate(float ax, float ay, float az, float gx, float gy
     q[3] = q4 * norm;
 }
 
-const float *FusionFilter::GetQuat()
+const float *ExtFilter::GetQuat()
 {
     return q;
 }

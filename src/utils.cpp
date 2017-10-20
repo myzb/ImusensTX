@@ -5,10 +5,10 @@
  *      Author: may
  */
 
+#include <ExtFilter.h>
 #include <i2c_t3.h>
 
 #include "utils.h"
-#include "FusionFilter.h"
 
 // I2C scan function
 void I2Cscan()

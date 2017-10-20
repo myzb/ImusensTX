@@ -65,7 +65,7 @@ void CompFilter::Quat2Mat(const float *q, mat3f_t *R_out)
     float q3q3 = q[3]*q[3];
 
     // The Matrix: xyz = rows, 123 = cols
-    R_out->x[0] = q0q0 + q1q1- q2q2 - q3q3;
+    R_out->x[0] = q0q0 + q1q1 - q2q2 - q3q3;
     R_out->x[1] = 2.0f*(q1q2 - q0q3);
     R_out->x[2] = 2.0f*(q1q3 + q0q2);
 
@@ -81,6 +81,7 @@ void CompFilter::Quat2Mat(const float *q, mat3f_t *R_out)
 void CompFilter::QuatRot(float *q, float *qv, float *qv_out)
 {
     // qv_out = q*qv*q^(-1)
+#if 0
     mat3f_t R;
     Quat2Mat(q, &R);
 
@@ -89,6 +90,30 @@ void CompFilter::QuatRot(float *q, float *qv, float *qv_out)
     qv_out[1] = R.x[0]*qv[1] + R.x[1]*qv[2] + R.x[2]*qv[3];
     qv_out[2] = R.y[0]*qv[1] + R.y[1]*qv[2] + R.y[2]*qv[3];
     qv_out[3] = R.z[0]*qv[1] + R.z[1]*qv[2] + R.z[2]*qv[3];
+#else
+    // q0 * qx
+    float q0q0 = q[0]*q[0];
+    float q0q1 = q[0]*q[1];
+    float q0q2 = q[0]*q[2];
+    float q0q3 = q[0]*q[3];
+
+    // q1 * qx
+    float q1q1 = q[1]*q[1];
+    float q1q2 = q[1]*q[2];
+    float q1q3 = q[1]*q[3];
+
+    // q2 * qx
+    float q2q2 = q[2]*q[2];
+    float q2q3 = q[2]*q[3];
+
+    // q3 * qx
+    float q3q3 = q[3]*q[3];
+
+    qv_out[0] = qv[0];
+    qv_out[1] = (q0q0 + q1q1 - q2q2 - q3q3)*qv[1] + 2.0f*(q1q2 - q0q3)*qv[2] + 2.0f*(q1q3 + q0q2)*qv[3];
+    qv_out[2] = 2.0f*(q1q2 + q0q3)*qv[1] + (q0q0 - q1q1 + q2q2 - q3q3)*qv[2] + 2.0f*(q2q3 - q0q1)*qv[3];
+    qv_out[3] = 2.0f*(q1q3 - q0q2)*qv[1] + 2.0f*(q2q3 + q0q1)*qv[2] + (q0q0 - q1q1 - q2q2 + q3q3)*qv[3];
+#endif
 }
 
 // Quaternion product

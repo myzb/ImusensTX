@@ -14,7 +14,7 @@
 #include "MetroExt.h"
 #include "Stopwatch.h"
 
-//#define MADGWICK
+//#define SABATINI
 
 #if defined(SABATINI)
 #include "CompFilter2.h"
@@ -28,7 +28,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 1;
+static const int Debug = 0;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -218,12 +218,13 @@ end:
 
 void loop()
 {
-    static uint32_t filterCnt = 0;              // loop counter
-    static data_t rx_buffer, tx_buffer = { 0 }; // usb rx/tx buffer zero initialized
-    static uint8_t num;                         // usb return code
-    static uint32_t lastTx = 0, lastRx = 0;     // last rx/tx time of usb data
-    static uint32_t pktCnt = 0;                 // usb packet number
-    static float fs_max;                        // fusion speed variable
+    static uint32_t filterCnt = 0;                          // loop counter
+    static data_t rx_buffer = { 0 };                        // usb rx buffer zero initialized
+    static data_t tx_buffer = { 1.0f, 0.0f, 0.0f, 0.0f };   // usb tx buffer unit_quat initialized
+    static uint8_t num = 0;                                 // usb return code
+    static uint32_t lastTx = 0, lastRx = 0;                 // last rx/tx time of usb data
+    static uint32_t pktCnt = 0;                             // usb packet number
+    static float fs_max = 0;                                // fusion speed variable
 
 #if defined(MADGWICK)
     /* Task 1 - Filter sensor data @ 100us (10 kHz) */

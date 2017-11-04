@@ -14,12 +14,14 @@
 #include "MetroExt.h"
 #include "Stopwatch.h"
 
-//#define SABATINI
+#define DIFERENTIAL
 
 #if defined(SABATINI)
 #include "CompFilter2.h"
 #elif defined(MADGWICK)
 #include "ExtFilter.h"
+#elif defined(DIFERENTIAL)
+#include "FusionFilter.h"
 #else
 #include "CompFilter.h"
 #endif
@@ -28,7 +30,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 0;
+static const int Debug = 1;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -50,6 +52,9 @@ ExtFilter vhclFilter, headFilter;
 MetroExt task_filter = MetroExt(100);       // 100 us
 #elif defined(SABATINI)
 CompFilter2 vhclFilter, headFilter;
+volatile int int1_event = 0, int2_event = 0;
+#elif defined(DIFERENTIAL)
+FusionFilter filter;
 volatile int int1_event = 0, int2_event = 0;
 #else
 CompFilter vhclFilter, headFilter;
@@ -231,7 +236,7 @@ void loop()
     if (task_filter.check()) {
 #else
     /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
-    if (int1_event) {
+    if (int1_event && int2_event) {
 #endif
         noInterrupts();
         Stopwatch chrono_3;
@@ -243,22 +248,28 @@ void loop()
         headFilter.MadgwickUpdate(margData2[0], margData2[1], margData2[2],
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
+#elif defined(DIFERENTIAL)
+        filter.Prediction(&margData1[4], &margData2[4], chrono_1.Split());
+        filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7], vhclMarg._magReady, headMarg._magReady);
 #else
         vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         headFilter.Prediction(&margData2[4], chrono_2.Split());
 
         vhclFilter.Correction(&margData1[0], &margData1[7], vhclMarg._magReady);
         headFilter.Correction(&margData2[0], &margData2[7], headMarg._magReady);
-
-        int1_event = 0;
 #endif
 
+        int1_event = int2_event = 0;
         fs_max += chrono_3.Split();
         interrupts();
 
+#if defined(DIFERENTIAL)
+        memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
+#else
         // Get quat rotation difference, store result in tx_buffer[0:3]
         //quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
         memcpy(tx_buffer.num_f, vhclFilter.GetQuat(), 4*sizeof(float));
+#endif
         filterCnt++;
     }
 
@@ -311,11 +322,13 @@ void loop()
 #endif /* I2C_SPI_TIME */
 
             // The current rotation quaternions
+#if !defined(DIFERENTIAL)
             static const float *q1 = vhclFilter.GetQuat();
             static const float *q2 = headFilter.GetQuat();
-            static const float *q  = tx_buffer.num_f;
             Serial.printf("q1 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q1[0], q1[1], q1[2], q1[3]);
             Serial.printf("q2 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q2[0], q2[1], q2[2], q2[3]);
+#endif
+            static const float *q  = tx_buffer.num_f;
             Serial.printf("q  = \t%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0],  q[1],  q[2],  q[3]);
         }
 

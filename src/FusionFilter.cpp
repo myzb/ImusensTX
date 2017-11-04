@@ -204,7 +204,7 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 
     // Predict rotation 'q_rot' from 'angle*dt' around 'axis'
     float q1_rot[4], q2_rot[4];
-    AxAngle2Quat(w1_norm*dt, w1_in, q1_rot);        // head to world rotantion
+    AxAngle2Quat(w1_norm*dt, w1_in, q1_rot);        // head to world rotation
     AxAngle2Quat(-1.0f*w2_norm*dt, w2_in, q2_rot);  // Inverse vehicle to world rotation
 
     // Multiply with previous rotation
@@ -245,10 +245,9 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // Axis orthogonal to vehicle accel_vec and q_Va2 = [0, vec3_Va2]
     float axis[3];
-    VecCross(q_Va2+1, a1_in, axis);
-
     float dot, angle;
 
+    VecCross(q_Va2+1, a1_in, axis);
     if (VecNorm(axis) < 0.0f) goto mag_corr;
 
     // (Error) Angle between gravity vector and q_Ea
@@ -265,14 +264,14 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     QuatNorm(q_out);
 
     // Return if no new magnetometer data
-#if 0
-    if (!new_mag) {
+    mag_corr:
+#if 1
+    if (!new_m1 && !new_m2) {
         memcpy(_q, q_out, 4*sizeof(float));
         return;
     }
 #else
     memcpy(_q, q_out, 4*sizeof(float));
-mag_corr:
     return;
 #endif
 
@@ -280,33 +279,40 @@ mag_corr:
     q_in = q_out;
 
     // Normalise mag data
+    VecNorm(m1_in);
     VecNorm(m2_in);
-    float q_Sm[4] = { 0.0f, m2_in[0], m2_in[1], m2_in[2] };
+    float q_Sm2[4] = { 0.0f, m2_in[0], m2_in[1], m2_in[2] };
 
-    // Rotate q_Sm (magSensor frame) -> q_Em (magEarth frame)
-    float q_Em[4];
-    QuatRot(q_in, q_Sm, q_Em);
+    // Rotate q_Sm2 (head frame) -> q_Vm2 (vehicle frame)
+    float q_Vm2[4];
+    QuatRot(q_in, q_Sm2, q_Vm2);
     // Project onto XY Plane
-    q_Em[3] = 0.0f;
-    QuatNorm(q_Em);
+    q_Vm2[3] = 0.0f;
+    m1_in[2] = 0.0f;
+    QuatNorm(q_Vm2);
+    VecNorm(m1_in);
 
     // Axis orthogonal to north vector and q_Em = [0, vec3_Em]
-    VecCross(q_Em+1, _v_north, axis);
-    VecNorm(axis);
+    VecCross(q_Vm2+1, m1_in, axis);
+    if (VecNorm(axis) < 0.0f) goto end;
 
     // (Error) Angle between north vector and q_Em
-    dot = q_Em[1];
+    dot = VecDot(q_Vm2+1, m1_in);
     angle = fast_acosf(dot);
 
     // Axis-Angle to correction quaternion q_c1
     float q_c2[4];
     AxAngle2Quat( (_beta)*angle, axis, q_c2);
-//    QuatNorm(q_c2);
+    if (QuatNorm(q_c2) < 0.0f) goto end;
 
     // Apply 2nd correction
     QuatMult(q_c2, q_in, _q);
     QuatNorm(_q);
 
+    return;
+
+end:
+    memcpy(_q, q_out, 4*sizeof(float));
     return;
 }
 

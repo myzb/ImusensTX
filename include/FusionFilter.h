@@ -23,7 +23,7 @@ private:
     float _v_gravity[3] = { 0.0f, 0.0f, 1.0f };
     float _v_north[3]   = { 1.0f, 0.0f, 0.0f };
 
-    const float _alpha = 0.5f;
+    const float _alpha = 0.005f;
     const float _beta  = 0.005f;
 
     // Adaptive gain thersholds

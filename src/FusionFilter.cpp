@@ -18,6 +18,9 @@
 #include "MetroExt.h"
 #include "FusionFilter.h"
 
+// Use Sensor 2 only (disable diferential)
+#define SENSOR2_ONLY
+
 // Using ARM optimised trigonometrics
 #define ARM_MATH
 
@@ -38,7 +41,7 @@ float FusionFilter::VecNorm(float *v)
 
     if (norm == 0.0f) {
 //        Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something
-        return -1.0f;
+        return 0.0f;
     }
     float factor = 1.0f/norm;
 
@@ -167,7 +170,7 @@ float FusionFilter::QuatNorm(float *q)
 
     if (norm == 0.0f) {
 //        Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something
-        return -1.0f;
+        return 0.0f;
     }
     float factor = 1.0f/norm;
 
@@ -196,6 +199,10 @@ void FusionFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
 
 void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 {
+#ifdef SENSOR2_ONLY
+    w1_in[0] = w1_in[1] = w1_in[2] = 0.0f;
+#endif /* SENSOR2_ONLY */
+
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
     float q_out[4];
 
@@ -204,8 +211,8 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 
     // Predict rotation 'q_rot' from 'angle*dt' around 'axis'
     float q1_rot[4], q2_rot[4];
-    AxAngle2Quat(w1_norm*dt, w1_in, q1_rot);        // head to world rotation
-    AxAngle2Quat(-1.0f*w2_norm*dt, w2_in, q2_rot);  // Inverse vehicle to world rotation
+    AxAngle2Quat(-1.0f*w1_norm*dt, w1_in, q1_rot);  // Inverse vehicle to world rotation
+    AxAngle2Quat(w2_norm*dt, w2_in, q2_rot);        // Head to world rotation
 
     // Multiply with previous rotation
     QuatMult(q_in, q2_rot, q_out);                  // Head to world in vehicle coords
@@ -222,6 +229,12 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 {
     // TODO: Check where normalisation is not needed
     //       Check NaN's
+
+#ifdef SENSOR2_ONLY
+    a1_in[0] = 0.0f; a1_in[1] = 0.0f; a1_in[2] = 1.0f;
+    m1_in[0] = 1.0f; m1_in[1] = 0.0f; m1_in[2] = 0.0f;
+    new_m1 = new_m2;
+#endif /* SENSOR2_ONLY */
 
     // LEGEND:
     // a1, m1: Vehicle sensor data
@@ -248,7 +261,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     float dot, angle;
 
     VecCross(q_Va2+1, a1_in, axis);
-    if (VecNorm(axis) < 0.0f) goto mag_corr;
+    if (VecNorm(axis) <= 0.0f) goto mag_corr;
 
     // (Error) Angle between gravity vector and q_Ea
     dot = VecDot(q_Va2+1, a1_in);
@@ -257,7 +270,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     // Axis-Angle to correction quaternion q_c1
     float q_c1[4];
     AxAngle2Quat( _alpha*angle, axis, q_c1);
-    if (QuatNorm(q_c1) < 0.0f) goto mag_corr;
+    if (QuatNorm(q_c1) <= 0.0f) goto mag_corr;
 
     // Apply 1st correction
     QuatMult(q_c1, q_in, q_out);
@@ -294,7 +307,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // Axis orthogonal to north vector and q_Em = [0, vec3_Em]
     VecCross(q_Vm2+1, m1_in, axis);
-    if (VecNorm(axis) < 0.0f) goto end;
+    if (VecNorm(axis) <= 0.0f) goto end;
 
     // (Error) Angle between north vector and q_Em
     dot = VecDot(q_Vm2+1, m1_in);
@@ -303,7 +316,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     // Axis-Angle to correction quaternion q_c1
     float q_c2[4];
     AxAngle2Quat( (_beta)*angle, axis, q_c2);
-    if (QuatNorm(q_c2) < 0.0f) goto end;
+    if (QuatNorm(q_c2) <= 0.0f) goto end;
 
     // Apply 2nd correction
     QuatMult(q_c2, q_in, _q);

@@ -19,7 +19,7 @@
 #include "FusionFilter.h"
 
 // Use Sensor 2 only (disable diferential)
-#define SENSOR2_ONLY
+//#define SENSOR2_ONLY
 
 // Using ARM optimised trigonometrics
 #define ARM_MATH
@@ -206,6 +206,10 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
     float q_out[4];
 
+    float q_w1[4] = { 0.0f, w1_in[0], w1_in[1], w1_in[2]};
+    float q_w2[4] = { 0.0f, w2_in[0], w2_in[1], w2_in[2]};
+
+#if 0
     float w1_norm = VecNorm(w1_in);
     float w2_norm = VecNorm(w2_in);
 
@@ -217,6 +221,21 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
     // Multiply with previous rotation
     QuatMult(q_in, q2_rot, q_out);                  // Head to world in vehicle coords
     QuatMult(q1_rot, q_out, _q);                    // Head to vehicle in vehicle coords
+#endif
+
+    // Compute derivate of rotation quaternion
+    float q_res[4];
+    QuatMult(q_in, q_w2, q_res);
+    QuatMult(q_w1, q_res, q_out);
+
+    // Integrate over dt and store result in _q[]
+    for (unsigned int i = 0; i < 4; i++) {
+#ifdef SENSOR2_ONLY
+        _q[i] =  q_in[i] + 0.5f*q_res[i]*dt;
+#else
+        _q[i] =  q_in[i] - 0.25f*q_out[i]*dt;
+#endif
+    }
 
     // Normalise
     QuatNorm(_q);

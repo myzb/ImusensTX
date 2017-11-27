@@ -224,12 +224,12 @@ end:
 void loop()
 {
     static uint32_t filterCnt = 0;                          // loop counter
-    static data_t rx_buffer = { 0 };                        // usb rx buffer zero initialized
+    static data_t rx_buffer = { 0.0f };                     // usb rx buffer zero initialized
     static data_t tx_buffer = { 1.0f, 0.0f, 0.0f, 0.0f };   // usb tx buffer unit_quat initialized
     static uint8_t num = 0;                                 // usb return code
     static uint32_t lastTx = 0, lastRx = 0;                 // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                             // usb packet number
-    static float fs_max = 0;                                // fusion speed variable
+    static float Ts_max = 0;                                // fusion speed variable
 
 #if defined(MADGWICK)
     /* Task 1 - Filter sensor data @ 100us (10 kHz) */
@@ -250,7 +250,8 @@ void loop()
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #elif defined(DIFERENTIAL)
         filter.Prediction(&margData1[4], &margData2[4], chrono_1.Split());
-        filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7], vhclMarg._magReady, headMarg._magReady);
+        filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7],
+                          vhclMarg._magReady, headMarg._magReady);
 #else
         vhclFilter.Prediction(&margData1[4], chrono_1.Split());
         headFilter.Prediction(&margData2[4], chrono_2.Split());
@@ -260,14 +261,14 @@ void loop()
 #endif
 
         int1_event = int2_event = 0;
-        fs_max += chrono_3.Split();
+        Ts_max += chrono_3.Split();
         interrupts();
 
 #if defined(DIFERENTIAL)
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
 #else
         // Get quat rotation difference, store result in tx_buffer[0:3]
-        //quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
+        // quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
         memcpy(tx_buffer.num_f, vhclFilter.GetQuat(), 4*sizeof(float));
 #endif
         filterCnt++;
@@ -311,8 +312,8 @@ void loop()
         if (Debug) {
             // Timings
             Serial.printf("filter rate = %.2f Hz\n", (float)filterCnt / 2.0f, 2);
-            Serial.printf("   max rate = %.2f Hz\n", (float)filterCnt / fs_max);
-            fs_max = 0.0f;
+            Serial.printf("   max rate = %.2f Hz\n", (float)filterCnt / Ts_max);
+            Ts_max = 0.0f;
 
 #ifdef I2C_SPI_TIME
             Serial.printf("MARG: fs = %.2f Hz\n", (float)irsCnt / 2.0f);

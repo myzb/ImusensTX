@@ -1,15 +1,8 @@
 /*
  * FusionFilter.cpp
  *
- *  Created on: 4 Nov 2017
+ *  Created on: 4 Oct 2017
  *      Author: matt
- */
-
-/*
- * CompFilter.cpp
- *
- *  Created on: Oct 19, 2017
- *      Author: may
  */
 
 #include <Arduino.h>

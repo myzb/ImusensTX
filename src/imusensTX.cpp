@@ -249,6 +249,9 @@ void loop()
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #elif defined(DIFERENTIAL)
+        // Copy raw sensor data to tx_buffer
+        memcpy(&tx_buffer.num_f[4], &margData2[0], 10*sizeof(float));
+
         filter.Prediction(&margData1[4], &margData2[4], chrono_1.Split());
         filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7],
                           vhclMarg._magReady, headMarg._magReady);

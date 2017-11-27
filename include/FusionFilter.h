@@ -20,19 +20,9 @@ private:
     } mat3f_t;
 
     float _q[4]         = { 1.0f, 0.0f, 0.0f, 0.0f };
-    float _v_gravity[3] = { 0.0f, 0.0f, 1.0f };
-    float _v_north[3]   = { 1.0f, 0.0f, 0.0f };
 
     const float _alpha = 0.005f;
     const float _beta  = 0.005f;
-
-    // Adaptive gain thersholds
-    const float _gain_max = 0.01f;
-    const float _th1 = 0.001f;
-    const float _th2 = 0.005f;
-    const float _G = 9.99f;    // Force of gravity
-
-    float Gain(float *a_in);
 
     float VecDot(float *u, float *v);
     float VecNorm(float *v);

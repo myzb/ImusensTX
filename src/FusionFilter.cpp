@@ -33,7 +33,7 @@ float FusionFilter::VecNorm(float *v)
 #endif
 
     if (norm == 0.0f) {
-//        Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something
+        // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
         return 0.0f;
     }
     float factor = 1.0f/norm;
@@ -164,7 +164,7 @@ float FusionFilter::QuatNorm(float *q)
 #endif
 
     if (norm == 0.0f) {
-//      Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
+        // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
         return 0.0f;
     }
     float factor = 1.0f/norm;
@@ -194,12 +194,17 @@ void FusionFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
 
 void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 {
+    // LEGEND:
+    // w1: Vehicle sensor angular velocity
+    // w2: Head sensor angular velocity
+    // dt: time interval
+
 #ifdef SENSOR2_ONLY
     w1_in[0] = w1_in[1] = w1_in[2] = 0.0f;
 #endif /* SENSOR2_ONLY */
 
+    // Get last estimated rotation
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
-    float q_out[4];
 
     float w1_norm = VecNorm(w1_in);
     float w2_norm = VecNorm(w2_in);
@@ -210,8 +215,9 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
     AxAngle2Quat(w2_norm*dt, w2_in, q2_rot);        // Head to world rotation
 
     // Multiply with previous rotation
-    QuatMult(q_in, q2_rot, q_out);                  // Head to world in vehicle coords
-    QuatMult(q1_rot, q_out, _q);                    // Head to vehicle in vehicle coords
+    float q_temp[4];
+    QuatMult(q_in, q2_rot, q_temp);                  // Head to world in vehicle coords
+    QuatMult(q1_rot, q_temp, _q);                    // Head to vehicle in vehicle coords
 
     // Normalise
     QuatNorm(_q);
@@ -220,107 +226,100 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 }
 
 void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in,
-    uint16_t new_m1, uint16_t new_m2)
+    uint16_t new_m1_data, uint16_t new_m2_data)
 {
-    // TODO: Check where normalisation is not needed
+    // TODO: Re-Check normalisations
     //       Check NaN's
 
     // LEGEND:
     // a1, m1: Vehicle sensor data
     // a2, m2: Head sensor data
+    // v_ : Vector, q_ : Quaternion
+    // V: Vehicle,  H: Head
 
 #ifdef SENSOR2_ONLY
     a1_in[0] = 0.0f; a1_in[1] = 0.0f; a1_in[2] = 1.0f;
     m1_in[0] = 1.0f; m1_in[1] = 0.0f; m1_in[2] = 0.0f;
-    new_m1 = new_m2;
+    new_m1_data = new_m2_data;
 #endif /* SENSOR2_ONLY */
 
-    float *q_in = _q;
-    float q_out[4] = { _q[0], _q[1], _q[2], _q[3] };
-
     /* Correction step 1: XY-Plane alignment */
+    // Get predicted rotation
+    float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
     // Normalise accel data
     VecNorm(a1_in);
     VecNorm(a2_in);
 
-    float q_Sa2[4] = { 0.0f, a2_in[0], a2_in[1], a2_in[2] };
+    // Rotate a2_in vector (Head frame) -> v_Va2 (Vehicle frame), v_Va2 is predicted
+    float v_Va2[3];
+    VecRot(q_in, a2_in, v_Va2);
+    VecNorm(v_Va2);
 
-    // Rotate q_Sa2 (Head frame) -> q_Va (Vehicle frame)
-    float q_Va2[4];
-    QuatRot(q_in, q_Sa2, q_Va2);
-    QuatNorm(q_Va2);
-
-    // Axis orthogonal to vehicle accel_vec and q_Va2 = [0, vec3_Va2]
+    // Axis orthogonal to vehicle a1_in vector and v_Va2
     float axis[3];
     float dot, angle;
 
-    VecCross(q_Va2+1, a1_in, axis);
+    VecCross(v_Va2, a1_in, axis);
     if (VecNorm(axis) <= 0.0f) goto mag_corr;
 
-    // (Error) Angle between gravity vector and q_Ea
-    dot = VecDot(q_Va2+1, a1_in);
+    // (Error) Angle between a1_in vector and v_Va2
+    dot = VecDot(v_Va2, a1_in);
     angle = fast_acosf(dot);
 
-    // Axis-Angle to correction quaternion q_c1
-    float q_c1[4];
-    AxAngle2Quat( _alpha*angle, axis, q_c1);
-    if (QuatNorm(q_c1) <= 0.0f) goto mag_corr;
+    // Axis-Angle to innovation quaternion q_a_ino (from acceleration)
+    float q_a_ino[4];
+    AxAngle2Quat( _alpha*angle, axis, q_a_ino);
+    if (QuatNorm(q_a_ino) <= 0.0f) goto mag_corr;
 
     // Apply 1st correction
-    QuatMult(q_c1, q_in, q_out);
-    QuatNorm(q_out);
+    QuatMult(q_a_ino, q_in, _q);
+    QuatNorm(_q);
 
-    // Return if no new magnetometer data
-    mag_corr:
+mag_corr:
+
 #if 1
-    if (!new_m1 && !new_m2) {
-        memcpy(_q, q_out, 4*sizeof(float));
-        return;
-    }
+    // Return if no new magnetometer data
+    if (!new_m1_data && !new_m2_data) return;
 #else
-    memcpy(_q, q_out, 4*sizeof(float));
     return;
 #endif
 
     /* Correction step 2: North alignment */
-    q_in = q_out;
+    // Get accel-corrected predicted rotation
+    memcpy(q_in, _q, 4*sizeof(float));
 
     // Normalise mag data
     VecNorm(m1_in);
     VecNorm(m2_in);
-    float q_Sm2[4] = { 0.0f, m2_in[0], m2_in[1], m2_in[2] };
 
-    // Rotate q_Sm2 (head frame) -> q_Vm2 (vehicle frame)
-    float q_Vm2[4];
-    QuatRot(q_in, q_Sm2, q_Vm2);
+    // Rotate m2_in vector (head frame) -> v_Vm2 (vehicle frame)
+    float v_Vm2[4];
+    VecRot(q_in, m2_in, v_Vm2);
     // Project onto XY Plane
-    q_Vm2[3] = 0.0f;
+    v_Vm2[2] = 0.0f;
     m1_in[2] = 0.0f;
-    QuatNorm(q_Vm2);
+    VecNorm(v_Vm2);
     VecNorm(m1_in);
 
-    // Axis orthogonal to north vector and q_Em = [0, vec3_Em]
-    VecCross(q_Vm2+1, m1_in, axis);
+    // Axis orthogonal to vehicle m1_in vector and v_Vm2
+    VecCross(v_Vm2, m1_in, axis);
     if (VecNorm(axis) <= 0.0f) goto end;
 
-    // (Error) Angle between north vector and q_Em
-    dot = VecDot(q_Vm2+1, m1_in);
+    // (Error) Angle between m1_in vector and v_Vm2
+    dot = VecDot(v_Vm2, m1_in);
     angle = fast_acosf(dot);
 
-    // Axis-Angle to correction quaternion q_c1
-    float q_c2[4];
-    AxAngle2Quat( (_beta)*angle, axis, q_c2);
-    if (QuatNorm(q_c2) <= 0.0f) goto end;
+    // Axis-Angle to innovation quaternion q_m_ino (from magnetic field)
+    float q_m_ino[4];
+    AxAngle2Quat( (_beta)*angle, axis, q_m_ino);
+    if (QuatNorm(q_m_ino) <= 0.0f) goto end;
 
     // Apply 2nd correction
-    QuatMult(q_c2, q_in, _q);
+    QuatMult(q_m_ino, q_in, _q);
     QuatNorm(_q);
 
-    return;
-
 end:
-    memcpy(_q, q_out, 4*sizeof(float));
     return;
 }
 

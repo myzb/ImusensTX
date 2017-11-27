@@ -480,8 +480,8 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     // No need to again reset MPU9250
     // END WORKAROUND
 
-    // Calibrate MPU9250
-    AcelGyroCal();
+    // Calibrate MPU9250 Gyroscope
+    GyroCal();
 
     // auto-select best clock source
     WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
@@ -622,53 +622,49 @@ uint8_t mpu9250::EnableDMA()
     }
 }
 
-void mpu9250::AcelGyroCal()
+void mpu9250::GyroCal()
 {
-    uint8_t data[6];
-    uint16_t packet_count, fifo_count;
-
-    // reset device
-//    WriteRegister(_address, PWR_MGMT_1, H_RESET);
-    delay(100);
-
-    // Get a few (stable) sensor samples
-    WriteRegister(_address, PWR_MGMT_1, CLKSEL_AUTO);
-    WriteRegister(_address, PWR_MGMT_2, SENS_EN);       // enable gyro x,y,z axes
-    delay(200);
-
     // Configure device for bias calculation
     WriteRegister(_address, INT_ENABLE, 0x00);          // Disable all interrupts
     WriteRegister(_address, FIFO_EN, 0x00);             // Disable FIFO
     WriteRegister(_address, PWR_MGMT_1, CLKSEL_AUTO);   // Turn on internal clock source
+    WriteRegister(_address, PWR_MGMT_2, SENS_EN);       // enable gyro (and accel)
     WriteRegister(_address, I2C_MST_CTRL, 0x00);        // Disable I2C master
     WriteRegister(_address, USER_CTRL, 0x00);           // Disable FIFO and I2C master modes
     WriteRegister(_address, USER_CTRL, FIFO_DMP_RST);   // Reset FIFO and DMP
     delay(15);
 
-    // Configure MPU6050 gyro and accelerometer for bias calculation
+    // Configure MPU9250 gyro for bias calculation
     WriteRegister(_address, CONFIG, 0x01);       // Set low-pass filter to 188 Hz
     WriteRegister(_address, SMPLRT_DIV, 0x00);   // Set sample rate to 1 kHz
     WriteRegister(_address, GYRO_CONFIG, 0x00);  // Set gyro FS to 250 deg/s, maximum sensitivity
+
+    // Wait a few for device to settle
+    delay(200);
 
     // Configure FIFO to capture accelerometer and gyro data for bias calculation
     WriteRegister(_address, USER_CTRL, 0x40);   // Enable FIFO
     WriteRegister(_address, FIFO_EN, 0x70);     // Write gyro data to FIFO (max size 512 bytes)
 
-    // accumulate 60 samples in 60 ms = 3x2 bytes/ms -> 360 bytes
+    // Record for 60 ms -> 3x 2bytes/ms ~ 360 bytes @ 60ms
+    // TODO: Use FIFO interrupt to count exact number of captured samples
     delay(60);
 
     // Stop and turn off FIFO
     WriteRegister(_address, FIFO_EN, 0x00);             // Disable gyro write to FIFO
 
     // Read FIFO sample count and get packet count
+    uint8_t data[6];
+    uint16_t packet_count, fifo_count;
     ReadRegisters(_address, FIFO_COUNTH, 2, &data[0]);
     fifo_count = ((uint16_t)data[0] << 8) | data[1];
-    packet_count = fifo_count / sizeof(data);             // 3x (2x bytes per gyro axis) = 6 bytes
+    packet_count = fifo_count / sizeof(data);           // 3x 2bytes per gyro_axis
 
     // Sum data for averaging
     int32_t gyro_bias[3]  = { 0 };
     for (unsigned int i = 0; i < packet_count; i++) {
         int16_t gyro_temp[3] = { 0 };
+
         ReadRegisters(_address, FIFO_R_W, sizeof(data), &data[0]);
         gyro_temp[0]  = ((int16_t)data[0] << 8) | data[1];
         gyro_temp[1]  = ((int16_t)data[2] << 8) | data[3];
@@ -684,7 +680,7 @@ void mpu9250::AcelGyroCal()
     gyro_bias[1]  /= (int32_t)packet_count;
     gyro_bias[2]  /= (int32_t)packet_count;
 
-    // Split gyro biases into 8_BIT_H and 8_BIT_L. Biases are additive change sign accordingly
+    // Split gyro biases into 8_BIT_H and 8_BIT_L, use conversion formula as per datasheet
     data[0] = (-gyro_bias[0]/4  >> 8) & 0xFF;
     data[1] = (-gyro_bias[0]/4)       & 0xFF;
     data[2] = (-gyro_bias[1]/4  >> 8) & 0xFF;
@@ -700,7 +696,7 @@ void mpu9250::AcelGyroCal()
     WriteRegister(_address, ZG_OFFSET_H, data[4]);
     WriteRegister(_address, ZG_OFFSET_L, data[5]);
 
-#if 1
+#if 0
     float gyroBias[3];
 
     // Output scaled gyro biases for display in the main program

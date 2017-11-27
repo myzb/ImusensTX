@@ -245,7 +245,6 @@ public:
     const uint8_t SENS_ST_EN       = 0xE0;
     const uint8_t H_RESET          = 0x80;
     const uint8_t CLKSEL_AUTO      = 0x01;
-    const uint8_t CLKSEL_INTRNL    = 0x00;
     const uint8_t INT_ANYRD_2CLEAR = 0x10;
     const uint8_t INT_RAW_RDY_EN   = 0x01;
     const uint8_t INT_BYPASS_EN    = 0x02;
@@ -344,7 +343,7 @@ public:
     // Functions to fine tune the sensors
     void SelfTest();
     void MagCal();
-    void AcelGyroCal();
+    void GyroCal();
     void SetMagCal(float *magBias_in, float *magScale_in);
 
     // Functions that return the sensor data

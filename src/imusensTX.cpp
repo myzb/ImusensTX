@@ -135,12 +135,7 @@ void setup()
     vhclMarg.SelfTest();
     delay(1000);
 
-    if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
-
-    // Calibrate gyro and accelerometers, load biases into bias registers
-//    vhclMarg.AcelGyroCal();
-
-    if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
+    if (Debug) Serial.printf("MPU9250 (1): Calibrating and Initialising ...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
     vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);
@@ -179,12 +174,7 @@ next:
     headMarg.SelfTest();
     delay(1000);
 
-    if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
-
-    // Calibrate gyro and accelerometers, load biases into bias registers
-//    headMarg.AcelGyroCal();
-
-    if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
+    if (Debug) Serial.printf("MPU9250 (2): Calibrating and Initialising ...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
     headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);

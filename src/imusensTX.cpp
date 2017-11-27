@@ -138,12 +138,12 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    vhclMarg.AcelGyroCal();
+//    vhclMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (1): Initialising for active data mode ...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
-    vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
+    vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);
 
     // Check if AK8963 magnetometer is online
     if (Debug) Serial.printf("AK8963  (1): I'm 0x%02x\n", vhclMarg.whoAmIAK8963());
@@ -182,12 +182,12 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Calibrating gyro and accel\n");
 
     // Calibrate gyro and accelerometers, load biases into bias registers
-    headMarg.AcelGyroCal();
+//    headMarg.AcelGyroCal();
 
     if (Debug) Serial.printf("MPU9250 (2): Initialising for active data mode...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
-    headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
+    headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);
 
     // Check if AK8963 magnetometer is online
     if (Debug) Serial.printf("AK8963  (2): I'm 0x%02x\n", headMarg.whoAmIAK8963());

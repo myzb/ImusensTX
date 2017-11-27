@@ -42,6 +42,7 @@ private:
     void QuatMult(float *r, float *q, float *q_out);
     void Quat2Mat(const float *q, mat3f_t *R_out);
     void QuatRot(float *q, float *qv, float *qv_out);
+    void VecRot(float *q, float *v, float *v_out);
 
 public:
     const float *GetQuat();

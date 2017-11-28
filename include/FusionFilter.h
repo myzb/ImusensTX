@@ -21,9 +21,6 @@ private:
 
     float _q[4]         = { 1.0f, 0.0f, 0.0f, 0.0f };
 
-    const float _alpha = 0.005f;
-    const float _beta  = 0.005f;
-
     float VecDot(float *u, float *v);
     float VecNorm(float *v);
     float QuatNorm(float *q);
@@ -35,7 +32,11 @@ private:
     void VecRot(float *q, float *v, float *v_out);
 
 public:
+    float _alpha = 0.005f;
+    float _beta  = 0.005f;
+
     const float *GetQuat();
+    void SetQuat(const float *q_in);
     void Prediction(float *w1_in, float *w2_in, float dt);
     void Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in,
         uint16_t new_m1_data, uint16_t new_m2_data);

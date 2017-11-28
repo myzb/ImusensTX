@@ -327,3 +327,8 @@ const float *FusionFilter::GetQuat()
 {
     return _q;
 }
+
+void FusionFilter::SetQuat(const float *q_in)
+{
+    memcpy(_q, q_in, 4*sizeof(float));
+}

@@ -15,6 +15,7 @@
 #include "Stopwatch.h"
 
 #define DIFERENTIAL
+#define EVAL_FILTER
 
 #if defined(SABATINI)
 #include "CompFilter2.h"
@@ -60,6 +61,12 @@ volatile int int1_event = 0, int2_event = 0;
 CompFilter vhclFilter, headFilter;
 volatile int int1_event = 0, int2_event = 0;
 #endif
+
+#if defined(EVAL_FILTER)
+FusionFilter filter_a, filter_b;
+Stopwatch chrono_a;
+MetroExt task_stop = MetroExt(20000000);    // 20 sec
+#endif /* EVAL_FILTER */
 
 Stopwatch chrono_1, chrono_2;
 
@@ -207,6 +214,13 @@ end:
     // Wait for the host application to be ready
     while (!RawHID.available());
 
+#if defined(EVAL_FILTER)
+    filter_a._alpha = filter_a._beta = 0.0f;
+    filter_b._alpha = filter_b._beta = 1.0f;
+    chrono_a.Reset();
+    task_stop.reset();
+#endif /* EVAL_FILTER */
+
     chrono_1.Reset();
     chrono_2.Reset();
 }
@@ -239,8 +253,23 @@ void loop()
                                   margData2[4], margData2[5], margData2[6],
                                   margData2[7], margData2[8], margData2[9], chrono_2.Split());
 #elif defined(DIFERENTIAL)
+
+#if defined(EVAL_FILTER)
+        static bool stop_flag = 0;
+        static float margData_ab2[10];
+        memcpy(margData_ab2, margData2, sizeof(margData_ab2));
+
+        if (task_stop.check()) stop_flag = 1;
+        if (!stop_flag) filter_a.SetQuat(filter.GetQuat());
+
+        filter_a.Prediction(&margData1[4], &margData_ab2[4], chrono_a.Split());
+
+        filter_b.Correction(&margData1[0], &margData1[7], &margData_ab2[0], &margData_ab2[7],
+                          vhclMarg._magReady, headMarg._magReady);
+#else
         // Copy raw sensor data to tx_buffer
         memcpy(&tx_buffer.num_f[4], &margData2[0], 10*sizeof(float));
+#endif /* EVAL_FILTER */
 
         filter.Prediction(&margData1[4], &margData2[4], chrono_1.Split());
         filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7],
@@ -259,6 +288,12 @@ void loop()
 
 #if defined(DIFERENTIAL)
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
+
+#if defined(EVAL_FILTER)
+        memcpy(&tx_buffer.num_f[4], filter_a.GetQuat(), 4*sizeof(float));
+        memcpy(&tx_buffer.num_f[8], filter_b.GetQuat(), 4*sizeof(float));
+#endif /* EVAL_FILTER*/
+
 #else
         // Get quat rotation difference, store result in tx_buffer[0:3]
         // quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);

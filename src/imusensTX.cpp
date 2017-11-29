@@ -65,7 +65,7 @@ volatile int int1_event = 0, int2_event = 0;
 #if defined(EVAL_FILTER)
 FusionFilter filter_a, filter_b;
 Stopwatch chrono_a;
-MetroExt task_stop = MetroExt(20000000);    // 20 sec
+volatile uint32_t start_millis;
 #endif /* EVAL_FILTER */
 
 Stopwatch chrono_1, chrono_2;
@@ -218,7 +218,8 @@ end:
     filter_a._alpha = filter_a._beta = 0.0f;
     filter_b._alpha = filter_b._beta = 1.0f;
     chrono_a.Reset();
-    task_stop.reset();
+    start_millis = millis();
+    Serial.printf("start_millis is = %d\n", start_millis);
 #endif /* EVAL_FILTER */
 
     chrono_1.Reset();
@@ -255,12 +256,12 @@ void loop()
 #elif defined(DIFERENTIAL)
 
 #if defined(EVAL_FILTER)
-        static bool stop_flag = 0;
         static float margData_ab2[10];
         memcpy(margData_ab2, margData2, sizeof(margData_ab2));
 
-        if (task_stop.check()) stop_flag = 1;
-        if (!stop_flag) filter_a.SetQuat(filter.GetQuat());
+        // Stop correcting filter_a 30 secs after start
+        if (millis() - start_millis < 30000)
+            filter_a.SetQuat(filter.GetQuat());
 
         filter_a.Prediction(&margData1[4], &margData_ab2[4], chrono_a.Split());
 

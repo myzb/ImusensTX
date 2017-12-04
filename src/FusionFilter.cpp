@@ -19,7 +19,15 @@
 
 static float fast_acosf(float x) {
     // Lagrange polynomial of arcos for x=[-1,-0.5,0,0.5,1]
-    return (-0.6981f*x*x -0.8727f)*x + 1.5708f;
+    float angle = (-0.6981f*x*x -0.8727f)*x + 1.5708f;
+
+    if (angle > 1.0f) {
+        angle = 1.0f;
+    } else if (angle < -1.0f) {
+        angle = -1.0f;
+    }
+
+    return angle;
 }
 
 // Vector normalise

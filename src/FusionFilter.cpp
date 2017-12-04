@@ -312,7 +312,7 @@ mag_corr:
 
     // Axis-Angle to innovation quaternion q_m_ino (from magnetic field)
     float q_m_ino[4];
-    AxAngle2Quat( (_beta)*angle, axis, q_m_ino);
+    AxAngle2Quat( _beta*angle, axis, q_m_ino);
     if (QuatNorm(q_m_ino) <= 0.0f) goto end;
 
     // Apply 2nd correction

@@ -268,6 +268,11 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // (Error) Angle between a1_in vector and v_Va2
     dot = VecDot(v_Va2, a1_in);
+    if (dot > 1.0f) {
+        Serial.printf("%d: %s dot = %f\n\t v_Va2 = %f, %f, %f, a1_in = %f, %f,%f\n", __LINE__,
+                      __FILE__, dot, v_Va2[0], v_Va2[1], v_Va2[2], a1_in[0], a1_in[1], a1_in[2]);
+        //exit(0);
+    }
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 
@@ -312,6 +317,12 @@ mag_corr:
 
     // (Error) Angle between m1_in vector and v_Vm2
     dot = VecDot(v_Vm2, m1_in);
+
+    if (dot > 1.0f) {
+        Serial.printf("%d: %s dot = %f\n\t v_Vm2 = %f, %f, %f, m1_in = %f, %f,%f\n", __LINE__,
+                      __FILE__, dot, v_Vm2[0], v_Vm2[1], v_Vm2[2], m1_in[0], m1_in[1], m1_in[2]);
+        //exit(0);
+    }
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 

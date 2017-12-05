@@ -15,7 +15,6 @@
 #include "Stopwatch.h"
 
 #define DIFERENTIAL
-#define EVAL_FILTER
 
 #if defined(SABATINI)
 #include "CompFilter2.h"
@@ -57,6 +56,7 @@ volatile int int1_event = 0, int2_event = 0;
 #elif defined(DIFERENTIAL)
 FusionFilter filter;
 volatile int int1_event = 0, int2_event = 0;
+volatile uint32_t start_millis;
 #else
 CompFilter vhclFilter, headFilter;
 volatile int int1_event = 0, int2_event = 0;
@@ -65,7 +65,6 @@ volatile int int1_event = 0, int2_event = 0;
 #if defined(EVAL_FILTER)
 FusionFilter filter_a, filter_b;
 Stopwatch chrono_a;
-volatile uint32_t start_millis;
 #endif /* EVAL_FILTER */
 
 Stopwatch chrono_1, chrono_2;
@@ -218,9 +217,10 @@ end:
     filter_a._alpha = filter_a._beta = 0.0f;
     filter_b._alpha = filter_b._beta = 1.0f;
     chrono_a.Reset();
-    start_millis = millis();
     Serial.printf("start_millis is = %d\n", start_millis);
 #endif /* EVAL_FILTER */
+
+    start_millis = millis();
 
     chrono_1.Reset();
     chrono_2.Reset();
@@ -243,6 +243,12 @@ void loop()
     /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
     if (int1_event && int2_event) {
 #endif
+        // Start normal filter operation after 5s
+        if (millis() - start_millis > 5000) {
+            filter._alpha = 0.0005f;
+            filter._beta = 0.005f;
+        }
+
         noInterrupts();
         Stopwatch chrono_3;
 #if defined(MADGWICK)

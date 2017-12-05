@@ -32,8 +32,8 @@ private:
     void VecRot(float *q, float *v, float *v_out);
 
 public:
-    float _alpha = 0.005f;
-    float _beta  = 0.005f;
+    float _alpha = 0.5f; // initialised high, allowing fast convergence
+    float _beta  = 0.5f; // initialised high, allowing fast convergence
 
     const float *GetQuat();
     void SetQuat(const float *q_in);

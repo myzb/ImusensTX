@@ -72,11 +72,18 @@ Stopwatch chrono_1, chrono_2;
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
 
-static float margData1[10], margData2[10];
+// Ping-pong data buffers
+static struct marg_t {
+    float accel[3];
+    float temp;
+    float gyro[3];
+    float mag[3];
+} margData1[2], margData2[2];
+volatile int PP1 = 0, PP2 = 0; // ping-pong
 
 void irs1Func_vhcl()
 {
-    vhclMarg.GetAll(margData1, HS_TRUE);
+    vhclMarg.GetAll(margData1[!PP1].accel, HS_TRUE);
 #if !defined(MADGWICK)
     int1_event = 1;
 #endif
@@ -88,7 +95,7 @@ void irs2Func_head()
     ts = micros();
 #endif /* I2C_SPI_TIME */
 
-    headMarg.GetAll(margData2, HS_TRUE);
+    headMarg.GetAll(margData2[!PP2].accel, HS_TRUE);
 
 #ifdef I2C_SPI_TIME
     dt += micros() - ts;
@@ -250,6 +257,9 @@ void loop()
         }
 
         noInterrupts();
+        PP1 = !PP1; // ping-pong
+        PP2 = !PP2;
+
         Stopwatch chrono_3;
 #if defined(MADGWICK)
         vhclFilter.MadgwickUpdate(margData1[0], margData1[1], margData1[2],
@@ -275,11 +285,12 @@ void loop()
                           vhclMarg._magReady, headMarg._magReady);
 #else
         // Copy raw sensor data to tx_buffer
-        memcpy(&tx_buffer.num_f[4], &margData2[0], 10*sizeof(float));
+        memcpy(&tx_buffer.num_f[4], margData2[PP2].accel, 10*sizeof(float));
 #endif /* EVAL_FILTER */
 
-        filter.Prediction(&margData1[4], &margData2[4], chrono_1.Split());
-        filter.Correction(&margData1[0], &margData1[7], &margData2[0], &margData2[7],
+        filter.Prediction(margData1[PP1].gyro,  margData2[PP2].gyro, chrono_1.Split());
+        filter.Correction(margData1[PP1].accel, margData1[PP1].mag,
+                          margData2[PP2].accel, margData2[PP2].mag,
                           vhclMarg._magReady, headMarg._magReady);
 #else
         vhclFilter.Prediction(&margData1[4], chrono_1.Split());

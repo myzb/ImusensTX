@@ -13,18 +13,7 @@
 #include "mpu9250.h"
 #include "MetroExt.h"
 #include "Stopwatch.h"
-
-#define DIFERENTIAL
-
-#if defined(SABATINI)
-#include "CompFilter2.h"
-#elif defined(MADGWICK)
-#include "ExtFilter.h"
-#elif defined(DIFERENTIAL)
 #include "FusionFilter.h"
-#else
-#include "CompFilter.h"
-#endif
 
 #define I2C_SPI_TIME
 
@@ -47,27 +36,16 @@ volatile static float dt = 0, ts = 0;
 mpu9250 vhclMarg(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
-#if defined(MADGWICK)
-ExtFilter vhclFilter, headFilter;
-MetroExt task_filter = MetroExt(100);       // 100 us
-#elif defined(SABATINI)
-CompFilter2 vhclFilter, headFilter;
-volatile int int1_event = 0, int2_event = 0;
-#elif defined(DIFERENTIAL)
 FusionFilter filter;
 volatile int int1_event = 0, int2_event = 0;
 volatile uint32_t start_millis;
-#else
-CompFilter vhclFilter, headFilter;
-volatile int int1_event = 0, int2_event = 0;
-#endif
 
 #if defined(EVAL_FILTER)
 FusionFilter filter_a, filter_b;
 Stopwatch chrono_a;
 #endif /* EVAL_FILTER */
 
-Stopwatch chrono_1, chrono_2;
+Stopwatch chrono_1;
 
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
@@ -84,9 +62,8 @@ volatile int PP1 = 0, PP2 = 0; // ping-pong
 void irs1Func_vhcl()
 {
     vhclMarg.GetAll(margData1[!PP1].accel, HS_TRUE);
-#if !defined(MADGWICK)
+
     int1_event = 1;
-#endif
 }
 
 void irs2Func_head()
@@ -101,9 +78,8 @@ void irs2Func_head()
     dt += micros() - ts;
     irsCnt++;
 #endif /* I2C_SPI_TIME */
-#if !defined(MADGWICK)
+
     int2_event = 1;
-#endif
 }
 
 void setup()
@@ -230,7 +206,6 @@ end:
     start_millis = millis();
 
     chrono_1.Reset();
-    chrono_2.Reset();
 }
 
 void loop()
@@ -243,13 +218,9 @@ void loop()
     static uint32_t pktCnt = 0;                             // usb packet number
     static float Ts_max = 0;                                // fusion speed variable
 
-#if defined(MADGWICK)
-    /* Task 1 - Filter sensor data @ 100us (10 kHz) */
-    if (task_filter.check()) {
-#else
     /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
     if (int1_event && int2_event) {
-#endif
+
         // Start normal filter operation after 5s
         if (millis() - start_millis > 5000) {
             filter._alpha = 0.0005f;
@@ -261,15 +232,6 @@ void loop()
         PP2 = !PP2;
 
         Stopwatch chrono_3;
-#if defined(MADGWICK)
-        vhclFilter.MadgwickUpdate(margData1[0], margData1[1], margData1[2],
-                                  margData1[4], margData1[5], margData1[6],
-                                  margData1[7], margData1[8], margData1[9], chrono_1.Split());
-
-        headFilter.MadgwickUpdate(margData2[0], margData2[1], margData2[2],
-                                  margData2[4], margData2[5], margData2[6],
-                                  margData2[7], margData2[8], margData2[9], chrono_2.Split());
-#elif defined(DIFERENTIAL)
 
 #if defined(EVAL_FILTER)
         static float margData_ab2[10];
@@ -292,19 +254,11 @@ void loop()
         filter.Correction(margData1[PP1].accel, margData1[PP1].mag,
                           margData2[PP2].accel, margData2[PP2].mag,
                           vhclMarg._magReady, headMarg._magReady);
-#else
-        vhclFilter.Prediction(&margData1[4], chrono_1.Split());
-        headFilter.Prediction(&margData2[4], chrono_2.Split());
-
-        vhclFilter.Correction(&margData1[0], &margData1[7], vhclMarg._magReady);
-        headFilter.Correction(&margData2[0], &margData2[7], headMarg._magReady);
-#endif
 
         int1_event = int2_event = 0;
         Ts_max += chrono_3.Split();
         interrupts();
 
-#if defined(DIFERENTIAL)
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
 
 #if defined(EVAL_FILTER)
@@ -312,11 +266,6 @@ void loop()
         memcpy(&tx_buffer.num_f[8], filter_b.GetQuat(), 4*sizeof(float));
 #endif /* EVAL_FILTER*/
 
-#else
-        // Get quat rotation difference, store result in tx_buffer[0:3]
-        // quatDiv(vhclFilter.GetQuat(), headFilter.GetQuat(), tx_buffer.num_f);
-        memcpy(tx_buffer.num_f, vhclFilter.GetQuat(), 4*sizeof(float));
-#endif
         filterCnt++;
     }
 
@@ -369,12 +318,6 @@ void loop()
 #endif /* I2C_SPI_TIME */
 
             // The current rotation quaternions
-#if !defined(DIFERENTIAL)
-            static const float *q1 = vhclFilter.GetQuat();
-            static const float *q2 = headFilter.GetQuat();
-            Serial.printf("q1 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q1[0], q1[1], q1[2], q1[3]);
-            Serial.printf("q2 = \t%.2f\t%.2f\t%.2f\t%.2f\n",  q2[0], q2[1], q2[2], q2[3]);
-#endif
             static const float *q  = tx_buffer.num_f;
             Serial.printf("q  = \t%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0],  q[1],  q[2],  q[3]);
         }

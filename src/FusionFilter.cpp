@@ -21,13 +21,8 @@ static float fast_acosf(float x) {
     // Lagrange polynomial of arcos for x=[-1,-0.5,0,0.5,1]
     float angle = (-0.6981f*x*x -0.8727f)*x + 1.5708f;
 
-    if (angle > 1.0f) {
-        angle = 1.0f;
-    } else if (angle < -1.0f) {
-        angle = -1.0f;
-    }
-
-    return angle;
+    // catch out of bounds
+    return (angle > PI) ? PI : (angle < 0.0f) ? 0.0f : angle;
 }
 
 // Vector normalise
@@ -273,7 +268,8 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // (Error) Angle between a1_in vector and v_Va2
     dot = VecDot(v_Va2, a1_in);
-    angle = fast_acosf(dot);
+    //angle = fast_acosf(dot);
+    angle = acosf(dot);
 
     // Axis-Angle to innovation quaternion q_a_ino (from acceleration)
     float q_a_ino[4];
@@ -316,7 +312,8 @@ mag_corr:
 
     // (Error) Angle between m1_in vector and v_Vm2
     dot = VecDot(v_Vm2, m1_in);
-    angle = fast_acosf(dot);
+    //angle = fast_acosf(dot);
+    angle = acosf(dot);
 
     // Axis-Angle to innovation quaternion q_m_ino (from magnetic field)
     float q_m_ino[4];

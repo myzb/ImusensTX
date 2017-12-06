@@ -12,7 +12,7 @@
 #include "FusionFilter.h"
 
 // Use Sensor 2 only (disable diferential)
-#define SENSOR2_ONLY
+//#define SENSOR2_ONLY
 
 // Using ARM optimised trigonometrics
 #define ARM_MATH
@@ -26,7 +26,7 @@ static float fast_acosf(float x) {
 }
 
 // Vector normalise
-float FusionFilter::VecNorm(float *v)
+float FusionFilter::VecNorm(float *v, float *v_out)
 {
 #ifdef ARM_MATH
     float norm;
@@ -35,14 +35,18 @@ float FusionFilter::VecNorm(float *v)
     float norm = sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 #endif
 
+    // v_out is optional, set it to v if not given
+    if (!v_out) v_out = v;
+
     if (norm == 0.0f) {
         // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
         return 0.0f;
     }
     float factor = 1.0f/norm;
 
+    // Normalise
     for (unsigned int i = 0; i < 3; i++)
-        v[i] = v[i]*factor;
+        v_out[i] = v[i]*factor;
 
     return norm;
 }
@@ -157,7 +161,7 @@ void FusionFilter::QuatMult(float *r, float *q, float *q_out)
 }
 
 // Quaternion normalise
-float FusionFilter::QuatNorm(float *q)
+float FusionFilter::QuatNorm(float *q, float *q_out)
 {
 #ifdef ARM_MATH
     float norm;
@@ -166,14 +170,18 @@ float FusionFilter::QuatNorm(float *q)
     float norm = sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] +q[3]*q[3]);
 #endif
 
+    // q_out is optional, set it to q if not given
+    if (!q_out) q_out = q;
+
     if (norm == 0.0f) {
         // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
         return 0.0f;
     }
     float factor = 1.0f/norm;
 
+    // Normalise
     for (unsigned int i = 0; i < 4; i++)
-        q[i] = q[i]*factor;
+        q_out[i] = q[i]*factor;
 
     return norm;
 }
@@ -209,13 +217,17 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
     // Get last estimated rotation
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
-    float w1_norm = VecNorm(w1_in);
-    float w2_norm = VecNorm(w2_in);
+    // Get the angular rates magnitude (norm), normalise and store in w1/w2
+    float w1[3], w2[3];
+    float w1_norm = VecNorm(w1_in, w1);
+    float w2_norm = VecNorm(w2_in, w2);
+
+    if (!w1_norm || !w2_norm) return;
 
     // Predict rotation 'q_rot' from 'angle*dt' around 'axis'
     float q1_rot[4], q2_rot[4];
-    AxAngle2Quat(-1.0f*w1_norm*dt, w1_in, q1_rot);  // Inverse vehicle to world rotation
-    AxAngle2Quat(w2_norm*dt, w2_in, q2_rot);        // Head to world rotation
+    AxAngle2Quat(-1.0f*w1_norm*dt, w1, q1_rot);  // Inverse vehicle to world rotation
+    AxAngle2Quat(w2_norm*dt, w2, q2_rot);        // Head to world rotation
 
     // Multiply with previous rotation
     float q_temp[4];
@@ -250,24 +262,25 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     // Get predicted rotation
     float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
 
-    // Normalise accel data
-    VecNorm(a1_in);
-    VecNorm(a2_in);
+    // Normalise accel and store in a1/a2
+    float a1[3], a2[3];
+    VecNorm(a1_in, a1);
+    VecNorm(a2_in, a2);
 
     // Rotate a2_in vector (Head frame) -> v_Va2 (Vehicle frame), v_Va2 is predicted
     float v_Va2[3];
-    VecRot(q_in, a2_in, v_Va2);
+    VecRot(q_in, a2, v_Va2);
     VecNorm(v_Va2);
 
     // Axis orthogonal to vehicle a1_in vector and v_Va2
     float axis[3];
     float dot, angle;
 
-    VecCross(v_Va2, a1_in, axis);
+    VecCross(v_Va2, a1, axis);
     if (VecNorm(axis) <= 0.0f) goto mag_corr;
 
     // (Error) Angle between a1_in vector and v_Va2
-    dot = VecDot(v_Va2, a1_in);
+    dot = VecDot(v_Va2, a1);
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 
@@ -293,25 +306,26 @@ mag_corr:
     // Get accel-corrected predicted rotation
     memcpy(q_in, _q, 4*sizeof(float));
 
-    // Normalise mag data
-    VecNorm(m1_in);
-    VecNorm(m2_in);
+    // Normalise mag data and store in m1/m2
+    float m1[3], m2[3];
+    VecNorm(m1_in, m1);
+    VecNorm(m2_in, m2);
 
     // Rotate m2_in vector (head frame) -> v_Vm2 (vehicle frame)
     float v_Vm2[4];
-    VecRot(q_in, m2_in, v_Vm2);
+    VecRot(q_in, m2, v_Vm2);
     // Project onto XY Plane
     v_Vm2[2] = 0.0f;
-    m1_in[2] = 0.0f;
+    m1[2]    = 0.0f;
     VecNorm(v_Vm2);
-    VecNorm(m1_in);
+    VecNorm(m1);
 
     // Axis orthogonal to vehicle m1_in vector and v_Vm2
-    VecCross(v_Vm2, m1_in, axis);
+    VecCross(v_Vm2, m1, axis);
     if (VecNorm(axis) <= 0.0f) goto end;
 
     // (Error) Angle between m1_in vector and v_Vm2
-    dot = VecDot(v_Vm2, m1_in);
+    dot = VecDot(v_Vm2, m1);
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 

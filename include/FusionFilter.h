@@ -22,8 +22,8 @@ private:
     float _q[4]         = { 1.0f, 0.0f, 0.0f, 0.0f };
 
     float VecDot(float *u, float *v);
-    float VecNorm(float *v);
-    float QuatNorm(float *q);
+    float VecNorm(float *v, float *v_out = NULL);
+    float QuatNorm(float *q, float *q_out = NULL);
     void VecCross(float *u, float *v, float *cross_out);
     void AxAngle2Quat(float angle, float *axis, float *q_out);
     void QuatMult(float *r, float *q, float *q_out);

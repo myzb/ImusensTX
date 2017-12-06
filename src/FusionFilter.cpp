@@ -229,7 +229,7 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
 }
 
 void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in,
-    uint16_t new_m1_data, uint16_t new_m2_data)
+    int m1_rdy, int m2_rdy)
 {
     // TODO: Re-Check normalisations
     //       Check NaN's
@@ -243,7 +243,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 #ifdef SENSOR2_ONLY
     a1_in[0] = 0.0f; a1_in[1] = 0.0f; a1_in[2] = 1.0f;
     m1_in[0] = 1.0f; m1_in[1] = 0.0f; m1_in[2] = 0.0f;
-    new_m1_data = new_m2_data;
+    m1_rdy = m2_rdy;
 #endif /* SENSOR2_ONLY */
 
     /* Correction step 1: XY-Plane alignment */
@@ -268,11 +268,6 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // (Error) Angle between a1_in vector and v_Va2
     dot = VecDot(v_Va2, a1_in);
-    if (dot > 1.0f) {
-        Serial.printf("%d: %s dot = %f\n\t v_Va2 = %f, %f, %f, a1_in = %f, %f,%f\n", __LINE__,
-                      __FILE__, dot, v_Va2[0], v_Va2[1], v_Va2[2], a1_in[0], a1_in[1], a1_in[2]);
-        //exit(0);
-    }
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 
@@ -289,7 +284,7 @@ mag_corr:
 
 #if 1
     // Return if no new magnetometer data
-    if (!new_m1_data && !new_m2_data) return;
+    if (!m1_rdy && !m2_rdy) return;
 #else
     return;
 #endif
@@ -317,12 +312,6 @@ mag_corr:
 
     // (Error) Angle between m1_in vector and v_Vm2
     dot = VecDot(v_Vm2, m1_in);
-
-    if (dot > 1.0f) {
-        Serial.printf("%d: %s dot = %f\n\t v_Vm2 = %f, %f, %f, m1_in = %f, %f,%f\n", __LINE__,
-                      __FILE__, dot, v_Vm2[0], v_Vm2[1], v_Vm2[2], m1_in[0], m1_in[1], m1_in[2]);
-        //exit(0);
-    }
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 

@@ -38,8 +38,7 @@ public:
     const float *GetQuat();
     void SetQuat(const float *q_in);
     void Prediction(float *w1_in, float *w2_in, float dt);
-    void Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in,
-        uint16_t new_m1_data, uint16_t new_m2_data);
+    void Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in, int m1_rdy, int m2_rdy);
 };
 
 #endif /* _FUSIONFILTER_H_ */

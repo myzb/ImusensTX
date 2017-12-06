@@ -46,12 +46,12 @@ FusionFilter filter_a, filter_b;
 Stopwatch chrono_a;
 #endif /* EVAL_FILTER */
 
-MetroExt task_filter = MetroExt(1000);      //   1 msec
-MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
-MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
+MetroExt task_filter = MetroExt(1000);      // 1 msec
+MetroExt task_usbTx  = MetroExt(1000);      // 1 msec
+MetroExt task_dbgOut = MetroExt(2000000);   // 2 sec
 
 // Data buffers types
-typedef struct {
+typedef struct marg {
     float accel[3];
     float temp;
     float gyro[3];
@@ -114,7 +114,7 @@ void setup()
     if (Debug) Serial.printf("MPU9250 (1): Calibrating and Initialising ...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
-    vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);
+    vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
 
     // Check if AK8963 magnetometer is online
     if (Debug) Serial.printf("AK8963  (1): I'm 0x%02x\n", vhclMarg.whoAmIAK8963());
@@ -153,7 +153,7 @@ next:
     if (Debug) Serial.printf("MPU9250 (2): Calibrating and Initialising ...\n");
 
     // Config for normal operation, set sample-rate div to '0x0X + 1'
-    headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_250DPS, 0x00);
+    headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
 
     // Check if AK8963 magnetometer is online
     if (Debug) Serial.printf("AK8963  (2): I'm 0x%02x\n", headMarg.whoAmIAK8963());
@@ -208,7 +208,7 @@ void loop()
     // Start normal filter operation after 2s
     if (millis() - start_millis > 2000) {
         filter._alpha = 0.0005f;
-        filter._beta = 0.005f;
+        filter._beta = 0.0005f;
     }
 
     /* Task 1 - Get MARG1 data */

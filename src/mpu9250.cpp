@@ -352,6 +352,7 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
 void mpu9250::GetAll(float* all_out, bus_hs mode)
 {
     int16_t counts[10];
+    int* status_out = (int*)all_out+10;
 
     _useSPIHS = mode;       // Use high speed SPI for data readout
     GetAllCounts(counts);   // Get raw ADC counts
@@ -381,8 +382,8 @@ void mpu9250::GetAll(float* all_out, bus_hs mode)
     all_out[6] *= _gyroScale;
 
     // Return if mag data not ready or mag overflow
-    _magReady = (counts[7] | counts[8] | counts[9]);
-   if (!_magReady) return;
+    status_out[0] = (int)(counts[7] | counts[8] | counts[9]);
+    if (!status_out[0]) return;
 
     // Mag counts minus hard_iron (NED coords)
     all_out[7] = (float)counts[7] - _magHardIron[0];
@@ -583,10 +584,6 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
 void mpu9250::EnableInterrupt(int intPin, void(*irsFunc)())
 {
     if (_useSPI) {
-        // If SPI transactions are to be called from an interrupt the corresponding intPin
-        // has to be registered
-        _spiBus->usingInterrupt(intPin);
-
         // Config MPU9250 - SPI mode interrupt: Auto-clear on reg read
         WriteRegister(_address, INT_PIN_CFG, INT_ANYRD_2CLEAR);
     } else {

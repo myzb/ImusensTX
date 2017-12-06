@@ -343,7 +343,7 @@ public:
     // Functions to fine tune the sensors
     void SelfTest();
     void MagCal();
-    void GyroCal();
+    void GyroCal(mpu9250_gyro_range gyroRange);
     void SetMagCal(float *magBias_in, float *magScale_in);
 
     // Functions that return the sensor data

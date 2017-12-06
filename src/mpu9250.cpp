@@ -482,7 +482,7 @@ int mpu9250::Init(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, 
     // END WORKAROUND
 
     // Calibrate MPU9250 Gyroscope
-    GyroCal();
+    GyroCal(GYRO_RANGE_250DPS);
 
     // auto-select best clock source
     WriteRegister(_address,PWR_MGMT_1, CLKSEL_AUTO);
@@ -619,7 +619,7 @@ uint8_t mpu9250::EnableDMA()
     }
 }
 
-void mpu9250::GyroCal()
+void mpu9250::GyroCal(mpu9250_gyro_range gyroRange)
 {
     // Configure device for bias calculation
     WriteRegister(_address, INT_ENABLE, 0x00);          // Disable all interrupts
@@ -632,9 +632,9 @@ void mpu9250::GyroCal()
     delay(15);
 
     // Configure MPU9250 gyro for bias calculation
-    WriteRegister(_address, CONFIG, 0x01);       // Set low-pass filter to 188 Hz
-    WriteRegister(_address, SMPLRT_DIV, 0x00);   // Set sample rate to 1 kHz
-    WriteRegister(_address, GYRO_CONFIG, 0x00);  // Set gyro FS to 250 deg/s, maximum sensitivity
+    WriteRegister(_address, CONFIG, 0x01);                  // Set low-pass filter to 188 Hz
+    WriteRegister(_address, SMPLRT_DIV, 0x00);              // Set sample rate to 1 kHz
+    WriteRegister(_address, GYRO_CONFIG, gyroRange << 3);   // Set gyro range
 
     // Wait a few for device to settle
     delay(200);
@@ -678,12 +678,13 @@ void mpu9250::GyroCal()
     gyro_bias[2]  /= (int32_t)packet_count;
 
     // Split gyro biases into 8_BIT_H and 8_BIT_L, use conversion formula as per datasheet
-    data[0] = (-gyro_bias[0]/4  >> 8) & 0xFF;
-    data[1] = (-gyro_bias[0]/4)       & 0xFF;
-    data[2] = (-gyro_bias[1]/4  >> 8) & 0xFF;
-    data[3] = (-gyro_bias[1]/4)       & 0xFF;
-    data[4] = (-gyro_bias[2]/4  >> 8) & 0xFF;
-    data[5] = (-gyro_bias[2]/4)       & 0xFF;
+    uint8_t powFS = 1 << gyroRange; // = 2^FS_SEL
+    data[0] = (-gyro_bias[0]*powFS/4  >> 8) & 0xFF;
+    data[1] = (-gyro_bias[0]*powFS/4)       & 0xFF;
+    data[2] = (-gyro_bias[1]*powFS/4  >> 8) & 0xFF;
+    data[3] = (-gyro_bias[1]*powFS/4)       & 0xFF;
+    data[4] = (-gyro_bias[2]*powFS/4  >> 8) & 0xFF;
+    data[5] = (-gyro_bias[2]*powFS/4)       & 0xFF;
 
     // Push gyro biases to hardware registers
     WriteRegister(_address, XG_OFFSET_H, data[0]);

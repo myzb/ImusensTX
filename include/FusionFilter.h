@@ -13,7 +13,7 @@ class FusionFilter {
 
 private:
     // 3x3 float matrix
-    typedef struct {
+    typedef struct mat3 {
         float x[3];
         float y[3];
         float z[3];

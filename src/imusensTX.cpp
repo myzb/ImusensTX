@@ -23,8 +23,8 @@ static const int Debug = 1;
 
 // Pin definitions
 static const int ledPin = 13;
-static const int intPin1_vhcl = 9;  // MPU9250 1 vhcl intPin
-static const int intPin2_head = 18; // MPU9250 2 head intPin
+static const int intPin1 = 9;  // MPU9250 1 vhcl intPin
+static const int intPin2= 18;  // MPU9250 2 head intPin
 
 #ifdef I2C_SPI_TIME
 // Times the avg sensor readout time
@@ -37,21 +37,18 @@ mpu9250 vhclMarg(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
 FusionFilter filter;
+Stopwatch chrono_1;
+uint32_t start_millis;
 volatile int int1_event = 0, int2_event = 0;
-volatile uint32_t start_millis;
 
 #if defined(EVAL_FILTER)
 FusionFilter filter_a, filter_b;
 Stopwatch chrono_a;
 #endif /* EVAL_FILTER */
 
-Stopwatch chrono_1;
-
 MetroExt task_filter = MetroExt(1000);      //   1 msec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
-
-volatile int PP1 = 0, PP2 = 0; // ping-pong 1&2
 
 // Data buffers types
 typedef struct {
@@ -62,12 +59,12 @@ typedef struct {
     int   magRdy;
 } marg_t;
 
-void irs1Func_vhcl()
+void irs1_func()
 {
     int1_event = 1;
 }
 
-void irs2Func_head()
+void irs2_func()
 {
     int2_event = 1;
 }
@@ -108,7 +105,7 @@ void setup()
     // Skip setup if this MPU9250 is not online
     if (vhclMarg.whoAmI() != 0x71) goto next;
 
-    if (Debug) Serial.printf("MPU9250 (1): 9-axis motion sensor is online\n");
+    if (Debug) Serial.printf("MPU9250 (1): 9-axis MARG sensor is online\n");
 
     // Start by performing self test (and reporting values)
     vhclMarg.SelfTest();
@@ -147,7 +144,7 @@ next:
     // Skip setup if this MPU9250 is not online
     if (headMarg.whoAmI() != 0x71) goto end;
 
-    if (Debug) Serial.printf("MPU9250 (2): 9-axis motion sensor is online\n");
+    if (Debug) Serial.printf("MPU9250 (2): 9-axis MARG sensor is online\n");
 
     // Start by performing self test (and reporting values)
     headMarg.SelfTest();
@@ -179,8 +176,8 @@ end:
     if (Debug) Serial.printf("\nSetup done, enabling interrupts!\n");
 
     // Enable interrupts
-    vhclMarg.EnableInterrupt(intPin1_vhcl, irs1Func_vhcl);
-    headMarg.EnableInterrupt(intPin2_head, irs2Func_head);
+    vhclMarg.EnableInterrupt(intPin1, irs1_func);
+    headMarg.EnableInterrupt(intPin2, irs2_func);
     interrupts();
 
     // Wait for the host application to be ready
@@ -190,11 +187,9 @@ end:
     filter_a._alpha = filter_a._beta = 0.0f;
     filter_b._alpha = filter_b._beta = 1.0f;
     chrono_a.Reset();
-    Serial.printf("start_millis is = %d\n", start_millis);
 #endif /* EVAL_FILTER */
 
     start_millis = millis();
-
     chrono_1.Reset();
 }
 
@@ -238,19 +233,19 @@ void loop()
     /* Task 3 - Filter sensor data @ Interrupt rate (1 kHz) */
     if (task_filter.check()) {
 
-        Stopwatch chrono_3;
+        Stopwatch chrono_2;
 #if defined(EVAL_FILTER)
-        static float margData_ab2[10];
-        memcpy(margData_ab2, marg2, sizeof(margData_ab2));
+        static marg_t marg_ab2;
+        memcpy(marg_ab2.accel, marg2.accel, sizeof(marg_ab2));
 
         // Stop correcting filter_a 30 secs after start
         if (millis() - start_millis < 30000)
             filter_a.SetQuat(filter.GetQuat());
 
-        filter_a.Prediction(&marg1[4], &margData_ab2[4], chrono_a.Split());
+        filter_a.Prediction(marg1.gyro, marg_ab2.gyro, chrono_a.Split());
 
-        filter_b.Correction(&marg1[0], &marg1[7], &margData_ab2[0], &margData_ab2[7],
-                          vhclMarg._magReady, headMarg._magReady);
+        filter_b.Correction(marg1.accel, marg1.mag, marg_ab2.accel, marg_ab2.mag,
+                          marg1.magRdy, marg2.magRdy);
 #else
         // Copy raw sensor data to tx_buffer
         memcpy(&tx_buffer.num_f[4], marg2.accel, 10*sizeof(float));
@@ -259,7 +254,7 @@ void loop()
         filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.Split());
         filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
-        Ts_max += chrono_3.Split();
+        Ts_max += chrono_2.Split();
 
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
 

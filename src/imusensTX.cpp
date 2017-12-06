@@ -47,38 +47,28 @@ Stopwatch chrono_a;
 
 Stopwatch chrono_1;
 
+MetroExt task_filter = MetroExt(1000);      //   1 msec
 MetroExt task_usbTx  = MetroExt(1000);      //   1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   //   2 sec
 
-// Ping-pong data buffers
-static struct marg_t {
+volatile int PP1 = 0, PP2 = 0; // ping-pong 1&2
+
+// Data buffers types
+typedef struct {
     float accel[3];
     float temp;
     float gyro[3];
     float mag[3];
-} margData1[2], margData2[2];
-volatile int PP1 = 0, PP2 = 0; // ping-pong
+    int   magRdy;
+} marg_t;
 
 void irs1Func_vhcl()
 {
-    vhclMarg.GetAll(margData1[!PP1].accel, HS_TRUE);
-
     int1_event = 1;
 }
 
 void irs2Func_head()
 {
-#ifdef I2C_SPI_TIME
-    ts = micros();
-#endif /* I2C_SPI_TIME */
-
-    headMarg.GetAll(margData2[!PP2].accel, HS_TRUE);
-
-#ifdef I2C_SPI_TIME
-    dt += micros() - ts;
-    irsCnt++;
-#endif /* I2C_SPI_TIME */
-
     int2_event = 1;
 }
 
@@ -210,54 +200,66 @@ end:
 
 void loop()
 {
-    static uint32_t filterCnt = 0;                          // loop counter
-    static data_t rx_buffer = { 0.0f };                     // usb rx buffer zero initialized
+    static data_t rx_buffer;                                // usb rx buffer
     static data_t tx_buffer = { 1.0f, 0.0f, 0.0f, 0.0f };   // usb tx buffer unit_quat initialized
-    static uint8_t num = 0;                                 // usb return code
+    static marg_t marg1, marg2;                             // marg sensor data structs
+
+    // These are mostly for debugging
+    static uint32_t filterCnt = 0;                          // loop counter
     static uint32_t lastTx = 0, lastRx = 0;                 // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                             // usb packet number
     static float Ts_max = 0;                                // fusion speed variable
 
-    /* Task 1 - Filter sensor data @ Interrupt rate (1 kHz) */
-    if (int1_event && int2_event) {
+    // Start normal filter operation after 2s
+    if (millis() - start_millis > 2000) {
+        filter._alpha = 0.0005f;
+        filter._beta = 0.005f;
+    }
 
-        // Start normal filter operation after 5s
-        if (millis() - start_millis > 5000) {
-            filter._alpha = 0.0005f;
-            filter._beta = 0.005f;
-        }
+    /* Task 1 - Get MARG1 data */
+    if (int1_event) {
+        vhclMarg.GetAll(marg1.accel, HS_TRUE);
+        int1_event = 0;
+    }
 
-        noInterrupts();
-        PP1 = !PP1; // ping-pong
-        PP2 = !PP2;
+    /* Task 2 - Get MARG2 data */
+    if (int2_event) {
+#ifdef I2C_SPI_TIME
+        ts = micros();
+#endif /* I2C_SPI_TIME */
+        headMarg.GetAll(marg2.accel, HS_TRUE);
+#ifdef I2C_SPI_TIME
+        dt += micros() - ts;
+        irsCnt++;
+#endif /* I2C_SPI_TIME */
+        int2_event = 0;
+    }
+
+    /* Task 3 - Filter sensor data @ Interrupt rate (1 kHz) */
+    if (task_filter.check()) {
 
         Stopwatch chrono_3;
-
 #if defined(EVAL_FILTER)
         static float margData_ab2[10];
-        memcpy(margData_ab2, margData2, sizeof(margData_ab2));
+        memcpy(margData_ab2, marg2, sizeof(margData_ab2));
 
         // Stop correcting filter_a 30 secs after start
         if (millis() - start_millis < 30000)
             filter_a.SetQuat(filter.GetQuat());
 
-        filter_a.Prediction(&margData1[4], &margData_ab2[4], chrono_a.Split());
+        filter_a.Prediction(&marg1[4], &margData_ab2[4], chrono_a.Split());
 
-        filter_b.Correction(&margData1[0], &margData1[7], &margData_ab2[0], &margData_ab2[7],
+        filter_b.Correction(&marg1[0], &marg1[7], &margData_ab2[0], &margData_ab2[7],
                           vhclMarg._magReady, headMarg._magReady);
 #else
         // Copy raw sensor data to tx_buffer
-        memcpy(&tx_buffer.num_f[4], margData2[PP2].accel, 10*sizeof(float));
+        memcpy(&tx_buffer.num_f[4], marg2.accel, 10*sizeof(float));
 #endif /* EVAL_FILTER */
 
-        filter.Prediction(margData1[PP1].gyro,  margData2[PP2].gyro, chrono_1.Split());
-        filter.Correction(margData1[PP1].accel, margData1[PP1].mag,
-                          margData2[PP2].accel, margData2[PP2].mag,
-                          vhclMarg._magReady, headMarg._magReady);
+        filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.Split());
+        filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
-        int1_event = int2_event = 0;
         Ts_max += chrono_3.Split();
-        interrupts();
 
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
 
@@ -269,12 +271,12 @@ void loop()
         filterCnt++;
     }
 
-    /* Task 2 - USB data TX @ 1 msec */
+    /* Task 4 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {
 
-        tx_buffer.num_d[15] = pktCnt;           // Place pktCnt into last 4 bytes
-        num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
-        if (num <= 0) task_usbTx.requeue();     // sending failed, re-run the task on next loop
+        tx_buffer.num_d[15] = pktCnt;               // Place pktCnt into last 4 bytes
+        int num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
+        if (num <= 0) task_usbTx.requeue();         // sending failed, re-run the task on next loop
 
         if (num > 0) {
             pktCnt++;
@@ -284,9 +286,9 @@ void loop()
         }
     }
 
-    /* Task 3 - USB data RX @ on demand  */
+    /* Task 5 - USB data RX @ on demand  */
     if (RawHID.available()) {
-        num = RawHID.recv(rx_buffer.raw, 10);
+        int num = RawHID.recv(rx_buffer.raw, 10);
         if (num > 0) {
             lastRx = micros();
 
@@ -301,7 +303,7 @@ void loop()
     }
 
 #if 1
-    /* Task 4 - Debug Output @ 2 sec */
+    /* Task 6 - Debug Output @ 2 sec */
     if (task_dbgOut.check()) {
 
         if (Debug) {
@@ -318,21 +320,23 @@ void loop()
 #endif /* I2C_SPI_TIME */
 
             // The current rotation quaternions
-            static const float *q  = tx_buffer.num_f;
+            const float *q  = tx_buffer.num_f;
             Serial.printf("q  = \t%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0],  q[1],  q[2],  q[3]);
         }
 
         if (Debug == 2) {
+            marg_t *m = &marg1;
             // The current raw sensor data
-            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   margData1[0], margData1[1], margData1[2]);
-            Serial.printf("%6.2f\n",                 margData1[3]);
-            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   margData1[4], margData1[5], margData1[6]);
-            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", margData1[7], margData1[8], margData1[9]);
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   m->accel[0], m->accel[1], m->accel[2]);
+            Serial.printf("%6.2f\n",                 m->temp);
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   m->gyro[0],  m->gyro[1],  m->gyro[2]);
+            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", m->mag[0],   m->mag[1],   m->mag[2]);
 
-            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   margData2[0], margData2[1], margData2[2]);
-            Serial.printf("%6.2f\n",                 margData2[3]);
-            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   margData2[4], margData2[5], margData2[6]);
-            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", margData2[7], margData2[8], margData2[9]);
+            m = &marg2;
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   m->accel[0], m->accel[1], m->accel[2]);
+            Serial.printf("%6.2f\n",                 m->temp);
+            Serial.printf("%6.3f\t%6.3f\t%6.3f\n",   m->gyro[0],  m->gyro[1],  m->gyro[2]);
+            Serial.printf("%6.2f\t%6.2f\t%6.2f\n\n", m->mag[0],   m->mag[1],   m->mag[2]);
         }
 
         // Toggle the LED (signal uC is alive)

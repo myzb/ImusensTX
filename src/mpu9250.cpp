@@ -288,6 +288,7 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
 {
     int16_t counts[10];
     float mag[3];
+    int* status_out = (int*)all_out+10;
 
     _useSPIHS = mode;       // Use high speed SPI for data readout
     GetAllCounts(counts);   // Get raw ADC counts
@@ -314,8 +315,8 @@ void mpu9250::GetAllData(float* all_out, bus_hs mode)
     all_out[6] = (float)counts[6] * _gyroScale;
 
     // Return if mag data not ready or mag overflow
-    _magReady = (counts[7] | counts[8] | counts[9]);
-   if (!_magReady) return;
+    status_out[0] = (int)(counts[7] | counts[8] | counts[9]);
+    if (!status_out[0]) return;
 
     // Mag in mTesla
     // Substract hardIron offset from mag counts

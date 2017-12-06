@@ -305,7 +305,6 @@ public:
 
     float _accelScale = 0, _gyroScale = 0, _magScale = 0;             // Sensor resolutions per LSB
     uint8_t _magRate = 0;                                             // Sensor sampling rate
-    uint16_t _magReady = 0;                                           // Ready status of mag data
 
     // SPI/I2C
     uint8_t _address;       // MPU9250 Address

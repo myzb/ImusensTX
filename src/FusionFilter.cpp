@@ -214,25 +214,26 @@ void FusionFilter::Prediction(float *w1_in, float *w2_in, float dt)
     w1_in[0] = w1_in[1] = w1_in[2] = 0.0f;
 #endif /* SENSOR2_ONLY */
 
-    // Get last estimated rotation
-    float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
-
     // Get the angular rates magnitude (norm), normalise and store in w1/w2
     float w1[3], w2[3];
     float w1_norm = VecNorm(w1_in, w1);
     float w2_norm = VecNorm(w2_in, w2);
 
-    if (!w1_norm || !w2_norm) return;
+    // Initialise as unit quat
+    float q1_rot[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float q2_rot[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 
-    // Predict rotation 'q_rot' from 'angle*dt' around 'axis'
-    float q1_rot[4], q2_rot[4];
-    AxAngle2Quat(-1.0f*w1_norm*dt, w1, q1_rot);  // Inverse vehicle to world rotation
-    AxAngle2Quat(w2_norm*dt, w2, q2_rot);        // Head to world rotation
+    // Skip if norm = 0 and use unit quats
+    if (w1_norm)
+        AxAngle2Quat(-1.0f*w1_norm*dt, w1, q1_rot); // Inverse vehicle k to k-1 rotation
+
+    if (w2_norm)
+        AxAngle2Quat(w2_norm*dt, w2, q2_rot);       // Head k to k-1 rotation
 
     // Multiply with previous rotation
     float q_temp[4];
-    QuatMult(q_in, q2_rot, q_temp);                  // Head to world in vehicle coords
-    QuatMult(q1_rot, q_temp, _q);                    // Head to vehicle in vehicle coords
+    QuatMult(_q, q2_rot, q_temp);                   // Head to world in vehicle coords
+    QuatMult(q1_rot, q_temp, _q);                   // Head to vehicle in vehicle coords
 
     // Normalise
     QuatNorm(_q);

@@ -259,10 +259,10 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     m1_rdy = m2_rdy;
 #endif /* SENSOR2_ONLY */
 
-    /* Correction step 1: XY-Plane alignment */
-    // Get predicted rotation
-    float q_in[4] = { _q[0], _q[1], _q[2], _q[3] };
+    // Quat to hold a temporary '_q'
+    float q_temp[4];
 
+    /* Correction step 1: XY-Plane alignment */
     // Normalise accel and store in a1/a2
     float a1[3], a2[3];
     VecNorm(a1_in, a1);
@@ -270,7 +270,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // Rotate a2_in vector (Head frame) -> v_Va2 (Vehicle frame), v_Va2 is predicted
     float v_Va2[3];
-    VecRot(q_in, a2, v_Va2);
+    VecRot(_q, a2, v_Va2);
     VecNorm(v_Va2);
 
     // Axis orthogonal to vehicle a1_in vector and v_Va2
@@ -291,8 +291,8 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     if (QuatNorm(q_a_ino) <= 0.0f) goto mag_corr;
 
     // Apply 1st correction
-    QuatMult(q_a_ino, q_in, _q);
-    QuatNorm(_q);
+    QuatMult(q_a_ino, _q, q_temp);
+    QuatNorm(q_temp, _q);
 
 mag_corr:
 
@@ -304,9 +304,6 @@ mag_corr:
 #endif
 
     /* Correction step 2: North alignment */
-    // Get accel-corrected predicted rotation
-    memcpy(q_in, _q, 4*sizeof(float));
-
     // Normalise mag data and store in m1/m2
     float m1[3], m2[3];
     VecNorm(m1_in, m1);
@@ -314,7 +311,7 @@ mag_corr:
 
     // Rotate m2_in vector (head frame) -> v_Vm2 (vehicle frame)
     float v_Vm2[4];
-    VecRot(q_in, m2, v_Vm2);
+    VecRot(_q, m2, v_Vm2);
     // Project onto XY Plane
     v_Vm2[2] = 0.0f;
     m1[2]    = 0.0f;
@@ -336,8 +333,8 @@ mag_corr:
     if (QuatNorm(q_m_ino) <= 0.0f) goto end;
 
     // Apply 2nd correction
-    QuatMult(q_m_ino, q_in, _q);
-    QuatNorm(_q);
+    QuatMult(q_m_ino, _q, q_temp);
+    QuatNorm(q_temp, _q);
 
 end:
     return;

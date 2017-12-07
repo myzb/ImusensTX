@@ -248,12 +248,13 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     //       Check NaN's
 
     // LEGEND:
-    // a1, m1: Vehicle sensor data
-    // a2, m2: Head sensor data
+    // a1, m1: (Vehicle) sensor data
+    // a2, m2: (Head) sensor data
     // v_ : Vector, q_ : Quaternion
-    // V: Vehicle,  H: Head
+    // v_Va*, v_Ha* : vector in Vehicle/Head coords for accel
+    // v_Vm*, v_Hm* : vector in Vehicle/Head coords for mag
 
-#ifdef SENSOR2_ONLY
+    #ifdef SENSOR2_ONLY
     a1_in[0] = 0.0f; a1_in[1] = 0.0f; a1_in[2] = 1.0f;
     m1_in[0] = 1.0f; m1_in[1] = 0.0f; m1_in[2] = 0.0f;
     m1_rdy = m2_rdy;
@@ -264,24 +265,24 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     /* Correction step 1: XY-Plane alignment */
     // Normalise accel and store in a1/a2
-    float a1[3], a2[3];
-    VecNorm(a1_in, a1);
-    VecNorm(a2_in, a2);
+    float v_Va1[3], v_Ha2[3];
+    VecNorm(a1_in, v_Va1);
+    VecNorm(a2_in, v_Ha2);
 
     // Rotate a2_in vector (Head frame) -> v_Va2 (Vehicle frame), v_Va2 is predicted
     float v_Va2[3];
-    VecRot(_q, a2, v_Va2);
+    VecRot(_q, v_Ha2, v_Va2);
     VecNorm(v_Va2);
 
     // Axis orthogonal to vehicle a1_in vector and v_Va2
     float axis[3];
     float dot, angle;
 
-    VecCross(v_Va2, a1, axis);
+    VecCross(v_Va2, v_Va1, axis);
     if (VecNorm(axis) <= 0.0f) goto mag_corr;
 
     // (Error) Angle between a1_in vector and v_Va2
-    dot = VecDot(v_Va2, a1);
+    dot = VecDot(v_Va2, v_Va1);
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 
@@ -305,25 +306,24 @@ mag_corr:
 
     /* Correction step 2: North alignment */
     // Normalise mag data and store in m1/m2
-    float m1[3], m2[3];
-    VecNorm(m1_in, m1);
-    VecNorm(m2_in, m2);
+    float v_Vm1[3], v_Hm2[3];
+    VecNorm(m1_in, v_Vm1);
+    VecNorm(m2_in, v_Hm2);
 
     // Rotate m2_in vector (head frame) -> v_Vm2 (vehicle frame)
     float v_Vm2[4];
-    VecRot(_q, m2, v_Vm2);
+    VecRot(_q, v_Hm2, v_Vm2);
     // Project onto XY Plane
-    v_Vm2[2] = 0.0f;
-    m1[2]    = 0.0f;
+    v_Vm1[2] = v_Vm2[2] = 0.0f;
     VecNorm(v_Vm2);
-    VecNorm(m1);
+    VecNorm(v_Vm1);
 
     // Axis orthogonal to vehicle m1_in vector and v_Vm2
-    VecCross(v_Vm2, m1, axis);
+    VecCross(v_Vm2, v_Vm1, axis);
     if (VecNorm(axis) <= 0.0f) goto end;
 
     // (Error) Angle between m1_in vector and v_Vm2
-    dot = VecDot(v_Vm2, m1);
+    dot = VecDot(v_Vm2, v_Vm1);
     //angle = fast_acosf(dot);
     angle = acosf(dot);
 

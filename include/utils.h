@@ -8,7 +8,7 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
-typedef union {
+typedef union data {
   float num_f[16];
   uint32_t num_d[16];
   byte raw[64];

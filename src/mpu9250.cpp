@@ -390,9 +390,9 @@ void mpu9250::GetAll(float* all_out, bus_hs mode)
     all_out[7] = (float)counts[7] - _magHardIron[0];
     all_out[8] = (float)counts[8] - _magHardIron[1];
     all_out[9] = (float)counts[9] - _magHardIron[2];
-    all_out[7] *= _magScale_factory[0] *_magSoftIron[0];
-    all_out[8] *= _magScale_factory[1] *_magSoftIron[1];
-    all_out[9] *= _magScale_factory[2] *_magSoftIron[2];
+    all_out[7] *= _magScale_factory[0]; // *_magSoftIron[0];
+    all_out[8] *= _magScale_factory[1]; // *_magSoftIron[1];
+    all_out[9] *= _magScale_factory[2]; // *_magSoftIron[2];
 
 #ifdef MAG_EXPORT
     for (int i = 7; i < 10; i++) {
@@ -799,7 +799,7 @@ void mpu9250::MagCal()
     _magSoftIron[1] = avg_rad / ((float)mag_scale[1]);
     _magSoftIron[2] = avg_rad / ((float)mag_scale[2]);
 
-#if 0
+#if 1
     Serial.printf("Mag calibration done!\n");
     Serial.printf("AK8963 mag biases (counts)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
     Serial.printf("AK8963 mag scale  \n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);

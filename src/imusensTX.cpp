@@ -71,18 +71,18 @@ void irs2_func()
 
 void setup()
 {
-#if 1
-    // Pre-calibrated values (office)
+#if 0
+    // Pre-calibrated values (office-old)
     float magHardIron[][3] = { {53.000000f, 59.000000f, -76.000000f},
                                {13.000000f, 262.000000f, -187.000000f} };
     float magSoftIron[][3] = { {1.030303f, 1.002950f, 0.968661f},
                                {1.080303f, 0.907125f, 1.028860f} };
 #else
-    // Pre-calibrated values (office-old)
-    float magHardIron[][3] = { {36.000000f, 59.000000f, -52.000000f},
-                               {-1.000000f, 258.000000f, -179.000000f} };
-    float magSoftIron[][3] = { {1.112245f, 0.981982f, 0.923729f},
-                               {1.137931f, 0.895349f, 0.995690f} };
+    // Pre-calibrated values (office)
+    float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
+                               {27.000000f, 270.000000f, -188.000000f} };
+    float magSoftIron[][3] = { {1.021021f, 1.011905f, 0.968661f},
+                               {1.131173f, 0.904938f, 0.989204f} };
 #endif
 
     if (Debug) Serial.begin(38400);
@@ -207,8 +207,8 @@ void loop()
 
     // Start normal filter operation after 2s
     if (millis() - start_millis > 2000) {
-        filter._alpha = 0.0005f;
-        filter._beta = 0.0005f;
+        filter._alpha = 0.001f;
+        filter._beta = 0.007f;
     }
 
     /* Task 1 - Get MARG1 data */
@@ -228,10 +228,10 @@ void loop()
         irsCnt++;
 #endif /* I2C_SPI_TIME */
         int2_event = 0;
-    }
-
-    /* Task 3 - Filter sensor data @ Interrupt rate (1 kHz) */
-    if (task_filter.check()) {
+//    }
+//
+//    /* Task 3 - Filter sensor data @ Interrupt rate (1 kHz) */
+//    if (task_filter.check()) {
 
         Stopwatch chrono_2;
 #if defined(EVAL_FILTER)

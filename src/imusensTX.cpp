@@ -216,7 +216,7 @@ void loop()
     // Start normal filter operation after 2s
     if (millis() - start_millis > 2000) {
         filter._alpha = 0.001f;
-        filter._beta = 0.007f;
+        filter._beta = 0.001f;
     }
 
     /* Task 1 - Get MARG1 data */

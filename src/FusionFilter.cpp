@@ -12,7 +12,7 @@
 #include "FusionFilter.h"
 
 // Use Sensor 2 only (disable diferential)
-//#define SENSOR2_ONLY
+#define SENSOR2_ONLY
 
 // Using ARM optimised trigonometrics
 #define ARM_MATH

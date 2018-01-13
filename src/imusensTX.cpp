@@ -6,7 +6,6 @@
  */
 
 #include <Arduino.h>
-#include <i2c_t3.h>
 #include <SPI.h>
 
 #include "mpu9250.h"
@@ -16,7 +15,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 1;
+static const int Debug = 0;
 
 // Pin definitions
 static const int ledPin = 13;

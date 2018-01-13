@@ -9,14 +9,10 @@
 #include <i2c_t3.h>
 #include <SPI.h>
 
-#include "utils.h"
 #include "mpu9250.h"
 #include "MetroExt.h"
 #include "Stopwatch.h"
 #include "FusionFilter.h"
-
-#define I2C_SPI_TIME
-//#define RESET_MAGCAL
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
@@ -42,16 +38,11 @@ Stopwatch chrono_1;
 uint32_t start_millis;
 volatile int int1_event = 0, int2_event = 0;
 
-#if defined(EVAL_FILTER)
-FusionFilter filter_a, filter_b;
-Stopwatch chrono_a;
-#endif /* EVAL_FILTER */
-
 MetroExt task_filter = MetroExt(1000);      // 1 msec
 MetroExt task_usbTx  = MetroExt(1000);      // 1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   // 2 sec
 
-// Data buffers types
+// marg data buffer
 typedef struct marg {
     float accel[3];
     float temp;
@@ -59,6 +50,13 @@ typedef struct marg {
     float mag[3];
     int   magRdy;
 } marg_t;
+
+// 64 byte usb packet
+typedef union data {
+  float num_f[16];
+  uint32_t num_d[16];
+  byte raw[64];
+} data_t;
 
 void irs1_func()
 {
@@ -191,12 +189,6 @@ end:
     // Wait for the host application to be ready
     while (!RawHID.available());
 
-#if defined(EVAL_FILTER)
-    filter_a._alpha = filter_a._beta = 0.0f;
-    filter_b._alpha = filter_b._beta = 1.0f;
-    chrono_a.Reset();
-#endif /* EVAL_FILTER */
-
     start_millis = millis();
     chrono_1.Reset();
 }
@@ -209,7 +201,6 @@ void loop()
 
     // These are mostly for debugging
     static uint32_t filterCnt = 0;                          // loop counter
-    static uint32_t lastTx = 0, lastRx = 0;                 // last rx/tx time of usb data
     static uint32_t pktCnt = 0;                             // usb packet number
     static float Ts_max = 0;                                // fusion speed variable
 
@@ -236,41 +227,20 @@ void loop()
         irsCnt++;
 #endif /* I2C_SPI_TIME */
         int2_event = 0;
-//    }
-//
-//    /* Task 3 - Filter sensor data @ Interrupt rate (1 kHz) */
-//    if (task_filter.check()) {
 
-        Stopwatch chrono_2;
-#if defined(EVAL_FILTER)
-        static marg_t marg_ab2;
-        memcpy(marg_ab2.accel, marg2.accel, sizeof(marg_ab2));
-
-        // Stop correcting filter_a 30 secs after start
-        if (millis() - start_millis < 30000)
-            filter_a.SetQuat(filter.GetQuat());
-
-        filter_a.Prediction(marg1.gyro, marg_ab2.gyro, chrono_a.Split());
-
-        filter_b.Correction(marg1.accel, marg1.mag, marg_ab2.accel, marg_ab2.mag,
-                          marg1.magRdy, marg2.magRdy);
-#else
         // Copy raw sensor data to tx_buffer
         memcpy(&tx_buffer.num_f[4], marg2.accel, 10*sizeof(float));
-#endif /* EVAL_FILTER */
 
+        Stopwatch chrono_2;
+
+        // Sensorfusion
         filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.Split());
         filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
         Ts_max += chrono_2.Split();
 
+        // Copy quat to tx_buffer
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
-
-#if defined(EVAL_FILTER)
-        memcpy(&tx_buffer.num_f[4], filter_a.GetQuat(), 4*sizeof(float));
-        memcpy(&tx_buffer.num_f[8], filter_b.GetQuat(), 4*sizeof(float));
-#endif /* EVAL_FILTER*/
-
         filterCnt++;
     }
 
@@ -280,28 +250,13 @@ void loop()
         tx_buffer.num_d[15] = pktCnt;               // Place pktCnt into last 4 bytes
         int num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
         if (num <= 0) task_usbTx.requeue();         // sending failed, re-run the task on next loop
-
-        if (num > 0) {
-            pktCnt++;
-            lastTx = micros();
-        } else if (Debug == 3) {
-            Serial.printf("TX: Fail\t%d\n", num);
-        }
     }
 
     /* Task 5 - USB data RX @ on demand  */
     if (RawHID.available()) {
         int num = RawHID.recv(rx_buffer.raw, 10);
         if (num > 0) {
-            lastRx = micros();
-
-            if (Debug == 3) {
-                Serial.printf("TX:\t%d\tRX:\t%d\n", tx_buffer.num_d[15], rx_buffer.num_d[15]);
-                Serial.printf("%d\t\t%d\n", lastTx / 1000 % 1000, lastRx / 1000 % 1000);
-            }
-
-        } else if (Debug == 3) {
-            Serial.printf("\tRX: Fail\t%d\n", num);
+            // TODO: Do some task
         }
     }
 
@@ -322,7 +277,7 @@ void loop()
             irsCnt = 0;
 #endif /* I2C_SPI_TIME */
 
-            // The current rotation quaternions
+            // The current rotation quaternion
             const float *q  = tx_buffer.num_f;
             Serial.printf("q  = \t%.2f\t%.2f\t%.2f\t%.2f\n\n", q[0],  q[1],  q[2],  q[3]);
         }

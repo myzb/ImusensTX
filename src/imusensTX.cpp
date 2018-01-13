@@ -15,7 +15,7 @@
 
 // Debug flag
 // 0: off, 1: std, 2: verbose, 3: vverbose
-static const int Debug = 0;
+static const int Debug = 1;
 
 // Pin definitions
 static const int ledPin = 13;
@@ -69,7 +69,7 @@ void irs2_func()
 
 void setup()
 {
-#if 1
+#if 0
     // Pre-calibrated values (golf)
     float magHardIron[][3] = { {51.000000f, 84.000000f, -97.000000f},
                                {49.000000f, 214.000000f, -27.000000f} };

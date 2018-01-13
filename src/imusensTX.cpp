@@ -6,6 +6,7 @@
  */
 
 #include <Arduino.h>
+#include <Metro.h>
 #include <SPI.h>
 
 #include "mpu9250.h"
@@ -36,8 +37,8 @@ FusionFilter filter;
 stopwatch chrono_1;
 volatile int int1_event = 0, int2_event = 0;
 
-MetroExt task_usbTx  = MetroExt(1000);      // 1 msec
-MetroExt task_dbgOut = MetroExt(2000000);   // 2 sec
+Metro    task_dbgOut(2000); // 2000 millis
+MetroExt task_usbTx(1000);  // 1000 micros
 
 // marg data buffer
 typedef struct marg {

@@ -73,23 +73,23 @@ void irs2_func()
 void setup()
 {
 #if 1
+    // Pre-calibrated values (golf)
+    float magHardIron[][3] = { {51.000000f, 84.000000f, -97.000000f},
+                               {49.000000f, 214.000000f, -27.000000f} };
+    float magSoftIron[][3] = { {1.050794, 1.060897, 0.970344f},
+                               {1.088972f, 1.027187f, 0.902388f} };
+#else
     // Pre-calibrated values (home)
     float magHardIron[][3] = { {58.000000f, 59.000000f, -79.000000f},
                                {18.000000f, 282.000000f, -161.000000f} };
     float magSoftIron[][3] = { {0.998779f, 1.032828f, 0.970344f},
                                {1.007547f, 0.946809f, 1.051181f} };
-#else
+/*
     // Pre-calibrated values (office)
     float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
                                {27.000000f, 270.000000f, -188.000000f} };
     float magSoftIron[][3] = { {1.021021f, 1.011905f, 0.968661f},
                                {1.131173f, 0.904938f, 0.989204f} };
-/*
-    // Pre-calibrated values (office-old)
-    float magHardIron[][3] = { {53.000000f, 59.000000f, -76.000000f},
-                               {13.000000f, 262.000000f, -187.000000f} };
-    float magSoftIron[][3] = { {1.030303f, 1.002950f, 0.968661f},
-                               {1.080303f, 0.907125f, 1.028860f} };
 */
 #endif
 

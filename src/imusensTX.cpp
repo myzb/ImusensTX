@@ -192,6 +192,7 @@ end:
 
 void loop()
 {
+    static int do_once = 1;
     static data_t rx_buffer = { 0 };                        // usb rx buffer
     static data_t tx_buffer = { 1.0f, 0.0f, 0.0f, 0.0f };   // usb tx buffer unit_quat initialized
     static marg_t marg1, marg2;                             // marg sensor data structs
@@ -202,9 +203,10 @@ void loop()
     static float Ts_max = 0;                                // fusion speed variable
 
     // Start normal filter operation after 2s
-    if (chrono_1.peek_lp() > 2.0f) {
+    if (do_once && chrono_1.peek_lp() > 2.0f) {
         filter._alpha = 0.001f;
         filter._beta = 0.001f;
+        do_once = 0;
     }
 
     /* Task 1 - Get MARG1 data */
@@ -232,10 +234,10 @@ void loop()
 
         /* Task 3 - Sensorfusion */
         // Toggle prediction
-        if (!(rx_buffer.num_d[0] & 0x01))
+        if (!(rx_buffer.raw[0] & 0x01))
             filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.split());
         // Toggle correction
-        if (!(rx_buffer.num_d[0] & 0x02))
+        if (!(rx_buffer.raw[0] & 0x02))
             filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
         Ts_max += chrono_2.split();
@@ -256,10 +258,8 @@ void loop()
     /* Task 5 - USB data RX @ on demand  */
     if (RawHID.available()) {
         int num = RawHID.recv(rx_buffer.raw, 10);
-        if (num > 0) {
-            Serial.printf("0x%02x\n",rx_buffer.raw[0]);
-            Serial.printf("%d\n",rx_buffer.num_d[0]);
-            // TODO: Do some task
+        if (Debug && num > 0) {
+            Serial.printf("Received bitfield: 0x%02x\n\n",rx_buffer.raw[0]);
         }
     }
 

@@ -9,23 +9,42 @@
 
 #include "Stopwatch.h"
 
-Stopwatch::Stopwatch()
+stopwatch::stopwatch()
 {
-    this->_previous_micros = micros();
-    _dt = 0;
+    _previous_micros = _start_micros = micros();
+    _previous_millis = _start_millis = millis();
+    _dt_us = 0;
+    _dt_ms = 0;
 }
 
-float Stopwatch::Split()
+float stopwatch::split()
 {
-    _dt = micros() - this->_previous_micros;
-    this->_previous_micros = micros();
+    _dt_us = micros() - _previous_micros;
+    _previous_micros = micros();
 
-    return (float)_dt / 1000000.0f;
+    return (float)_dt_us / 1000000.0f;
 }
 
-void Stopwatch::Reset()
+float stopwatch::peek()
 {
-  this->_previous_micros = micros();
+    return (float)(micros() - _start_micros) / 1000000.0f;
 }
 
+float stopwatch::split_lp()
+{
+    _dt_ms = millis() - _previous_millis;
+    _previous_millis = millis();
 
+    return (float)_dt_ms / 1000.0f;
+}
+
+float stopwatch::peek_lp()
+{
+    return (float)(millis() - _start_millis) / 1000.0f;
+}
+
+void stopwatch::reset()
+{
+    _previous_micros = _start_micros = micros();
+    _previous_millis = _start_millis = millis();
+}

@@ -33,11 +33,9 @@ mpu9250 vhclMarg(10, MOSI_PIN_28);       // MPU9250 1 On SPI bus 0 at csPin 10
 mpu9250 headMarg(17, MOSI_PIN_21);       // MPU9250 2 On SPI bus 1 at csPin 17
 
 FusionFilter filter;
-Stopwatch chrono_1;
-uint32_t start_millis;
+stopwatch chrono_1;
 volatile int int1_event = 0, int2_event = 0;
 
-MetroExt task_filter = MetroExt(1000);      // 1 msec
 MetroExt task_usbTx  = MetroExt(1000);      // 1 msec
 MetroExt task_dbgOut = MetroExt(2000000);   // 2 sec
 
@@ -188,8 +186,7 @@ end:
     // Wait for the host application to be ready
     while (!RawHID.available());
 
-    start_millis = millis();
-    chrono_1.Reset();
+    chrono_1.reset();
 }
 
 void loop()
@@ -204,7 +201,7 @@ void loop()
     static float Ts_max = 0;                                // fusion speed variable
 
     // Start normal filter operation after 2s
-    if (millis() - start_millis > 2000) {
+    if (chrono_1.peek_lp() > 2.0f) {
         filter._alpha = 0.001f;
         filter._beta = 0.001f;
     }
@@ -230,17 +227,17 @@ void loop()
         // Copy raw sensor data to tx_buffer
         memcpy(&tx_buffer.num_f[4], marg2.accel, 10*sizeof(float));
 
-        Stopwatch chrono_2;
+        stopwatch chrono_2;
 
         /* Task 3 - Sensorfusion */
         // Toggle prediction
         if (!(rx_buffer.num_d[0] & 0x01))
-            filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.Split());
+            filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.split());
         // Toggle correction
         if (!(rx_buffer.num_d[0] & 0x02))
             filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
-        Ts_max += chrono_2.Split();
+        Ts_max += chrono_2.split();
 
         // Copy quat to tx_buffer
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));

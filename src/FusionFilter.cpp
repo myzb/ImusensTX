@@ -11,9 +11,6 @@
 #include "MetroExt.h"
 #include "FusionFilter.h"
 
-// Use Sensor 2 only (disable diferential)
-#define SENSOR2_ONLY
-
 // Using ARM optimised trigonometrics
 #define ARM_MATH
 
@@ -38,10 +35,9 @@ float FusionFilter::VecNorm(float *v, float *v_out)
     // v_out is optional, set it to v if not given
     if (!v_out) v_out = v;
 
-    if (norm == 0.0f) {
-        // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
-        return 0.0f;
-    }
+    // Catch norm = 0
+    if (!norm) return 0.0f;
+
     float factor = 1.0f/norm;
 
     // Normalise
@@ -173,10 +169,9 @@ float FusionFilter::QuatNorm(float *q, float *q_out)
     // q_out is optional, set it to q if not given
     if (!q_out) q_out = q;
 
-    if (norm == 0.0f) {
-        // Serial.printf("%s: Division by Zero!\n", __func__); // TODO: do something else?
-        return 0.0f;
-    }
+    // Catch norm = 0
+    if (!norm) return 0.0f;
+
     float factor = 1.0f/norm;
 
     // Normalise
@@ -191,10 +186,10 @@ void FusionFilter::AxAngle2Quat(float angle, float *axis, float *q_out)
 {
 #ifdef ARM_MATH
     float sin_ = arm_sin_f32(0.5f*angle);
-    q_out[0] = arm_cos_f32(0.5f*angle);
+    q_out[0]   = arm_cos_f32(0.5f*angle);
 #else
     float sin_ = sinf(0.5f*angle);
-    q_out[0] = cosf(0.5f*angle);
+    q_out[0]   = cosf(0.5f*angle);
 #endif
     q_out[1] = axis[0]*sin_;
     q_out[2] = axis[1]*sin_;
@@ -245,7 +240,6 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
     int m1_rdy, int m2_rdy)
 {
     // TODO: Re-Check normalisations
-    //       Check NaN's
 
     // LEGEND:
     // a1, m1: (Vehicle) sensor data
@@ -276,15 +270,15 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
     // Axis orthogonal to vehicle a1_in vector and v_Va2
     float axis[3];
-    float dot, angle;
+    float cosangle, angle;
 
     VecCross(v_Va2, v_Va1, axis);
     if (VecNorm(axis) <= 0.0f) goto mag_corr;
 
     // (Error) Angle between a1_in vector and v_Va2
-    dot = VecDot(v_Va2, v_Va1);
-    //angle = fast_acosf(dot);
-    angle = acosf(dot);
+    cosangle = VecDot(v_Va2, v_Va1);
+    //angle = fast_acosf(cosangle);
+    angle = acosf(cosangle);
 
     // Axis-Angle to innovation quaternion q_a_ino (from acceleration)
     float q_a_ino[4];
@@ -297,7 +291,7 @@ void FusionFilter::Correction(float *a1_in, float *m1_in, float *a2_in, float *m
 
 mag_corr:
 
-#if 1
+#ifndef DISABLE_MAG
     // Return if no new magnetometer data
     if (!m1_rdy && !m2_rdy) return;
 #else
@@ -323,9 +317,9 @@ mag_corr:
     if (VecNorm(axis) <= 0.0f) goto end;
 
     // (Error) Angle between m1_in vector and v_Vm2
-    dot = VecDot(v_Vm2, v_Vm1);
-    //angle = fast_acosf(dot);
-    angle = acosf(dot);
+    cosangle = VecDot(v_Vm2, v_Vm1);
+    //angle = fast_acosf(cosangle);
+    angle = acosf(cosangle);
 
     // Axis-Angle to innovation quaternion q_m_ino (from magnetic field)
     float q_m_ino[4];

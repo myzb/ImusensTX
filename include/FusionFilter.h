@@ -19,7 +19,7 @@ private:
         float z[3];
     } mat3f_t;
 
-    float _q[4]         = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float _q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 
     float VecDot(float *u, float *v);
     float VecNorm(float *v, float *v_out = NULL);

@@ -232,6 +232,9 @@ void loop()
         stopwatch chrono_2;
 
         /* Task 3 - Sensorfusion */
+        // Toggle mag correction step
+        if (rx_buffer.raw[0] & 0x04)
+            marg1.magRdy = marg2.magRdy = 0;
         // Toggle prediction
         if (!(rx_buffer.raw[0] & 0x01))
             filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.split());
@@ -261,6 +264,20 @@ void loop()
             Serial.printf("Received bitfield: 0x%02x\n\n",rx_buffer.raw[0]);
         }
     }
+
+    /* Parse received USB data */
+    // 1e-0 Filter param
+    if (rx_buffer.raw[0] & 0x10)
+        filter.SetGains(1e0,1e0);
+    // 1e-1 Filter param
+    if (rx_buffer.raw[0] & 0x20)
+        filter.SetGains(1e-1,1e-1);
+    // 1e-2 Filter param
+    if (rx_buffer.raw[0] & 0x40)
+        filter.SetGains(1e-2,1e-2);
+    // Defaults
+    if (rx_buffer.raw[0] & 0x80)
+        filter.SetGains(1e-3,1e-3);
 
 #if 1
     /* Task 6 - Debug Output @ 2 sec */

@@ -343,3 +343,11 @@ void FusionFilter::SetQuat(const float *q_in)
 {
     memcpy(_q, q_in, 4*sizeof(float));
 }
+
+void FusionFilter::SetGains(float alpha, float beta)
+{
+    _alpha = alpha;
+    _beta  = beta;
+}
+
+

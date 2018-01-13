@@ -204,8 +204,7 @@ void loop()
 
     // Start normal filter operation after 2s
     if (do_once && chrono_1.peek_lp() > 2.0f) {
-        filter._alpha = 0.001f;
-        filter._beta = 0.001f;
+        filter.SetGains(0.001f, 0.001f);
         do_once = 0;
     }
 

@@ -19,7 +19,9 @@ private:
         float z[3];
     } mat3f_t;
 
-    float _q[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float _q[4]  = { 1.0f, 0.0f, 0.0f, 0.0f };
+    float _alpha = 0.5f; // initialised high, allowing fast convergence
+    float _beta  = 0.5f; // initialised high, allowing fast convergence
 
     float VecDot(float *u, float *v);
     float VecNorm(float *v, float *v_out = NULL);
@@ -32,11 +34,9 @@ private:
     void VecRot(float *q, float *v, float *v_out);
 
 public:
-    float _alpha = 0.5f; // initialised high, allowing fast convergence
-    float _beta  = 0.5f; // initialised high, allowing fast convergence
-
     const float *GetQuat();
     void SetQuat(const float *q_in);
+    void SetGains(float alpha, float beta);
     void Prediction(float *w1_in, float *w2_in, float dt);
     void Correction(float *a1_in, float *m1_in, float *a2_in, float *m2_in, int m1_rdy, int m2_rdy);
 };

@@ -81,8 +81,6 @@ enum ak8963_mag_rate {
 /* The MPU9250 Class
  *
  * See also MPU-9250 Register Map and Descriptions, RM-MPU-9250A-00, Rev. 1.6, 01/07/2015
- * for registers not listed in above document; the MPU9250 and MPU9150 are virtually identical but the
- * latter has a different register map
  *
  */
 

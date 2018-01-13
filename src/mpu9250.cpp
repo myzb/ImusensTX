@@ -3,10 +3,6 @@
  *
  *  Created on: Jun 12, 2017
  *      Author: may
- *
- *  Notice:
- *    Adapted from the MPU9250 Adruino sketch by Kris Winer. Class and SPI routines were based
- *    on the implementation by Brian R Taylor from Bolder Flight Systems.
  */
 
 #include <Arduino.h>

@@ -18,6 +18,8 @@
 // 0: off, 1: std, 2: verbose, 3: vverbose
 static const int Debug = 1;
 
+//#define RESET_MAGCAL
+
 // Pin definitions
 static const int ledPin = 13;
 static const int intPin1 = 9;  // MPU9250 1 vhcl intPin
@@ -68,12 +70,12 @@ void irs2_func()
 
 void setup()
 {
-#if 0
+#if 1
     // Pre-calibrated values (golf)
-    float magHardIron[][3] = { {51.000000f, 84.000000f, -97.000000f},
-                               {49.000000f, 214.000000f, -27.000000f} };
-    float magSoftIron[][3] = { {1.050794, 1.060897, 0.970344f},
-                               {1.088972f, 1.027187f, 0.902388f} };
+    float magHardIron[][3] = { {51.000000f, 63.000000f, -83.000000f},
+                               {10.000000f, 276.000000f, -188.000000f} };
+    float magSoftIron[][3] = { {0.975575f, 1.047840f, 0.979798f},
+                               {1.061475f, 0.938406f, 1.007782f} };
 #else
     // Pre-calibrated values (home)
     float magHardIron[][3] = { {58.000000f, 59.000000f, -79.000000f},

@@ -18,7 +18,8 @@
 // 0: off, 1: std, 2: verbose, 3: vverbose
 static const int Debug = 1;
 
-//#define RESET_MAGCAL
+#define RESET_MAGCAL
+#define GOLF_PLATINE
 
 // Pin definitions
 static const int ledPin = 13;
@@ -70,25 +71,36 @@ void irs2_func()
 
 void setup()
 {
-#if 1
+#if 0
     // Pre-calibrated values (golf)
     float magHardIron[][3] = { {51.000000f, 63.000000f, -83.000000f},
                                {10.000000f, 276.000000f, -188.000000f} };
     float magSoftIron[][3] = { {0.975575f, 1.047840f, 0.979798f},
                                {1.061475f, 0.938406f, 1.007782f} };
+#elif defined(HOME_PLATINE)
+    // Pre-calibrated values (home-platine)
+    float magHardIron[][3] = { { 17.000000f,  69.000000f,  -90.000000f},
+                               {-32.000000f, 291.000000f, -190.000000f} };
+    float magSoftIron[][3] = { {1.107246f, 0.953808f, 0.953808f},
+                               {1.195815f, 0.916380f, 0.932401f} };
+#elif defined(GOLF_PLATINE)
+    // Pre-calibrated values (Golf-platine)
+    float magHardIron[][3] = { { 62.000000f, 72.000000f, -82.000000f},
+                               { 9.000000f, 262.000000f, -153.000000f} };
+    float magSoftIron[][3] = { {0.995455f, 1.037915f, 0.969027f},
+                               {1.113821f, 0.871501f, 1.047401f} };
+#elif defined(OFFICE)
+        // Pre-calibrated values (office)
+        float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
+                                   {27.000000f, 270.000000f, -188.000000f} };
+        float magSoftIron[][3] = { {1.021021f, 1.011905f, 0.968661f},
+                                   {1.131173f, 0.904938f, 0.989204f} };
 #else
     // Pre-calibrated values (home)
     float magHardIron[][3] = { {58.000000f, 59.000000f, -79.000000f},
                                {18.000000f, 282.000000f, -161.000000f} };
     float magSoftIron[][3] = { {0.998779f, 1.032828f, 0.970344f},
                                {1.007547f, 0.946809f, 1.051181f} };
-/*
-    // Pre-calibrated values (office)
-    float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
-                               {27.000000f, 270.000000f, -188.000000f} };
-    float magSoftIron[][3] = { {1.021021f, 1.011905f, 0.968661f},
-                               {1.131173f, 0.904938f, 0.989204f} };
-*/
 #endif
 
     if (Debug) Serial.begin(38400);

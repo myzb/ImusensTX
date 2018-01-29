@@ -776,10 +776,10 @@ void mpu9250::MagCal()
     mag_bias[1] = (mag_max[1] + mag_min[1]) / 2;
     mag_bias[2] = (mag_max[2] + mag_min[2]) / 2;
 
-    // save mag biases in G for main program
-    _magHardIron[0] = (float)mag_bias[0]; // * _magScale * _magScale_factory[0];
-    _magHardIron[1] = (float)mag_bias[1]; // * _magScale * _magScale_factory[1];
-    _magHardIron[2] = (float)mag_bias[2]; // * _magScale * _magScale_factory[2];
+    // save mag biases in counts for main program
+    _magHardIron[0] = (float)mag_bias[0];
+    _magHardIron[1] = (float)mag_bias[1];
+    _magHardIron[2] = (float)mag_bias[2];
 
     // Get soft iron correction estimate for xyz axes in counts
     // This is the sphere/elipse diameter for each dimension
@@ -795,7 +795,7 @@ void mpu9250::MagCal()
     _magSoftIron[1] = avg_rad / ((float)mag_scale[1]);
     _magSoftIron[2] = avg_rad / ((float)mag_scale[2]);
 
-#if 1
+#if 0
     Serial.printf("Mag calibration done!\n");
     Serial.printf("AK8963 mag biases (counts)\n%f\n%f\n%f\n", _magHardIron[0], _magHardIron[1], _magHardIron[2]);
     Serial.printf("AK8963 mag scale  \n%f\n%f\n%f\n\n", _magSoftIron[0], _magSoftIron[1], _magSoftIron[2]);

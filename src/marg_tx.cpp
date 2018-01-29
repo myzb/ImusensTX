@@ -18,7 +18,7 @@
 // 0: off, 1: std, 2: verbose, 3: vverbose
 static const int Debug = 1;
 
-#define GOLF_PLATINE
+#define GOLF // Using mag. calibration for vw golf
 
 // Pin definitions
 static const int ledPin = 13;
@@ -70,30 +70,12 @@ void irs2_func()
 
 void setup()
 {
-#if 0
+#if defined(GOLF)
     // Pre-calibrated values (golf)
     float magHardIron[][3] = { {51.000000f, 63.000000f, -83.000000f},
                                {10.000000f, 276.000000f, -188.000000f} };
     float magSoftIron[][3] = { {0.975575f, 1.047840f, 0.979798f},
                                {1.061475f, 0.938406f, 1.007782f} };
-#elif defined(HOME_PLATINE)
-    // Pre-calibrated values (home-platine)
-    float magHardIron[][3] = { { 17.000000f,  69.000000f,  -90.000000f},
-                               {-32.000000f, 291.000000f, -190.000000f} };
-    float magSoftIron[][3] = { {1.107246f, 0.953808f, 0.953808f},
-                               {1.195815f, 0.916380f, 0.932401f} };
-#elif defined(GOLF_PLATINE)
-    // Pre-calibrated values (Golf-platine)
-    float magHardIron[][3] = { { 57.000000f, 43.000000f, -58.000000f},
-                               { 2.000000f, 268.000000f,-172.000000f} };
-    float magSoftIron[][3] = { {0.940741f, 1.058333f, 1.007936f},
-                               {1.098820f, 0.926617f, 0.989376f} };
-#elif defined(OFFICE)
-        // Pre-calibrated values (office)
-        float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
-                                   {27.000000f, 270.000000f, -188.000000f} };
-        float magSoftIron[][3] = { {1.021021f, 1.011905f, 0.968661f},
-                                   {1.131173f, 0.904938f, 0.989204f} };
 #else
     // Pre-calibrated values (home)
     float magHardIron[][3] = { {58.000000f, 59.000000f, -79.000000f},
@@ -124,12 +106,6 @@ void setup()
 
     if (Debug) Serial.printf("MPU9250 (1): 9-axis MARG sensor is online\n");
 
-    // Start by performing self test (and reporting values)
-    vhclMarg.SelfTest();
-    delay(1000);
-
-    if (Debug) Serial.printf("MPU9250 (1): Calibrating and Initialising ...\n");
-
     // Config for normal operation, set sample-rate div to '0x0X + 1'
     vhclMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
 
@@ -140,7 +116,7 @@ void setup()
     vhclMarg.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
 
 #ifdef RESET_MAGCAL
-    // TODO: Add RawHid msg to wave device and also notice on done
+    // TODO: This needs to be automated/triggered on demand by the user
     Serial.printf("AK8963  (1) initialized for active data mode ...\n");
     Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
@@ -163,12 +139,6 @@ next:
 
     if (Debug) Serial.printf("MPU9250 (2): 9-axis MARG sensor is online\n");
 
-    // Start by performing self test (and reporting values)
-    headMarg.SelfTest();
-    delay(1000);
-
-    if (Debug) Serial.printf("MPU9250 (2): Calibrating and Initialising ...\n");
-
     // Config for normal operation, set sample-rate div to '0x0X + 1'
     headMarg.Init(ACCEL_RANGE_2G, GYRO_RANGE_500DPS, 0x00);
 
@@ -179,7 +149,7 @@ next:
     headMarg.InitAK8963(MAG_RANGE_16BIT, MAG_RATE_100HZ);
 
 #ifdef RESET_MAGCAL
-    // TODO: Add RawHid msg to wave device and also notice on done
+    // TODO: This needs to be automated/triggered on demand by the user
     Serial.printf("AK8963  (2) initialized for active data mode...\n");
     Serial.printf("Mag Calibration: Wave device in a figure eight until done!\n");
     delay(4000);
@@ -212,7 +182,6 @@ void loop()
 
     // These are mostly for debugging
     static uint32_t filterCnt = 0;                          // loop counter
-    static uint32_t pktCnt = 0;                             // usb packet number
     static float Ts_max = 0;                                // fusion speed variable
 
     // Start normal filter operation after 2s
@@ -245,17 +214,10 @@ void loop()
         stopwatch chrono_2;
 
         /* Task 3 - Sensorfusion */
-        // Toggle mag correction step
-        if (rx_buffer.raw[0] & 0x04)
-            marg1.magRdy = marg2.magRdy = 0;
-        // Toggle prediction
-        if (!(rx_buffer.raw[0] & 0x01))
-            filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.split());
-        // Toggle correction
-        if (!(rx_buffer.raw[0] & 0x02))
-            filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
+        filter.Prediction(marg1.gyro, marg2.gyro, chrono_1.split());
+        filter.Correction(marg1.accel, marg1.mag, marg2.accel, marg2.mag, marg1.magRdy, marg2.magRdy);
 
-        Ts_max += chrono_2.split();
+        Ts_max += chrono_2.split();     // time spent filtering
 
         // Copy quat to tx_buffer
         memcpy(tx_buffer.num_f, filter.GetQuat(), 4*sizeof(float));
@@ -265,7 +227,7 @@ void loop()
     /* Task 4 - USB data TX @ 1 msec */
     if (task_usbTx.check()) {
 
-        tx_buffer.num_d[15] = pktCnt;               // Place pktCnt into last 4 bytes
+        tx_buffer.num_d[15] = millis();             // Packet TX time into last 4 bytes
         int num = RawHID.send(tx_buffer.raw, 0);    // Send the packet (to usb controller tx buffer)
         if (num <= 0) task_usbTx.requeue();         // sending failed, re-run the task on next loop
     }
@@ -277,20 +239,6 @@ void loop()
             Serial.printf("Received bitfield: 0x%02x\n\n",rx_buffer.raw[0]);
         }
     }
-
-    /* Parse received USB data */
-    // 1e-0 Filter param
-    if (rx_buffer.raw[0] & 0x10)
-        filter.SetGains(1e0,1e0);
-    // 1e-1 Filter param
-    if (rx_buffer.raw[0] & 0x20)
-        filter.SetGains(1e-1,1e-1);
-    // 1e-2 Filter param
-    if (rx_buffer.raw[0] & 0x40)
-        filter.SetGains(1e-2,1e-2);
-    // Defaults
-    if (rx_buffer.raw[0] & 0x80)
-        filter.SetGains(1e-3,1e-3);
 
 #if 1
     /* Task 6 - Debug Output @ 2 sec */

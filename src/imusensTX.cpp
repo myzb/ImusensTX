@@ -18,7 +18,6 @@
 // 0: off, 1: std, 2: verbose, 3: vverbose
 static const int Debug = 1;
 
-#define RESET_MAGCAL
 #define GOLF_PLATINE
 
 // Pin definitions
@@ -85,10 +84,10 @@ void setup()
                                {1.195815f, 0.916380f, 0.932401f} };
 #elif defined(GOLF_PLATINE)
     // Pre-calibrated values (Golf-platine)
-    float magHardIron[][3] = { { 62.000000f, 72.000000f, -82.000000f},
-                               { 9.000000f, 262.000000f, -153.000000f} };
-    float magSoftIron[][3] = { {0.995455f, 1.037915f, 0.969027f},
-                               {1.113821f, 0.871501f, 1.047401f} };
+    float magHardIron[][3] = { { 57.000000f, 43.000000f, -58.000000f},
+                               { 2.000000f, 268.000000f,-172.000000f} };
+    float magSoftIron[][3] = { {0.940741f, 1.058333f, 1.007936f},
+                               {1.098820f, 0.926617f, 0.989376f} };
 #elif defined(OFFICE)
         // Pre-calibrated values (office)
         float magHardIron[][3] = { {62.000000f, 55.000000f, -80.000000f},
